@@ -53,6 +53,7 @@ import { mensajeCallable } from '../lib/callableError';
 import { ChatMessageBody } from './components/ChatMessageBody';
 import { SocialPostPreview } from './components/SocialPostPreview';
 import { ConnectChannelModal } from './components/ConnectChannelModal';
+import { Dropdown } from './components/Dropdown';
 import { healthCheck } from '../services/cloudFunctions';
 import { toDate, formatRelative, formatDateTime } from '../lib/format';
 import { consumePostDraftFromAgent, savePostDraftFromAgent } from '../lib/postDraftBridge';
@@ -72,40 +73,63 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
 }
 
-const Button: React.FC<ButtonProps> = ({ 
-  variant = 'primary', 
-  size = 'md', 
-  icon, 
-  children, 
+const Button: React.FC<ButtonProps> = ({
+  variant = 'primary',
+  size = 'md',
+  icon,
+  children,
   className = '',
   disabled,
-  ...props 
+  onClick,
+  ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center gap-2 rounded-2xl font-medium transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
-  
+  const ref = useRef<HTMLButtonElement>(null);
+
+  /** Onda de clic desde el punto pulsado. */
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const el = ref.current;
+    if (el && !disabled) {
+      const r = el.getBoundingClientRect();
+      const d = Math.max(r.width, r.height);
+      const onda = document.createElement('span');
+      onda.className = 'ripple';
+      onda.style.width = onda.style.height = `${d}px`;
+      onda.style.left = `${e.clientX - r.left - d / 2}px`;
+      onda.style.top = `${e.clientY - r.top - d / 2}px`;
+      el.appendChild(onda);
+      window.setTimeout(() => onda.remove(), 650);
+    }
+    onClick?.(e);
+  };
+
+  const base =
+    'press relative isolate overflow-hidden inline-flex items-center justify-center gap-2 rounded-[10px] font-medium whitespace-nowrap select-none cursor-pointer transition-[background-color,box-shadow,color,border-color,transform,filter] duration-200 ease-out disabled:opacity-50 disabled:cursor-not-allowed';
+
   const variants = {
-    primary: 'bg-[#0f172a] dark:bg-[#f8fafc] text-white dark:text-[#0f172a] hover:bg-[#1e293b] dark:hover:bg-[#e2e8f0]',
-    liquid: 'relative overflow-hidden bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_15px_rgba(6,182,212,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_6px_20px_rgba(6,182,212,0.3)] hover:-translate-y-[1px] border-0 outline-none ring-0',
-    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-    ghost: 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-    success: 'bg-[#10b981] text-white hover:bg-[#059669] hover:shadow-lg hover:shadow-emerald-500/30',
-    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-    outline: 'border-2 border-border bg-transparent hover:bg-accent'
+    primary: 'bg-brand text-white shadow-xs hover:bg-brand-deep hover:shadow-[var(--glow)]',
+    liquid: 'bg-gradient-to-b from-[#0a89d1] to-brand text-white shadow-xs hover:brightness-110 hover:shadow-[var(--glow)]',
+    secondary: 'border border-border bg-secondary text-secondary-foreground hover:bg-accent',
+    ghost: 'bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
+    success: 'bg-success text-white shadow-xs hover:brightness-110',
+    destructive: 'bg-destructive-soft text-destructive hover:bg-destructive hover:text-white',
+    outline: 'border border-border bg-card text-foreground hover:border-brand/40 hover:bg-brand-soft',
   };
-  
+
   const sizes = {
-    sm: 'px-3 py-1.5 text-xs',
-    md: 'px-4 py-2.5 text-sm',
-    lg: 'px-6 py-3 text-base'
+    sm: 'h-8 px-3 text-xs [&_svg]:h-3.5 [&_svg]:w-3.5',
+    md: 'h-10 px-4 text-sm [&_svg]:h-4 [&_svg]:w-4',
+    lg: 'h-11 px-5 text-sm [&_svg]:h-[18px] [&_svg]:w-[18px]',
   };
-  
+
   return (
-    <button 
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+    <button
+      ref={ref}
+      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={disabled}
+      onClick={handleClick}
       {...props}
     >
-      {icon && <span className="flex items-center justify-center shrink-0 [&>svg]:w-5 [&>svg]:h-5">{icon}</span>}
+      {icon && <span className="flex shrink-0 items-center justify-center">{icon}</span>}
       {children}
     </button>
   );
@@ -124,17 +148,12 @@ const Input: React.FC<InputProps> = ({ label, error, icon, className = '', ...pr
       {label && <label className="text-sm font-medium text-foreground">{label}</label>}
       <div className="relative">
         {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4">
+          <div className="pointer-events-none absolute left-3 top-1/2 flex -translate-y-1/2 items-center text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
             {icon}
           </div>
         )}
-        <input 
-          className={`w-full px-4 py-2.5 bg-input-background border border-input rounded-xl text-sm transition-all
-            focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
-            disabled:opacity-50 disabled:cursor-not-allowed
-            ${icon ? 'pl-10' : ''}
-            ${error ? 'border-destructive' : ''}
-            ${className}`}
+        <input
+          className={`field ${icon ? 'pl-9' : ''} ${error ? '!border-destructive' : ''} ${className}`}
           {...props}
         />
       </div>
@@ -153,12 +172,8 @@ const Textarea: React.FC<TextareaProps> = ({ label, error, className = '', ...pr
   return (
     <div className="flex flex-col gap-1.5">
       {label && <label className="text-sm font-medium text-foreground">{label}</label>}
-      <textarea 
-        className={`w-full px-4 py-2.5 bg-input-background border border-input rounded-xl text-sm transition-all
-          focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
-          disabled:opacity-50 disabled:cursor-not-allowed resize-none
-          ${error ? 'border-destructive' : ''}
-          ${className}`}
+      <textarea
+        className={`field resize-none py-2.5 leading-relaxed ${error ? '!border-destructive' : ''} ${className}`}
         {...props}
       />
       {error && <span className="text-xs text-destructive">{error}</span>}
@@ -166,55 +181,40 @@ const Textarea: React.FC<TextareaProps> = ({ label, error, className = '', ...pr
   );
 };
 
-// Select Component
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  label?: string;
-  options: { value: string; label: string }[];
-}
-
-const Select: React.FC<SelectProps> = ({ label, options, className = '', ...props }) => {
-  return (
-    <div className="flex flex-col gap-1.5">
-      {label && <label className="text-sm font-medium text-foreground">{label}</label>}
-      <select 
-        className={`w-full px-4 py-2.5 bg-input-background border border-input rounded-xl text-sm transition-all
-          focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
-          disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer
-          ${className}`}
-        {...props}
-      >
-        {options.map(opt => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-    </div>
-  );
-};
-
 // Toggle Component
 interface ToggleProps {
   label?: string;
+  description?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
 }
 
-const Toggle: React.FC<ToggleProps> = ({ label, checked, onChange, disabled = false }) => {
+const Toggle: React.FC<ToggleProps> = ({ label, description, checked, onChange, disabled = false }) => {
   return (
-    <label className="flex items-center justify-between cursor-pointer gap-2">
-      {label && <span className="text-sm font-medium text-foreground">{label}</span>}
-      <div 
+    <label className={`flex items-center justify-between gap-4 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+      {(label || description) && (
+        <span className="min-w-0">
+          {label && <span className="block text-sm font-medium text-foreground">{label}</span>}
+          {description && <span className="block text-xs text-muted-foreground">{description}</span>}
+        </span>
+      )}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
-        className={`w-11 h-6 rounded-full transition-colors duration-300 flex items-center p-0.5 ${
-          checked ? 'bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4] justify-end' : 'bg-switch-background justify-start'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        className={`press flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors duration-300 ${
+          checked ? 'justify-end bg-brand' : 'justify-start bg-switch-background'
+        }`}
       >
-        <motion.div 
+        <motion.span
           layout
-          className="w-5 h-5 bg-white rounded-full shadow-sm"
-          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+          className="h-5 w-5 rounded-full bg-white shadow-sm"
+          transition={{ type: 'spring', stiffness: 600, damping: 34 }}
         />
-      </div>
+      </button>
     </label>
   );
 };
@@ -230,19 +230,19 @@ interface CheckboxProps {
 
 const Checkbox: React.FC<CheckboxProps> = ({ label, checked, onChange, disabled = false, icon }) => {
   return (
-    <label className="flex items-center gap-3 cursor-pointer">
-      <div 
+    <label className="flex cursor-pointer items-center gap-3">
+      <span
         onClick={() => !disabled && onChange(!checked)}
-        className={`w-5 h-5 rounded-lg border-2 transition-all duration-200 flex items-center justify-center
-          ${checked ? 'bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4] border-transparent' : 'border-input bg-input-background'}
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-ring'}`}
+        className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border transition-all duration-200
+          ${checked ? 'border-brand bg-brand' : 'border-input bg-input-background'}
+          ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-brand'}`}
       >
-        {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-      </div>
-      <div className="flex items-center gap-2">
-        {icon && <span className="w-4 h-4 text-muted-foreground">{icon}</span>}
+        {checked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+      </span>
+      <span className="flex items-center gap-2">
+        {icon && <span className="h-4 w-4 text-muted-foreground">{icon}</span>}
         {label && <span className="text-sm font-medium text-foreground">{label}</span>}
-      </div>
+      </span>
     </label>
   );
 };
@@ -251,19 +251,20 @@ const Checkbox: React.FC<CheckboxProps> = ({ label, checked, onChange, disabled 
 interface BadgeProps {
   children: React.ReactNode;
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'purple';
+  className?: string;
 }
 
-const Badge: React.FC<BadgeProps> = ({ children, variant = 'default' }) => {
+const Badge: React.FC<BadgeProps> = ({ children, variant = 'default', className = '' }) => {
   const variants = {
-    default: 'bg-secondary text-secondary-foreground',
-    success: 'bg-emerald-100 text-emerald-700',
-    warning: 'bg-amber-100 text-amber-700',
-    danger: 'bg-red-100 text-red-700',
-    purple: 'bg-purple-100 text-purple-700'
+    default: 'bg-secondary text-muted-foreground',
+    success: 'bg-success-soft text-success',
+    warning: 'bg-warning-soft text-warning',
+    danger: 'bg-destructive-soft text-destructive',
+    purple: 'bg-brand-soft text-brand-strong',
   };
-  
+
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${variants[variant]}`}>
+    <span className={`inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs font-medium ${variants[variant]} ${className}`}>
       {children}
     </span>
   );
@@ -277,13 +278,7 @@ interface CardProps {
 }
 
 const Card: React.FC<CardProps> = ({ children, className = '', hover = false }) => {
-  return (
-    <div className={`bg-white dark:bg-card border border-slate-100 dark:border-border rounded-3xl p-6 transition-all duration-200 
-      ${hover ? 'hover:shadow-2xl hover:shadow-[#06b6d4]/10 hover:border-[#06b6d4]/20 hover:-translate-y-1' : 'shadow-[0_8px_30px_rgb(0,0,0,0.04)]'}
-      ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`surface p-6 ${hover ? 'hover-lift' : ''} ${className}`}>{children}</div>;
 };
 
 // Modal Component
@@ -297,45 +292,60 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, maxWidthClass = 'max-w-md' }) => {
-  if (!isOpen) return null;
-  
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-          onClick={onClose}
-        />
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className={`relative bg-card border border-border rounded-2xl shadow-2xl ${maxWidthClass} w-full max-h-[90vh] overflow-hidden`}
-        >
-          <div className="flex items-center justify-between p-6 border-b border-border">
-            <h3 className="text-lg font-semibold">{title}</h3>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="p-6 overflow-y-auto max-h-[60vh]">
-            {children}
-          </div>
-          {footer && (
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-border bg-accent/30">
-              {footer}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 bg-black/45 backdrop-blur-[3px]"
+            onClick={onClose}
+          />
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 8 }}
+            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            className={`relative flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg ${maxWidthClass}`}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-6 py-4">
+              <h3 className="truncate text-base font-semibold">{title}</h3>
+              <button
+                type="button"
+                aria-label="Cerrar"
+                onClick={onClose}
+                className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          )}
-        </motion.div>
-      </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-6">{children}</div>
+            {footer && (
+              <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border bg-accent/50 px-6 py-4">
+                {footer}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
     </AnimatePresence>
   );
 };
 
-// Toast Notification (simple implementation)
+// Toast Notification
 interface ToastProps {
   message: string;
   type?: 'success' | 'error' | 'info';
@@ -343,293 +353,490 @@ interface ToastProps {
 }
 
 const Toast: React.FC<ToastProps> = ({ message, type = 'success', show }) => {
-  if (!show) return null;
-  
   const icons = {
-    success: <CheckCircle2 className="w-5 h-5 text-emerald-600" />,
-    error: <X className="w-5 h-5 text-red-600" />,
-    info: <Sparkles className="w-5 h-5 text-blue-600" />
+    success: <CheckCircle2 className="h-4 w-4 text-success" />,
+    error: <X className="h-4 w-4 text-destructive" />,
+    info: <Info className="h-4 w-4 text-brand-strong" />,
   };
-  
-  const colors = {
-    success: 'bg-emerald-50 border-emerald-200 text-emerald-900',
-    error: 'bg-red-50 border-red-200 text-red-900',
-    info: 'bg-blue-50 border-blue-200 text-blue-900'
+  const tints = {
+    success: 'bg-success-soft',
+    error: 'bg-destructive-soft',
+    info: 'bg-brand-soft',
   };
-  
+
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg ${colors[type]}`}
-    >
-      {icons[type]}
-      <span className="text-sm font-medium">{message}</span>
-    </motion.div>
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          role="status"
+          initial={{ opacity: 0, y: -16, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -12, scale: 0.97 }}
+          transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+          className="fixed right-5 top-5 z-[60] flex max-w-sm items-center gap-3 rounded-xl border border-border bg-popover px-4 py-3 shadow-lg"
+        >
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tints[type]}`}>{icons[type]}</span>
+          <span className="text-sm font-medium text-foreground">{message}</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
 // Loading Skeleton
 const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) => {
+  return <div className={`skeleton rounded-lg ${className}`} />;
+};
+
+// ----------------------------------------------------------------------------
+// Layout de pantallas funcionales: ocupan el alto disponible sin scroll de página
+// (en escritorio); los listados largos se desplazan dentro de su panel.
+// ----------------------------------------------------------------------------
+
+const ScreenLayout: React.FC<{ children: React.ReactNode; maxWidth?: string; className?: string }> = ({
+  children,
+  maxWidth = 'max-w-[1440px]',
+  className = '',
+}) => (
+  <div className="h-full w-full overflow-y-auto lg:overflow-hidden">
+    <div className={`mx-auto flex w-full ${maxWidth} flex-col gap-5 p-4 sm:p-6 lg:h-full lg:min-h-0 ${className}`}>
+      {children}
+    </div>
+  </div>
+);
+
+const PageHeader: React.FC<{ title: string; subtitle?: string; actions?: React.ReactNode }> = ({ title, subtitle, actions }) => (
+  <header className="flex shrink-0 animate-enter flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="min-w-0">
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+      {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+    </div>
+    {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+  </header>
+);
+
+const Panel: React.FC<{
+  title?: React.ReactNode;
+  icon?: React.ReactNode;
+  actions?: React.ReactNode;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  scroll?: boolean;
+  delay?: number;
+}> = ({ title, icon, actions, footer, children, className = '', bodyClassName = '', scroll = true, delay = 0 }) => (
+  <section
+    className={`surface flex min-h-0 animate-enter flex-col overflow-hidden ${className}`}
+    style={{ animationDelay: `${delay}ms` }}
+  >
+    {(title || actions) && (
+      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-5">
+        <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+          {icon && <span className="flex shrink-0 text-brand-strong [&>svg]:h-4 [&>svg]:w-4">{icon}</span>}
+          <span className="truncate">{title}</span>
+        </h2>
+        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      </div>
+    )}
+    <div className={`min-h-0 flex-1 p-5 ${scroll ? 'overflow-y-auto' : ''} ${bodyClassName}`}>{children}</div>
+    {footer && <div className="shrink-0 border-t border-border bg-accent/40 px-5 py-3.5">{footer}</div>}
+  </section>
+);
+
+/** Control segmentado con indicador deslizante. */
+const Segmented: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: React.ReactNode }[];
+  className?: string;
+  full?: boolean;
+}> = ({ value, onChange, options, className = '', full = false }) => {
+  const id = React.useId();
   return (
-    <div className={`animate-pulse bg-muted rounded-lg ${className}`} />
+    <div
+      role="tablist"
+      className={`relative ${full ? 'grid w-full' : 'inline-flex'} rounded-[10px] border border-border bg-secondary p-1 ${className}`}
+      style={full ? { gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` } : undefined}
+    >
+      {options.map((o) => {
+        const activo = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={activo}
+            onClick={() => onChange(o.value)}
+            className={`press relative z-10 flex h-8 items-center justify-center gap-1.5 rounded-lg px-3.5 text-sm transition-colors duration-200 ${
+              activo ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {activo && (
+              <motion.span
+                layoutId={`seg-${id}`}
+                className="absolute inset-0 -z-10 rounded-lg bg-card shadow-sm"
+                transition={{ type: 'spring', stiffness: 520, damping: 38 }}
+              />
+            )}
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
   );
 };
+
+/** Aviso contextual (info, éxito, advertencia, error). */
+const Notice: React.FC<{
+  tone?: 'info' | 'success' | 'warning' | 'danger';
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}> = ({ tone = 'info', icon, children, className = '' }) => {
+  const tones = {
+    info: { box: 'bg-brand-soft border-brand/20', icon: 'text-brand-strong', def: <Info /> },
+    success: { box: 'bg-success-soft border-success/20', icon: 'text-success', def: <CheckCircle2 /> },
+    warning: { box: 'bg-warning-soft border-warning/25', icon: 'text-warning', def: <AlarmClock /> },
+    danger: { box: 'bg-destructive-soft border-destructive/20', icon: 'text-destructive', def: <Info /> },
+  }[tone];
+  return (
+    <div className={`flex animate-enter items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm text-foreground ${tones.box} ${className}`}>
+      <span className={`mt-0.5 flex shrink-0 [&>svg]:h-4 [&>svg]:w-4 ${tones.icon}`}>{icon ?? tones.def}</span>
+      <div className="min-w-0 leading-relaxed">{children}</div>
+    </div>
+  );
+};
+
+/** Estado vacío estándar. */
+const EmptyState: React.FC<{ icon: React.ReactNode; title: string; text?: string; action?: React.ReactNode }> = ({
+  icon,
+  title,
+  text,
+  action,
+}) => (
+  <div className="flex h-full min-h-[220px] animate-enter flex-col items-center justify-center px-6 py-10 text-center">
+    <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-strong [&>svg]:h-6 [&>svg]:w-6">
+      {icon}
+    </span>
+    <p className="text-sm font-semibold text-foreground">{title}</p>
+    {text && <p className="mt-1 max-w-xs text-sm text-muted-foreground">{text}</p>}
+    {action && <div className="mt-5">{action}</div>}
+  </div>
+);
+
+/** Contenedor de icono con tinte de marca. */
+const IconTile: React.FC<{ children: React.ReactNode; tone?: 'brand' | 'success' | 'warning' | 'danger' | 'neutral'; className?: string }> = ({
+  children,
+  tone = 'brand',
+  className = '',
+}) => {
+  const tones = {
+    brand: 'bg-brand-soft text-brand-strong',
+    success: 'bg-success-soft text-success',
+    warning: 'bg-warning-soft text-warning',
+    danger: 'bg-destructive-soft text-destructive',
+    neutral: 'bg-secondary text-muted-foreground',
+  };
+  return (
+    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] [&>svg]:h-[18px] [&>svg]:w-[18px] ${tones[tone]} ${className}`}>
+      {children}
+    </span>
+  );
+};
+
+/** Número que cuenta hasta su valor al aparecer. */
+const CountUp: React.FC<{ value: number; duration?: number }> = ({ value, duration = 900 }) => {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const inicio = performance.now();
+    const paso = (t: number) => {
+      const p = Math.min(1, (t - inicio) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setN(Math.round(value * eased));
+      if (p < 1) raf = requestAnimationFrame(paso);
+    };
+    raf = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+  return <>{n}</>;
+};
+
+const ZONAS_HORARIAS = [
+  { value: 'America/Bogota', label: 'Colombia (UTC-5)' },
+  { value: 'America/Mexico_City', label: 'México (UTC-6)' },
+  { value: 'America/Lima', label: 'Perú (UTC-5)' },
+  { value: 'America/Argentina/Buenos_Aires', label: 'Argentina (UTC-3)' },
+  { value: 'Europe/Madrid', label: 'España (UTC+1)' },
+  { value: 'UTC', label: 'UTC' },
+];
 
 // ============================================================================
 // PANTALLA 1: LANDING PAGE
 // ============================================================================
 
 const LandingPage: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
+  const { mode, toggleTheme } = useTheme();
+
+  const funciones = [
+    {
+      title: 'Asistente IA con Gemini',
+      icon: <Sparkles />,
+      desc: 'Genera copy profesional en segundos. El asistente entiende tu tono y adapta cada publicación a la red de destino.',
+      features: ['Copy persuasivo y relevante', 'Imágenes y video con IA', 'Hashtags sugeridos'],
+    },
+    {
+      title: 'Automatización Make / n8n',
+      icon: <Network />,
+      desc: 'Conecta tus flujos de trabajo para aprobar, notificar y publicar sin pasos manuales.',
+      features: ['Webhooks configurables', 'Notificaciones automáticas', 'Flujos a tu medida'],
+    },
+    {
+      title: 'Publicación oficial',
+      icon: <Share2 />,
+      desc: 'Publica en LinkedIn, Facebook, Instagram y TikTok con conexiones OAuth oficiales de cada plataforma.',
+      features: ['APIs oficiales', 'Programación por fecha y hora', 'Calendario editorial'],
+    },
+  ];
+
+  const pasos = [
+    { icon: <PenSquare />, title: 'Escribe el tema', desc: 'Describe en una línea lo que quieres comunicar.' },
+    { icon: <Sparkles />, title: 'La IA redacta', desc: 'Obtén un borrador listo para tu red.' },
+    { icon: <Eye />, title: 'Revisa y ajusta', desc: 'Edita el texto con vista previa en vivo.' },
+    { icon: <CalendarClock />, title: 'Programa', desc: 'Elige fecha y hora, o publica al instante.' },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f8fafc] via-[#eff6ff] to-[#f0fdfa] dark:from-background dark:via-background dark:to-background/90 overflow-hidden relative">
-      {/* Background Orbs */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-gradient-to-br from-[#06b6d4]/20 to-[#1e3a8a]/20 blur-[120px] animate-pulse-slow" />
-        <div className="absolute top-[40%] right-[-10%] w-[30%] h-[50%] rounded-full bg-gradient-to-br from-[#2BBDE8]/20 to-[#0B1F4B]/20 blur-[100px]" style={{ animation: 'pulse 8s infinite alternate' }} />
+    <div className="ambient-light relative min-h-full bg-background">
+      {/* Luces de fondo (sutiles) */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        <div className="absolute -left-40 -top-40 h-[28rem] w-[28rem] animate-pulse-slow rounded-full bg-brand/15 blur-[120px]" />
+        <div className="absolute -right-32 top-[28rem] h-[24rem] w-[24rem] animate-pulse-slow rounded-full bg-brand-light/10 blur-[120px] [animation-delay:2s]" />
       </div>
 
       {/* Header */}
-      <motion.header 
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="border-b border-white/40 dark:border-border/50 bg-white/60 dark:bg-card/80 backdrop-blur-xl sticky top-0 z-40 shadow-sm"
-      >
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <header className="surface-glass sticky top-0 z-40 border-x-0 border-t-0">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-6">
+          <a href="#inicio" className="press">
+            <ConectiaLogo size="md" />
+          </a>
+          <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
+            <a href="#funciones" className="link-underline transition-colors hover:text-foreground">Funciones</a>
+            <a href="#como-funciona" className="link-underline transition-colors hover:text-foreground">Cómo funciona</a>
+          </nav>
           <div className="flex items-center gap-2">
-            <ConectiaLogo size="lg" className="!gap-2" />
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="liquid" size="md" onClick={() => onNavigate('login')} className="shadow-md shadow-[#06b6d4]/20 font-semibold px-6">
+            <button
+              type="button"
+              aria-label={mode === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              onClick={toggleTheme}
+              className="press flex h-9 w-9 items-center justify-center rounded-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {mode === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+            </button>
+            <Button variant="liquid" onClick={() => onNavigate('login')}>
               Iniciar sesión
             </Button>
           </div>
         </div>
-      </motion.header>
+      </header>
 
-      {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-6 py-24 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
-          <motion.div 
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6 }}
-            className="space-y-8"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 dark:bg-accent/40 backdrop-blur-md border border-white/60 dark:border-border shadow-sm">
-              <Sparkles className="w-4 h-4 text-[#06b6d4]" />
-              <span className="text-sm font-semibold bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4] dark:from-[#60a5fa] dark:to-[#22d3ee] bg-clip-text text-transparent">Potenciado por Gemini IA</span>
-            </div>
-            <h1 className="text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-foreground">
-              Automatiza{' '}
-              <span className="bg-gradient-to-r from-[#0B1F4B] to-[#2BBDE8] dark:from-[#60a5fa] dark:to-[#22d3ee] bg-clip-text text-transparent relative">
-                LinkedIn
-                <span className="absolute bottom-1 left-0 w-full h-2 bg-[#06b6d4]/20 rounded-full -z-10 blur-[2px]" />
-              </span>{' '}
-              con Inteligencia Artificial
+      {/* Hero */}
+      <section id="inicio" className="relative z-10 mx-auto max-w-6xl scroll-mt-20 px-6 pb-20 pt-16 lg:pt-24">
+        <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr]">
+          <div className="stagger space-y-7">
+            <span className="inline-flex h-8 items-center gap-2 rounded-full border border-brand/20 bg-brand-soft px-3.5 text-xs font-medium text-brand-strong">
+              <Sparkles className="h-3.5 w-3.5" />
+              Potenciado por Gemini IA · Campuslands
+            </span>
+            <h1 className="text-4xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+              Automatiza tus redes con <span className="text-gradient-brand">Inteligencia Artificial</span>
             </h1>
-            <p className="text-lg text-muted-foreground/90 leading-relaxed max-w-xl">
-              Conect.ia automatiza publicaciones para tus redes en{' '}
-              <strong className="text-foreground">LinkedIn</strong>: genera copy con IA, programa posts y publica de forma oficial vía Postiz y n8n.
+            <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
+              Conect.ia genera, programa y publica contenido para LinkedIn, Facebook, Instagram y TikTok desde un solo
+              panel, con conexiones oficiales y un asistente que escribe contigo.
             </p>
-            <div className="flex flex-wrap items-center gap-4">
-              <Button 
-                variant="liquid" 
-                size="lg" 
-                icon={<PenSquare className="w-5 h-5" />}
-                onClick={() => onNavigate('new-post')}
-                className="shadow-lg shadow-[#06b6d4]/30 hover:shadow-[#06b6d4]/40"
-              >
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="liquid" size="lg" icon={<PenSquare />} onClick={() => onNavigate('new-post')}>
                 Crear publicación
               </Button>
-              <Button 
-                variant="outline" 
-                size="lg" 
-                icon={<ArrowRight className="w-5 h-5" />} 
-                onClick={() => onNavigate('login')}
-                className="bg-white/50 backdrop-blur-md border-white/60 hover:bg-white/80 dark:bg-accent/50"
-              >
+              <Button variant="outline" size="lg" icon={<ArrowRight />} onClick={() => onNavigate('login')}>
                 Ingresar al panel
               </Button>
             </div>
-            <div className="flex items-center gap-6 pt-4">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                </div>
-                <span className="text-sm font-medium text-foreground">Setup en 2 minutos</span>
+            <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-1 text-sm text-muted-foreground">
+              {['Configuración en minutos', 'Vista previa en vivo', 'Programación automática'].map((t) => (
+                <li key={t} className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Ilustración */}
+          <div className="relative" data-reveal="scale">
+            <div className="absolute inset-8 rounded-3xl bg-brand/20 blur-3xl" aria-hidden />
+            <div className="surface relative overflow-hidden shadow-lg">
+              <div className="flex h-10 items-center gap-2 border-b border-border px-4">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+                <span className="ml-3 text-xs text-muted-foreground">Nueva publicación</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-[#06b6d4]/10 flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4 text-[#06b6d4]" />
-                </div>
-                <span className="text-sm font-medium text-foreground">Aprobación inteligente</span>
-              </div>
-            </div>
-          </motion.div>
-          
-          {/* Illustration */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-[#06b6d4]/20 to-[#1e3a8a]/20 rounded-3xl blur-3xl transform rotate-3" />
-            <div className="relative bg-white/60 dark:bg-card backdrop-blur-2xl border border-white/60 dark:border-border/50 rounded-3xl overflow-hidden shadow-[0_20px_60px_rgb(0,0,0,0.08)]">
-              <div className="h-10 bg-white/40 dark:bg-accent/20 border-b border-white/40 flex items-center px-4 gap-2 backdrop-blur-md">
-                <div className="w-3 h-3 rounded-full bg-red-400" />
-                <div className="w-3 h-3 rounded-full bg-amber-400" />
-                <div className="w-3 h-3 rounded-full bg-emerald-400" />
-              </div>
-              <div className="p-8 sm:p-12 space-y-8">
-                <div className="flex items-center justify-center gap-4 sm:gap-8 relative z-10">
-                  <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }} className="w-20 h-20 bg-gradient-to-br from-[#1e3a8a] to-[#06b6d4] rounded-3xl flex items-center justify-center shadow-lg shadow-[#06b6d4]/30 rotate-3">
-                    <Sparkles className="w-10 h-10 text-white" />
-                  </motion.div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
-                    <div className="w-2 h-2 rounded-full bg-muted-foreground/50" />
-                    <ArrowRight className="w-6 h-6 text-[#06b6d4]" />
+              <div className="space-y-5 p-6 sm:p-8">
+                <div className="flex items-center justify-center gap-5">
+                  <div className="flex h-16 w-16 animate-float items-center justify-center rounded-2xl bg-brand text-white shadow-[var(--glow)]">
+                    <Sparkles className="h-7 w-7" />
                   </div>
-                  <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }} className="w-20 h-20 bg-[#0a66c2] rounded-3xl flex items-center justify-center shadow-lg shadow-[#0a66c2]/30 -rotate-3">
-                    <Linkedin className="w-10 h-10 text-white" />
-                  </motion.div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="h-1.5 w-1.5 rounded-full bg-current opacity-40" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                    <ArrowRight className="h-5 w-5 text-brand-strong" />
+                  </div>
+                  <div className="flex h-16 w-16 animate-float items-center justify-center rounded-2xl bg-[#0a66c2] text-white shadow-md [animation-delay:1.5s]">
+                    <Linkedin className="h-7 w-7" />
+                  </div>
                 </div>
-                <div className="bg-white/50 dark:bg-accent/30 p-6 rounded-2xl space-y-4 border border-white/50 shadow-inner backdrop-blur-sm">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#06b6d4]/20 to-[#1e3a8a]/20" />
-                    <div className="space-y-2">
-                      <div className="h-3 w-24 bg-muted/60 rounded-full" />
-                      <div className="h-2 w-16 bg-muted/40 rounded-full" />
+                <div className="surface-muted space-y-3 p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-full bg-brand-soft" />
+                    <div className="space-y-1.5">
+                      <div className="h-2.5 w-24 rounded-full bg-muted-foreground/25" />
+                      <div className="h-2 w-16 rounded-full bg-muted-foreground/15" />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <div className="h-3 w-full bg-[#06b6d4]/10 rounded-full" />
-                    <div className="h-3 w-[85%] bg-[#06b6d4]/10 rounded-full" />
-                    <div className="h-3 w-[60%] bg-[#06b6d4]/10 rounded-full" />
+                    <div className="skeleton h-2.5 w-full rounded-full" />
+                    <div className="skeleton h-2.5 w-[86%] rounded-full" />
+                    <div className="skeleton h-2.5 w-[62%] rounded-full" />
                   </div>
+                </div>
+                <div className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
+                  <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CalendarClock className="h-4 w-4 text-brand-strong" />
+                    Mañana · 9:00 a. m.
+                  </span>
+                  <Badge variant="success">Programado</Badge>
                 </div>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="max-w-7xl mx-auto px-6 py-24 relative z-10">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl lg:text-4xl font-bold mb-4 text-foreground">Todo lo que necesitas en una plataforma</h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Potencia tu estrategia de contenido con tecnología de última generación</p>
-        </div>
-        <div className="grid md:grid-cols-3 gap-8">
+      {/* Capacidades */}
+      <section className="relative z-10 border-y border-border bg-card/60">
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-8 md:grid-cols-4">
           {[
-            {
-              title: 'Agente IA Gemini',
-              icon: <Sparkles className="w-6 h-6 text-[#06b6d4]" />,
-              desc: 'Genera contenido atractivo y profesional en segundos. Nuestro agente entiende tu marca y crea posts optimizados para cada red social.',
-              features: ['Copy persuasivo y relevante', 'Imágenes generadas con IA', 'Hashtags inteligentes']
-            },
-            {
-              title: 'Automatización n8n',
-              icon: <Network className="w-6 h-6 text-[#1e3a8a]" />,
-              desc: 'Conecta tu flujo con Docker local (gratis). Automatiza aprobaciones, notificaciones y publicación con tu JSON de workflow.',
-              features: ['Workflows personalizables', 'Notificaciones Telegram', 'Integraciones ilimitadas']
-            },
-            {
-              title: 'Publicación Oficial',
-              icon: <Linkedin className="w-6 h-6 text-[#0a66c2]" />,
-              desc: 'Publica directamente en LinkedIn con integración oficial vía Postiz. Sin límites, sin riesgos, 100% compatible con las APIs.',
-              features: ['API oficial LinkedIn', 'Programación avanzada', 'Análisis de rendimiento']
-            }
-          ].map((feature, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-            >
-              <div className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/60 dark:border-border rounded-3xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-2xl hover:shadow-[#06b6d4]/10 hover:-translate-y-2 transition-all duration-300 h-full">
-                <div className="w-14 h-14 bg-white dark:bg-accent/50 rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-white/50 dark:border-border">
-                  {feature.icon}
-                </div>
-                <h3 className="text-xl font-bold mb-4">{feature.title}</h3>
-                <p className="text-muted-foreground mb-6 leading-relaxed">
-                  {feature.desc}
-                </p>
-                <ul className="space-y-3">
-                  {feature.features.map((item, j) => (
-                    <li key={j} className="flex items-center gap-3 text-sm font-medium text-foreground">
-                      <div className="w-5 h-5 rounded-full bg-[#06b6d4]/10 flex items-center justify-center shrink-0">
-                        <Check className="w-3 h-3 text-[#06b6d4]" />
-                      </div>
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+            { icon: <Share2 />, t: '4 redes', d: 'LinkedIn, Meta y TikTok' },
+            { icon: <Sparkles />, t: 'IA generativa', d: 'Texto, imagen y video' },
+            { icon: <CheckCircle2 />, t: 'OAuth oficial', d: 'Sin atajos ni riesgos' },
+            { icon: <CalendarClock />, t: 'Programación', d: 'Fecha y hora exactas' },
+          ].map((c, i) => (
+            <div key={c.t} className="flex items-center gap-3" data-reveal style={{ '--reveal-delay': `${i * 70}ms` } as React.CSSProperties}>
+              <IconTile>{c.icon}</IconTile>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{c.t}</p>
+                <p className="text-xs text-muted-foreground">{c.d}</p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="max-w-7xl mx-auto px-6 py-12 relative z-10">
-        <div className="bg-white/40 dark:bg-card/40 backdrop-blur-2xl border border-white/60 dark:border-border/50 rounded-[3rem] p-12 md:p-16 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">Cómo funciona</h2>
-            <p className="text-lg text-muted-foreground">De la idea a la publicación en 4 pasos simples</p>
+      {/* Funciones */}
+      <section id="funciones" className="relative z-10 mx-auto max-w-6xl scroll-mt-20 px-6 py-24">
+        <div className="mx-auto mb-14 max-w-2xl text-center" data-reveal>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-brand-strong">Funciones</p>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Todo lo que necesitas en una plataforma</h2>
+          <p className="mt-3 text-base text-muted-foreground">Crea, automatiza y publica con una sola herramienta.</p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-3">
+          {funciones.map((f, i) => (
+            <div
+              key={f.title}
+              className="surface hover-lift flex flex-col p-7"
+              data-reveal
+              style={{ '--reveal-delay': `${i * 90}ms` } as React.CSSProperties}
+            >
+              <IconTile className="!h-11 !w-11 [&>svg]:!h-5 [&>svg]:!w-5">{f.icon}</IconTile>
+              <h3 className="mt-5 text-base font-semibold text-foreground">{f.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>
+              <ul className="mt-5 space-y-2.5 border-t border-border pt-5">
+                {f.features.map((item) => (
+                  <li key={item} className="flex items-center gap-2.5 text-sm text-foreground">
+                    <Check className="h-4 w-4 shrink-0 text-brand-strong" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Cómo funciona */}
+      <section id="como-funciona" className="relative z-10 mx-auto max-w-6xl scroll-mt-20 px-6 pb-24">
+        <div className="surface relative overflow-hidden px-6 py-14 sm:px-12" data-reveal>
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand/10 blur-3xl" aria-hidden />
+          <div className="mx-auto mb-12 max-w-xl text-center">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-brand-strong">Cómo funciona</p>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">De la idea a la publicación en 4 pasos</h2>
           </div>
-          <div className="grid md:grid-cols-4 gap-8 relative">
-            {[
-              { num: '1', icon: <PenSquare className="w-6 h-6 text-[#1e3a8a]" />, title: 'Escribe el tema', desc: 'Describe brevemente el tema' },
-              { num: '2', icon: <Sparkles className="w-6 h-6 text-[#06b6d4]" />, title: 'IA genera contenido', desc: 'El agente crea el copy' },
-              { num: '3', icon: <Eye className="w-6 h-6 text-[#1e3a8a]" />, title: 'Revisa y edita', desc: 'Ajusta en tiempo real' },
-              { num: '4', icon: <Calendar className="w-6 h-6 text-[#06b6d4]" />, title: 'Programa publicación', desc: 'Selecciona fecha y hora' }
-            ].map((step, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="relative text-center"
+          <ol className="relative grid gap-10 md:grid-cols-4 md:gap-6">
+            <div className="absolute left-[12.5%] right-[12.5%] top-6 hidden h-px bg-gradient-to-r from-transparent via-border to-transparent md:block" aria-hidden />
+            {pasos.map((p, i) => (
+              <li
+                key={p.title}
+                className="group relative text-center"
+                data-reveal
+                style={{ '--reveal-delay': `${i * 110}ms` } as React.CSSProperties}
               >
-                <div className="w-20 h-20 mx-auto bg-white/80 dark:bg-card backdrop-blur-md rounded-3xl flex items-center justify-center border border-white/60 shadow-lg shadow-[#06b6d4]/5 mb-6 relative group hover:-translate-y-1 transition-transform">
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#1e3a8a]/5 to-[#06b6d4]/10 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="absolute -top-3 -right-3 w-8 h-8 bg-gradient-to-br from-[#1e3a8a] to-[#06b6d4] text-white rounded-full flex items-center justify-center font-bold text-sm shadow-sm border-2 border-white dark:border-background">
-                    {step.num}
-                  </div>
-                  {step.icon}
+                <div className="relative mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-card text-brand-strong shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:border-brand/40 group-hover:shadow-[var(--glow)] [&>svg]:h-5 [&>svg]:w-5">
+                  {p.icon}
+                  <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
+                    {i + 1}
+                  </span>
                 </div>
-                <h4 className="font-bold text-lg mb-2">{step.title}</h4>
-                <p className="text-sm text-muted-foreground">{step.desc}</p>
-              </motion.div>
+                <h3 className="text-sm font-semibold text-foreground">{p.title}</h3>
+                <p className="mx-auto mt-1.5 max-w-[14rem] text-sm text-muted-foreground">{p.desc}</p>
+              </li>
             ))}
-          </div>
+          </ol>
+        </div>
+      </section>
+
+      {/* Llamado a la acción */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+        <div
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-deep via-brand to-[#0a89d1] px-8 py-14 text-center text-white shadow-[var(--glow)] sm:px-14"
+          data-reveal="scale"
+        >
+          <div className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" aria-hidden />
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Empieza a publicar con Conect.ia</h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm text-white/80">
+            Crea tu cuenta, conecta tus redes y programa tu primera publicación en minutos.
+          </p>
+          <button
+            type="button"
+            onClick={() => onNavigate('login')}
+            className="press mt-8 inline-flex h-11 items-center gap-2 rounded-[10px] bg-white px-6 text-sm font-semibold text-brand-deep shadow-md transition-transform hover:-translate-y-0.5"
+          >
+            Comenzar ahora
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/40 dark:border-border bg-white/40 dark:bg-card/50 backdrop-blur-md relative z-10">
-        <div className="max-w-7xl mx-auto px-6 py-10">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <ConectiaLogo size="sm" textClassName="!text-foreground font-bold !bg-none" />
-            </div>
-            <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 text-sm text-muted-foreground font-medium">
-              <a href="/privacidad" className="hover:text-[#06b6d4] transition-colors">
-                Política de privacidad
-              </a>
-              <a href="/terminos" className="hover:text-[#06b6d4] transition-colors">
-                Términos y condiciones
-              </a>
-              <span className="hidden sm:inline text-[#06b6d4]/30">•</span>
-              <span>© 2026 Conect.ia</span>
-            </div>
+      <footer className="relative z-10 border-t border-border">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 md:flex-row">
+          <ConectiaLogo size="sm" />
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+            <a href="/privacidad" className="link-underline transition-colors hover:text-foreground">Política de privacidad</a>
+            <a href="/terminos" className="link-underline transition-colors hover:text-foreground">Términos y condiciones</a>
+            <span>© 2026 Conect.ia</span>
           </div>
         </div>
       </footer>
@@ -641,12 +848,11 @@ const LandingPage: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
 // PANTALLA 2: LOGIN + DASHBOARD SHELL (Sidebar + Topbar)
 // ============================================================================
 
-// Animated Search Bar with typing placeholder
+// Barra de búsqueda con placeholder animado (efecto de escritura)
 const SEARCH_PLACEHOLDERS = [
-  'Buscar publicaciones...',
-  'Buscar borradores...',
-  'Buscar canales...',
-  'Buscar en el calendario...',
+  'Buscar publicaciones…',
+  'Buscar borradores…',
+  'Buscar en el calendario…',
 ];
 
 const SearchBarAnimated: React.FC<{
@@ -658,48 +864,79 @@ const SearchBarAnimated: React.FC<{
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    if (value) return; // Don't animate when there's real input
+    if (value) return;
     const fullText = SEARCH_PLACEHOLDERS[placeholderIndex];
     let timeout: ReturnType<typeof setTimeout>;
 
     if (!isDeleting) {
       if (displayedPlaceholder.length < fullText.length) {
-        timeout = setTimeout(() => {
-          setDisplayedPlaceholder(fullText.slice(0, displayedPlaceholder.length + 1));
-        }, 60);
+        timeout = setTimeout(() => setDisplayedPlaceholder(fullText.slice(0, displayedPlaceholder.length + 1)), 60);
       } else {
         timeout = setTimeout(() => setIsDeleting(true), 2000);
       }
+    } else if (displayedPlaceholder.length > 0) {
+      timeout = setTimeout(() => setDisplayedPlaceholder(displayedPlaceholder.slice(0, -1)), 35);
     } else {
-      if (displayedPlaceholder.length > 0) {
-        timeout = setTimeout(() => {
-          setDisplayedPlaceholder(displayedPlaceholder.slice(0, -1));
-        }, 35);
-      } else {
-        setIsDeleting(false);
-        setPlaceholderIndex((i) => (i + 1) % SEARCH_PLACEHOLDERS.length);
-      }
+      setIsDeleting(false);
+      setPlaceholderIndex((i) => (i + 1) % SEARCH_PLACEHOLDERS.length);
     }
     return () => clearTimeout(timeout);
   }, [displayedPlaceholder, isDeleting, placeholderIndex, value]);
 
   return (
-    <div className="relative group">
-      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4 transition-colors group-focus-within:text-[#06b6d4]">
-        <Search />
-      </div>
+    <div className="group relative">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-brand-strong" />
       <input
         type="text"
+        aria-label="Buscar"
         placeholder={value ? '' : displayedPlaceholder}
-        className="w-full px-4 py-2.5 pl-10 bg-white/50 dark:bg-accent/30 border border-white/40 dark:border-border/50 rounded-2xl text-sm transition-all duration-300
-          focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/40 focus:bg-white dark:focus:bg-card focus:shadow-lg focus:shadow-[#06b6d4]/5
-          hover:bg-white/70 dark:hover:bg-accent/50 hover:shadow-sm cursor-text"
+        className="field h-9 min-h-0 border-transparent bg-secondary pl-9"
         value={value}
         onChange={onChange}
       />
     </div>
   );
 };
+
+/** Botón de icono de la barra superior. */
+const IconButton: React.FC<{
+  label: string;
+  onClick?: () => void;
+  children: React.ReactNode;
+  active?: boolean;
+  className?: string;
+}> = ({ label, onClick, children, active = false, className = '' }) => (
+  <button
+    type="button"
+    aria-label={label}
+    title={label}
+    onClick={onClick}
+    className={`press relative flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors duration-200 [&_svg]:h-[18px] [&_svg]:w-[18px] ${
+      active ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+    } ${className}`}
+  >
+    {children}
+  </button>
+);
+
+/** Menú flotante anclado (notificaciones, perfil). */
+const Popover: React.FC<{ open: boolean; children: React.ReactNode; className?: string }> = ({ open, children, className = '' }) => (
+  <AnimatePresence>
+    {open && (
+      <motion.div
+        initial={{ opacity: 0, y: -6, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -6, scale: 0.98 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        style={{ transformOrigin: 'top right' }}
+        className={`absolute right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-border bg-popover shadow-lg ${className}`}
+      >
+        {children}
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
 const DashboardShell: React.FC<{
   children: React.ReactNode;
   activeScreen: string;
@@ -713,285 +950,328 @@ const DashboardShell: React.FC<{
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   const searchResults = useCampusSearch(searchTerm);
+  const nombre = profile?.nombre || 'Usuario';
+  const email = profile?.email || user?.email || '';
   const initials = (profile?.nombre || user?.email || 'U').slice(0, 2).toUpperCase();
   const unreadCount = actividad.length;
 
-  const menuItems = [
-    { id: 'dashboard', icon: <Home className="w-5 h-5" />, label: 'Inicio' },
-    { id: 'new-post', icon: <PenSquare className="w-5 h-5" />, label: 'Nueva publicación' },
-    { id: 'manual-post', icon: <Upload className="w-5 h-5" />, label: 'Subir publicación' },
-    { id: 'drafts', icon: <FileText className="w-5 h-5" />, label: 'Borradores' },
-    { id: 'calendar', icon: <Calendar className="w-5 h-5" />, label: 'Calendario' },
-    { id: 'agent', icon: <MessageSquare className="w-5 h-5" />, label: 'Asistente IA' },
-    { id: 'channels', icon: <Share2 className="w-5 h-5" />, label: 'Canales' },
-    { id: 'settings', icon: <Settings className="w-5 h-5" />, label: 'Ajustes' },
+  // Cierra los menús flotantes al hacer clic fuera o pulsar Escape.
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (!notifRef.current?.contains(e.target as Node)) setShowNotif(false);
+      if (!profileRef.current?.contains(e.target as Node)) setShowProfile(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowNotif(false);
+        setShowProfile(false);
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+  const menuGroups = [
+    { titulo: 'General', items: [{ id: 'dashboard', icon: <Home />, label: 'Inicio' }] },
+    {
+      titulo: 'Contenido',
+      items: [
+        { id: 'new-post', icon: <PenSquare />, label: 'Nueva publicación' },
+        { id: 'manual-post', icon: <Upload />, label: 'Subir publicación' },
+        { id: 'drafts', icon: <FileText />, label: 'Borradores' },
+        { id: 'calendar', icon: <Calendar />, label: 'Calendario' },
+      ],
+    },
+    {
+      titulo: 'Herramientas',
+      items: [
+        { id: 'agent', icon: <MessageSquare />, label: 'Asistente IA' },
+        { id: 'channels', icon: <Share2 />, label: 'Canales' },
+        { id: 'settings', icon: <Settings />, label: 'Ajustes' },
+      ],
+    },
   ];
 
+  const navegacion = (grupo: 'fijo' | 'drawer') => (
+    <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
+      {menuGroups.map((g) => (
+        <div key={g.titulo} className="mb-6 last:mb-0">
+          <p className="px-3 pb-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground/75">{g.titulo}</p>
+          <ul className="space-y-0.5">
+            {g.items.map((item) => {
+              const activo = activeScreen === item.id;
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    aria-current={activo ? 'page' : undefined}
+                    onClick={() => {
+                      onNavigate(item.id);
+                      setIsMenuOpen(false);
+                    }}
+                    className={`press group relative flex h-10 w-full items-center gap-3 rounded-[10px] px-3 text-sm transition-colors duration-200 ${
+                      activo ? 'font-medium text-brand-strong' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    }`}
+                  >
+                    {activo && (
+                      <motion.span
+                        layoutId={`nav-fondo-${grupo}`}
+                        className="absolute inset-0 rounded-[10px] bg-brand-soft"
+                        transition={{ type: 'spring', stiffness: 520, damping: 42 }}
+                      />
+                    )}
+                    {activo && (
+                      <motion.span
+                        layoutId={`nav-luz-${grupo}`}
+                        className="absolute bottom-2 left-0 top-2 w-[3px] rounded-full bg-brand shadow-[0_0_10px_var(--brand)]"
+                        transition={{ type: 'spring', stiffness: 520, damping: 42 }}
+                      />
+                    )}
+                    <span className="relative z-10 flex transition-transform duration-200 group-hover:scale-110 [&>svg]:h-[18px] [&>svg]:w-[18px]">
+                      {item.icon}
+                    </span>
+                    <span className="relative z-10 truncate">{item.label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  );
+
+  const tarjetaUsuario = (
+    <div className="shrink-0 border-t border-sidebar-border p-3">
+      <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
+          {initials}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">{nombre}</p>
+          <p className="truncate text-xs text-muted-foreground">{email}</p>
+        </div>
+        <button
+          type="button"
+          title="Cerrar sesión"
+          aria-label="Cerrar sesión"
+          onClick={onLogout}
+          className="press flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive-soft hover:text-destructive"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="flex h-screen bg-background overflow-hidden relative">
-      {/* Drawer Menu */}
+    <div className="flex h-full overflow-hidden bg-background">
+      {/* Barra lateral fija (escritorio) */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
+        <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-5">
+          <button type="button" className="press" onClick={() => onNavigate('dashboard')}>
+            <ConectiaLogo size="md" />
+          </button>
+        </div>
+        {navegacion('fijo')}
+        {tarjetaUsuario}
+      </aside>
+
+      {/* Drawer (móvil y tablet) */}
       <AnimatePresence>
         {isMenuOpen && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] lg:hidden"
               onClick={() => setIsMenuOpen(false)}
             />
-            <motion.aside 
+            <motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed top-0 left-0 bottom-0 w-72 bg-card/95 backdrop-blur-md z-50 flex flex-col shadow-2xl border-r border-border"
+              transition={{ type: 'spring', damping: 32, stiffness: 320 }}
+              className="fixed bottom-0 left-0 top-0 z-50 flex w-72 flex-col border-r border-sidebar-border bg-sidebar shadow-lg lg:hidden"
             >
-              <div className="p-4 flex items-center justify-between border-b border-border">
-                 <ConectiaLogo size="md" />
-                 <button onClick={() => setIsMenuOpen(false)} className="p-2 hover:bg-accent rounded-xl text-muted-foreground transition-all cursor-pointer hover:rotate-90 duration-200">
-                   <X className="w-5 h-5" />
-                 </button>
+              <div className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border px-5">
+                <ConectiaLogo size="md" />
+                <IconButton label="Cerrar menú" onClick={() => setIsMenuOpen(false)}>
+                  <X />
+                </IconButton>
               </div>
-              <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                {menuItems.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => { onNavigate(item.id); setIsMenuOpen(false); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 cursor-pointer hover:translate-x-1
-                      ${activeScreen === item.id 
-                        ? 'liquid-button' 
-                        : 'text-foreground hover:bg-accent'
-                      }`}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </button>
-                ))}
-              </nav>
-              <div className="p-4 border-t border-border space-y-2">
-                <div className="flex items-center gap-3 px-4 py-3 bg-accent/50 rounded-2xl">
-                  <div className="w-10 h-10 bg-gradient-to-br from-[#1e3a8a] to-[#06b6d4] rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-md">
-                    {initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{profile?.nombre || 'Usuario'}</div>
-                    <div className="text-xs text-muted-foreground truncate">{profile?.email || user?.email}</div>
-                  </div>
-                </div>
-                <button
-                  onClick={onLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-muted-foreground hover:bg-red-50 hover:text-red-600 transition-all duration-200 group cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-200" />
-                  Cerrar sesión
-                </button>
-              </div>
+              {navegacion('drawer')}
+              {tarjetaUsuario}
             </motion.aside>
           </>
         )}
       </AnimatePresence>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Topbar */}
-        <header className="h-16 liquid-glass-header flex items-center justify-between px-4 sm:px-6 gap-3 z-30 shrink-0">
-          <div className="flex items-center gap-3">
-             {/* Hamburger with animation */}
-             <motion.button
-               onClick={() => setIsMenuOpen(true)}
-               className="p-2 hover:bg-slate-100 dark:hover:bg-accent rounded-xl transition-colors text-foreground cursor-pointer"
-               whileHover={{ scale: 1.05 }}
-               whileTap={{ scale: 0.92 }}
-               transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-             >
-               <Menu className="w-6 h-6" />
-             </motion.button>
-             <div className="hidden sm:block">
-               <ConectiaLogo size="sm" />
-             </div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Barra superior */}
+        <header className="surface-glass z-30 flex h-16 shrink-0 items-center gap-3 border-x-0 border-t-0 px-4 sm:px-6">
+          <IconButton label="Abrir menú" onClick={() => setIsMenuOpen(true)} className="lg:hidden">
+            <Menu />
+          </IconButton>
+          <div className="lg:hidden">
+            <ConectiaLogo size="sm" />
           </div>
-          
-          <div className="flex-1 max-w-md relative hidden md:block">
-            <SearchBarAnimated
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm.trim() && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border rounded-2xl shadow-lg max-h-64 overflow-y-auto p-2"
-              >
-                {searchResults.publicaciones.length === 0 && searchResults.borradores.length === 0 && (
-                  <p className="text-xs text-muted-foreground p-2">Sin resultados</p>
-                )}
-                {searchResults.publicaciones.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className="w-full text-left p-2 rounded-lg hover:bg-accent text-sm cursor-pointer transition-colors"
-                    onClick={() => { onNavigate('calendar'); setSearchTerm(''); }}
-                  >
-                    <span className="font-medium">{p.titulo}</span>
-                    <span className="text-xs text-muted-foreground block">{p.estado}</span>
-                  </button>
-                ))}
-                {searchResults.borradores.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    className="w-full text-left p-2 rounded-lg hover:bg-accent text-sm cursor-pointer transition-colors"
-                    onClick={() => {
-                      resumeBorradorAndNavigate(b, onNavigate);
-                      setSearchTerm('');
-                    }}
-                  >
-                    <span className="font-medium">{b.titulo || 'Borrador'}</span>
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Theme toggle with animation */}
-            <motion.button
-              type="button"
-              title={mode === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-              onClick={toggleTheme}
-              className="p-2 hover:bg-slate-100 dark:hover:bg-accent rounded-xl transition-colors text-foreground cursor-pointer"
-              whileHover={{ scale: 1.15 }}
-              whileTap={{ scale: 0.85, rotate: 180 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-            >
-              <AnimatePresence mode="wait">
-                {mode === 'dark' ? (
-                  <motion.div
-                    key="sun"
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 90, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Sun className="w-5 h-5 text-amber-400" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="moon"
-                    initial={{ rotate: 90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: -90, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <Moon className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.button>
 
-            {/* Notifications with animated dot */}
-            <div className="relative">
-              <motion.button
-                type="button"
-                className="relative p-2 hover:bg-slate-100 dark:hover:bg-accent rounded-xl transition-colors text-foreground cursor-pointer"
-                onClick={() => setShowNotif((v) => !v)}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-              >
-                <Bell className="w-5 h-5 text-muted-foreground" />
-                {unreadCount > 0 && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white/80"
-                  >
-                    <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-75" />
-                  </motion.span>
-                )}
-              </motion.button>
-              <AnimatePresence>
-                {showNotif && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                    className="absolute right-0 top-full mt-1 w-80 z-50 bg-card border rounded-2xl shadow-xl max-h-80 overflow-y-auto"
-                  >
-                    <p className="px-3 py-2 text-xs font-semibold border-b">Actividad reciente</p>
-                    {actividad.length === 0 && (
-                      <p className="p-3 text-xs text-muted-foreground">Sin notificaciones</p>
-                    )}
-                    {actividad.slice(0, 8).map((a) => (
-                      <div key={a.id} className="px-3 py-2 border-b last:border-0 text-sm">
-                        <p className="font-medium">{a.mensaje}</p>
-                        <p className="text-xs text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
+          <div className="relative hidden w-full max-w-sm md:block">
+            <SearchBarAnimated value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <Popover open={Boolean(searchTerm.trim())} className="!left-0 !right-0 max-h-72 overflow-y-auto p-1.5">
+              {searchResults.publicaciones.length === 0 && searchResults.borradores.length === 0 && (
+                <p className="px-3 py-3 text-sm text-muted-foreground">Sin resultados para “{searchTerm.trim()}”</p>
+              )}
+              {searchResults.publicaciones.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
+                  onClick={() => {
+                    onNavigate('calendar');
+                    setSearchTerm('');
+                  }}
+                >
+                  <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{p.titulo}</span>
+                    <span className="block text-xs capitalize text-muted-foreground">{p.estado}</span>
+                  </span>
+                </button>
+              ))}
+              {searchResults.borradores.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
+                  onClick={() => {
+                    resumeBorradorAndNavigate(b, onNavigate);
+                    setSearchTerm('');
+                  }}
+                >
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate text-sm font-medium">{b.titulo || 'Borrador'}</span>
+                </button>
+              ))}
+            </Popover>
+          </div>
+
+          <div className="ml-auto flex items-center gap-1">
+            <IconButton label={mode === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} onClick={toggleTheme}>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={mode}
+                  initial={{ rotate: -90, opacity: 0, scale: 0.6 }}
+                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                  exit={{ rotate: 90, opacity: 0, scale: 0.6 }}
+                  transition={{ duration: 0.22 }}
+                  className="flex"
+                >
+                  {mode === 'dark' ? <Sun /> : <Moon />}
+                </motion.span>
               </AnimatePresence>
+            </IconButton>
+
+            <div className="relative" ref={notifRef}>
+              <IconButton label="Notificaciones" onClick={() => setShowNotif((v) => !v)} active={showNotif}>
+                <Bell />
+                {unreadCount > 0 && (
+                  <span className="absolute right-2 top-2 flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-light opacity-70" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
+                  </span>
+                )}
+              </IconButton>
+              <Popover open={showNotif} className="w-80">
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                  <p className="text-sm font-semibold">Actividad reciente</p>
+                  {unreadCount > 0 && <Badge variant="purple">{unreadCount}</Badge>}
+                </div>
+                <div className="max-h-80 overflow-y-auto p-1.5">
+                  {actividad.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted-foreground">Sin notificaciones</p>}
+                  {actividad.slice(0, 8).map((a) => (
+                    <div key={a.id} className="rounded-lg px-3 py-2.5 transition-colors hover:bg-accent">
+                      <p className="text-sm font-medium text-foreground">{a.mensaje}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
+                    </div>
+                  ))}
+                </div>
+              </Popover>
             </div>
 
-            {/* Profile avatar with ring animation */}
-            <motion.button
-              type="button"
-              onClick={() => setShowProfile((v) => !v)}
-              className="relative w-10 h-10 rounded-full cursor-pointer group"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-            >
-              <div className="absolute inset-0 rounded-full border-2 border-transparent group-hover:border-[#06b6d4]/50 transition-all duration-300 group-hover:scale-110" />
-              <div className="w-full h-full bg-gradient-to-br from-[#1e3a8a] to-[#06b6d4] rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-md">
-                {initials}
-              </div>
-            </motion.button>
+            <div className="relative ml-1" ref={profileRef}>
+              <button
+                type="button"
+                aria-label="Menú de perfil"
+                onClick={() => setShowProfile((v) => !v)}
+                className="press flex h-9 items-center gap-2 rounded-[10px] pl-1 pr-2 transition-colors hover:bg-accent"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white ring-2 ring-transparent transition-shadow hover:ring-brand/30">
+                  {initials}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${showProfile ? 'rotate-180' : ''}`} />
+              </button>
+              <Popover open={showProfile} className="w-64">
+                <div className="border-b border-border px-4 py-3">
+                  <p className="truncate text-sm font-semibold">{nombre}</p>
+                  <p className="truncate text-xs text-muted-foreground">{email}</p>
+                </div>
+                <div className="p-1.5">
+                  {[
+                    { icon: <Settings />, label: 'Ajustes', onClick: () => onNavigate('settings') },
+                    { icon: mode === 'dark' ? <Sun /> : <Moon />, label: mode === 'dark' ? 'Modo claro' : 'Modo oscuro', onClick: toggleTheme },
+                  ].map((op) => (
+                    <button
+                      key={op.label}
+                      type="button"
+                      onClick={() => {
+                        op.onClick();
+                        setShowProfile(false);
+                      }}
+                      className="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-foreground transition-colors hover:bg-accent [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-muted-foreground"
+                    >
+                      {op.icon}
+                      {op.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-destructive transition-colors hover:bg-destructive-soft"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Cerrar sesión
+                  </button>
+                </div>
+              </Popover>
+            </div>
           </div>
         </header>
 
-        {/* Profile popup with entry/exit animations */}
-        <AnimatePresence>
-          {showProfile && (
+        {/* Contenido con transición entre pantallas */}
+        <main className="relative min-h-0 flex-1 overflow-hidden">
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="fixed inset-0 z-50 flex items-start justify-end p-4 pt-20"
-              onClick={() => setShowProfile(false)}
+              key={activeScreen}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="h-full"
             >
-              <motion.div
-                initial={{ opacity: 0, y: -12, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -12, scale: 0.9 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                className="bg-card border rounded-2xl shadow-xl p-6 w-72"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#1e3a8a] to-[#06b6d4] rounded-full flex items-center justify-center text-white text-xl font-bold shadow-lg">
-                    {initials}
-                  </div>
-                  <div>
-                    <p className="font-semibold">{profile?.nombre || 'Usuario'}</p>
-                    <p className="text-sm text-muted-foreground">{profile?.email || user?.email}</p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => { setShowProfile(false); onNavigate('settings'); }}>
-                    Ajustes
-                  </Button>
-                </div>
-              </motion.div>
+              {children}
             </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto">
-          {children}
+          </AnimatePresence>
         </main>
       </div>
     </div>
@@ -1053,8 +1333,8 @@ const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales }) =
   };
 
   return (
-    <div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+    <div className="@container">
+      <div className="grid grid-cols-2 gap-2 @md:grid-cols-3">
         {CATALOGO_REDES.map((red) => {
           const selected = value.includes(red.id);
           const conectada = redEstaConectada(red.id, canales);
@@ -1069,29 +1349,31 @@ const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales }) =
               key={red.id}
               type="button"
               disabled={bloqueada}
+              aria-pressed={selected}
               onClick={() => toggle(red.id)}
               title={title}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all duration-200 text-sm
-                ${selected ? 'border-[#06b6d4] bg-[#06b6d4]/10 shadow-sm' : 'border-border/60 bg-white/40 dark:bg-accent/30 hover:border-[#06b6d4]/40'}
-                ${bloqueada ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer'}`}
+              className={`press flex h-10 items-center gap-2 rounded-[10px] border px-3 text-left text-sm transition-all duration-200
+                ${selected ? 'border-brand bg-brand-soft text-foreground' : 'border-border bg-card hover:border-brand/40'}
+                ${bloqueada ? 'cursor-not-allowed opacity-45' : 'cursor-pointer'}`}
             >
               {redIcono(red.id, 'w-4 h-4')}
               <span className="flex-1 truncate font-medium">{red.nombre}</span>
               <span
-                className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
-                  selected ? 'bg-[#06b6d4] border-[#06b6d4]' : 'border-muted-foreground/40'
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors ${
+                  selected ? 'border-brand bg-brand' : 'border-muted-foreground/40'
                 }`}
               >
-                {selected && <Check className="w-2.5 h-2.5 text-white" />}
+                {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
               </span>
             </button>
           );
         })}
       </div>
-      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
-        <Info className="w-3.5 h-3.5 shrink-0" />
-        Solo se muestran activos los canales conectados. Gestiona conexiones en
-        <span className="font-medium text-foreground">Canales</span>.
+      <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>
+          Solo se activan los canales conectados en <span className="font-medium text-foreground">Canales</span>.
+        </span>
       </p>
     </div>
   );
@@ -1530,422 +1812,338 @@ const NewPostScreen: React.FC = () => {
 
   const displayName = profile?.nombre || 'Influencer';
 
+  const limpiar = () => {
+    setTopic('');
+    setGeneratedText('');
+    setImagenUrl('');
+    setManualUploads([]);
+    setHasContent(false);
+    setEditingBorradorId(null);
+  };
+
   return (
-    <div className="h-full">
+    <ScreenLayout>
       <Toast message={toastMsg || '¡Publicación programada!'} type="success" show={showToast} />
-      
-      <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8 h-full">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-6"
+
+      <PageHeader title="Nueva publicación" subtitle="Crea contenido con ayuda de IA y publícalo en tus redes" />
+
+      {(errorMsg || makeWarning) && (
+        <div className="shrink-0 space-y-2">
+          {errorMsg && <Notice tone="danger">{errorMsg}</Notice>}
+          {makeWarning && (
+            <Notice tone="warning">{makeWarning} Puedes vaciar la URL de Make en Ajustes si no lo usas.</Notice>
+          )}
+        </div>
+      )}
+
+      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-2">
+        {/* Formulario */}
+        <Panel
+          title="Contenido"
+          icon={<PenSquare />}
+          footer={
+            <div className="flex items-center gap-3">
+              <Button
+                variant="liquid"
+                className="flex-1"
+                icon={isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                onClick={handleGenerate}
+                disabled={!topic || isGenerating}
+              >
+                {isGenerating ? 'Generando…' : 'Generar con IA'}
+              </Button>
+              <Button variant="ghost" onClick={limpiar}>
+                Limpiar
+              </Button>
+            </div>
+          }
         >
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0B1F4B] to-[#2BBDE8] dark:from-[#60a5fa] dark:to-[#22d3ee] bg-clip-text text-transparent">Nueva publicación</h1>
-          <p className="text-sm text-muted-foreground mt-1">Crea contenido atractivo con ayuda de IA</p>
-          <AnimatePresence>
-            {errorMsg && (
-              <motion.p
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-2xl px-4 py-2.5"
-              >
-                {errorMsg}
-              </motion.p>
-            )}
-            {makeWarning && (
-              <motion.p
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                className="mt-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2.5"
-              >
-                {makeWarning} Puedes vaciar la URL de Make en Ajustes si no lo usas.
-              </motion.p>
-            )}
-          </AnimatePresence>
-        </motion.div>
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <label htmlFor="np-tema" className="text-sm font-medium text-foreground">
+                Tema del post
+              </label>
+              <textarea
+                id="np-tema"
+                placeholder="Ej: Lanzamiento del nuevo bootcamp de desarrollo web en Bucaramanga"
+                rows={3}
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                className="field resize-none py-2.5 leading-relaxed"
+              />
+            </div>
 
-        <div className="grid lg:grid-cols-2 gap-6 h-[calc(100%-8rem)]">
-          {/* Left Panel - Form */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-y-auto"
-          >
-            <div className="space-y-5">
-              {/* Topic */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Dropdown
+                label="Tono de voz"
+                value={tone}
+                onChange={setTone}
+                icon={<MessageSquare />}
+                options={[
+                  { value: 'profesional', label: 'Profesional' },
+                  { value: 'educativo', label: 'Educativo' },
+                  { value: 'promocional', label: 'Promocional' },
+                ]}
+              />
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <PenSquare className="w-4 h-4 text-[#06b6d4]" />
-                  Tema del post
-                </label>
-                <textarea
-                  placeholder="Ej: Lanzamiento nuevo bootcamp de desarrollo web en Bucaramanga"
-                  rows={3}
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-2xl text-sm transition-all duration-300 resize-none
-                    focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/40 focus:bg-white dark:focus:bg-input-background focus:shadow-lg focus:shadow-[#06b6d4]/5
-                    hover:bg-white/70 dark:hover:bg-input-background/80"
-                />
-              </div>
-
-              {/* Tone */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-[#06b6d4]" />
-                  Tono de voz
-                </label>
-                <select
-                  value={tone}
-                  onChange={(e) => setTone(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-2xl text-sm transition-all duration-300 appearance-none cursor-pointer
-                    focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/40 focus:bg-white dark:focus:bg-input-background
-                    hover:bg-white/70 dark:hover:bg-input-background/80"
-                >
-                  <option value="profesional">Profesional</option>
-                  <option value="educativo">Educativo</option>
-                  <option value="promocional">Promocional</option>
-                </select>
-              </div>
-
-              {/* Publicar en */}
-              <div className="space-y-3 bg-gradient-to-r from-[#1e3a8a]/5 to-[#06b6d4]/5 border border-[#06b6d4]/15 p-4 rounded-2xl">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#06b6d4]/10 rounded-xl flex items-center justify-center">
-                    <Share2 className="w-5 h-5 text-[#06b6d4]" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Redes de publicación</p>
-                    <p className="text-xs text-muted-foreground">
-                      Elige dónde publicar esta publicación (puedes elegir varias)
-                    </p>
-                  </div>
+                <span className="text-sm font-medium text-foreground">Multimedia con IA</span>
+                <div className="surface-muted space-y-2.5 px-3.5 py-2.5">
+                  <Toggle
+                    label="Imagen"
+                    checked={generateImage}
+                    onChange={(v) => {
+                      setGenerateImage(v);
+                      if (v) {
+                        setManualUploads([]);
+                        setGenerarVideo(false);
+                      }
+                    }}
+                  />
+                  <Toggle
+                    label="Video (TikTok)"
+                    checked={generarVideo}
+                    onChange={(v) => {
+                      setGenerarVideo(v);
+                      if (v) {
+                        setGenerateImage(false);
+                        setManualUploads([]);
+                        setVideoUrl('');
+                        setSelectedRedes(['tiktok']);
+                        setToastMsg('Con video IA se publica solo en TikTok (vertical 9:16).');
+                        setShowToast(true);
+                        setTimeout(() => setShowToast(false), 3500);
+                      } else {
+                        setVideoUrl('');
+                      }
+                    }}
+                  />
                 </div>
-                <RedSelector value={selectedRedes} onChange={setSelectedRedes} canales={canales} />
               </div>
+            </div>
 
-              {/* Image toggle */}
-              <div className="space-y-3 bg-white/40 dark:bg-accent/30 backdrop-blur-sm p-4 rounded-2xl border border-white/30 dark:border-border">
-                <Toggle
-                  label="Generar imagen con IA"
-                  checked={generateImage}
-                  onChange={(v) => {
-                    setGenerateImage(v);
-                    if (v) {
-                      setManualUploads([]);
-                      setGenerarVideo(false);
-                    }
-                  }}
+            {generarVideo && (
+              <Notice tone="info">
+                Se genera un video vertical (9:16) al crear la publicación. Requiere POLLINATIONS_API_KEY en las
+                variables de entorno de Vercel.
+              </Notice>
+            )}
+
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Redes de publicación</span>
+              <RedSelector value={selectedRedes} onChange={setSelectedRedes} canales={canales} />
+            </div>
+
+            <AnimatePresence initial={false}>
+              {!generateImage && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="space-y-2 overflow-hidden"
+                >
+                  <span className="text-sm font-medium text-foreground">Foto o archivo</span>
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingMedia(true);
+                    }}
+                    onDragLeave={() => setIsDraggingMedia(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingMedia(false);
+                      if (e.dataTransfer.files?.length) addManualFiles(Array.from(e.dataTransfer.files));
+                    }}
+                    onClick={() => newPostFileRef.current?.click()}
+                    className={`press flex cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition-all duration-200 ${
+                      isDraggingMedia ? 'border-brand bg-brand-soft' : 'border-border hover:border-brand/50 hover:bg-brand-soft'
+                    }`}
+                  >
+                    <IconTile tone={isDraggingMedia ? 'brand' : 'neutral'}>
+                      <FileUp />
+                    </IconTile>
+                    <span className="text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">Arrastra o haz clic</span> · PNG, JPG, GIF o MP4
+                    </span>
+                    <input
+                      ref={newPostFileRef}
+                      type="file"
+                      accept="image/*,video/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => e.target.files && addManualFiles(Array.from(e.target.files))}
+                    />
+                  </div>
+                  {manualUploads.length > 0 && (
+                    <div className="grid grid-cols-5 gap-2">
+                      {manualUploads.map((f, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, scale: 0.85 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="group relative aspect-square overflow-hidden rounded-[10px] border border-border bg-accent"
+                        >
+                          {f.preview ? (
+                            f.type === 'video' ? (
+                              <video src={f.preview} muted playsInline className="h-full w-full object-cover" />
+                            ) : (
+                              <img src={f.preview} alt={f.name} className="h-full w-full object-cover" />
+                            )
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Video className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            aria-label={`Quitar ${f.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeManualFile(i);
+                            }}
+                            className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+                          >
+                            <X className="h-3 w-3 text-white" />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </Panel>
+
+        {/* Vista previa + publicación */}
+        <Panel
+          title="Vista previa"
+          icon={<Eye />}
+          delay={80}
+          actions={<Badge variant="purple">LinkedIn</Badge>}
+          footer={
+            hasContent ? (
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Segmented
+                  value={scheduleMode}
+                  onChange={(v) => setScheduleMode(v as 'now' | 'schedule')}
+                  options={[
+                    { value: 'now', label: 'Ahora' },
+                    { value: 'schedule', label: 'Programar' },
+                  ]}
                 />
-                <Toggle
-                  label="Generar video con IA (TikTok)"
-                  checked={generarVideo}
-                  onChange={(v) => {
-                    setGenerarVideo(v);
-                    if (v) {
-                      setGenerateImage(false);
-                      setManualUploads([]);
-                      setVideoUrl('');
-                      setSelectedRedes(['tiktok']);
-                      setToastMsg('Con video IA se publica solo en TikTok (vertical 9:16).');
-                      setShowToast(true);
-                      setTimeout(() => setShowToast(false), 3500);
-                    } else {
-                      setVideoUrl('');
-                    }
-                  }}
-                />
-                {generarVideo && (
-                  <p className="text-xs text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800 rounded-2xl px-3 py-2">
-                    Se genera un video vertical (9:16) con IA al crear la publicación. Requiere
-                    POLLINATIONS_API_KEY en las variables de entorno de Vercel (gratis en enter.pollinations.ai/keys).
-                  </p>
-                )}
-                <AnimatePresence>
-                  {!generateImage && (
+                <AnimatePresence initial={false}>
+                  {scheduleMode === 'schedule' && (
                     <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="space-y-3 pt-2 border-t border-border/50 overflow-hidden"
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -6 }}
+                      className="flex flex-wrap items-center gap-2"
                     >
-                      <p className="text-sm font-medium">Subir foto o archivo</p>
-                      <div
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          setIsDraggingMedia(true);
-                        }}
-                        onDragLeave={() => setIsDraggingMedia(false)}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          setIsDraggingMedia(false);
-                          if (e.dataTransfer.files?.length) {
-                            addManualFiles(Array.from(e.dataTransfer.files));
-                          }
-                        }}
-                        onClick={() => newPostFileRef.current?.click()}
-                        className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center gap-2 cursor-pointer transition-all duration-300
-                          ${isDraggingMedia ? 'border-[#06b6d4] bg-[#06b6d4]/5 scale-[1.02]' : 'border-border/50 hover:border-[#06b6d4]/40 hover:bg-[#06b6d4]/5'}`}
-                      >
-                        <FileUp className="w-6 h-6 text-muted-foreground" />
-                        <p className="text-xs text-center text-muted-foreground">
-                          Arrastra imágenes o haz clic (PNG, JPG, GIF, MP4)
-                        </p>
-                        <input
-                          ref={newPostFileRef}
-                          type="file"
-                          accept="image/*,video/*"
-                          multiple
-                          className="hidden"
-                          onChange={(e) =>
-                            e.target.files && addManualFiles(Array.from(e.target.files))
-                          }
-                        />
-                      </div>
-                      {manualUploads.length > 0 && (
-                        <div className="grid grid-cols-3 gap-2">
-                          {manualUploads.map((f, i) => (
-                            <motion.div
-                              key={i}
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              className="relative aspect-square rounded-xl overflow-hidden bg-accent"
-                            >
-                              {f.preview ? (
-                                f.type === 'video' ? (
-                                  <video src={f.preview} muted playsInline className="w-full h-full object-cover" />
-                                ) : (
-                                  <img
-                                    src={f.preview}
-                                    alt={f.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                )
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <Video className="w-6 h-6 text-muted-foreground" />
-                                </div>
-                              )}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeManualFile(i);
-                                }}
-                                className="absolute top-1 right-1 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center cursor-pointer hover:bg-black/80 transition-colors"
-                              >
-                                <X className="w-3 h-3 text-white" />
-                              </button>
-                            </motion.div>
-                          ))}
-                        </div>
-                      )}
+                      <input
+                        type="date"
+                        aria-label="Fecha"
+                        value={scheduledDate}
+                        onChange={(e) => setScheduledDate(e.target.value)}
+                        className="field h-9 min-h-0 w-[150px] py-0"
+                      />
+                      <input
+                        type="time"
+                        aria-label="Hora"
+                        value={scheduledTime}
+                        onChange={(e) => setScheduledTime(e.target.value)}
+                        className="field h-9 min-h-0 w-[110px] py-0"
+                      />
+                      <Dropdown
+                        size="sm"
+                        className="w-[150px]"
+                        value={timezone}
+                        onChange={setTimezone}
+                        options={ZONAS_HORARIAS}
+                      />
+                      <Dropdown
+                        size="sm"
+                        className="w-[130px]"
+                        title="Repetir la misma publicación"
+                        value={repeatMode}
+                        onChange={setRepeatMode}
+                        options={[
+                          { value: 'none', label: 'Sin repetir' },
+                          { value: 'daily', label: 'Diario' },
+                          { value: 'weekly', label: 'Semanal' },
+                        ]}
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-2">
-                <motion.div className="flex-1" whileTap={{ scale: 0.98 }}>
-                  <Button 
-                    variant="liquid" 
-                    className="w-full"
-                    icon={isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                    onClick={handleGenerate}
-                    disabled={!topic || isGenerating}
-                  >
-                    {isGenerating ? 'Generando...' : 'Generar con IA'}
+                <div className="ml-auto flex items-center gap-2">
+                  <Button variant="outline" icon={<Save />} onClick={handleSaveBorrador}>
+                    Guardar
                   </Button>
-                </motion.div>
-                <Button variant="ghost" onClick={() => {
-                  setTopic('');
-                  setGeneratedText('');
-                  setImagenUrl('');
-                  setManualUploads([]);
-                  setHasContent(false);
-                  setEditingBorradorId(null);
-                }}>
-                  Limpiar
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Right Panel - Preview */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-          >
-            <div className="space-y-4 h-full flex flex-col">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-[#06b6d4]" />
-                  Vista previa
-                </h3>
-                <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-medium bg-[#0a66c2]/10 text-[#0a66c2]">
-                  LinkedIn
-                </span>
-              </div>
-
-              {/* Preview content */}
-              <div className="flex-1 overflow-y-auto">
-                {!showPreview && (
-                  <div className="h-full flex items-center justify-center text-center p-8">
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.5 }}
-                      className="space-y-4"
-                    >
-                      <div className="w-20 h-20 bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 rounded-3xl flex items-center justify-center mx-auto">
-                        <Eye className="w-10 h-10 text-[#06b6d4]/60" />
-                      </div>
-                      <p className="text-sm text-muted-foreground max-w-[200px]">
-                        Escribe un tema y genera contenido para ver la vista previa
-                      </p>
-                    </motion.div>
-                  </div>
-                )}
-
-                {isGenerating && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="space-y-4"
+                  <Button
+                    variant="liquid"
+                    icon={scheduleMode === 'now' ? <Send /> : <Calendar />}
+                    onClick={handleSchedule}
+                    disabled={scheduleMode === 'schedule' && (!scheduledDate || !scheduledTime)}
                   >
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="w-12 h-12 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </div>
-                    <Skeleton className="h-48 w-full rounded-2xl" />
-                  </motion.div>
-                )}
-
-                {showPreview && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4 }}
-                    className="space-y-4"
-                  >
-                    {videoUrl || manualUploads[0]?.type === 'video' ? (
-                      <div className="rounded-2xl overflow-hidden border border-white/40 dark:border-border bg-black/5 dark:bg-black/20">
-                        <video
-                          src={videoUrl || (previewImageUrl ?? undefined)}
-                          controls
-                          playsInline
-                          className="w-full max-h-[480px] object-contain"
-                        />
-                        <p className="text-xs text-center text-muted-foreground px-3 py-2">
-                          {videoUrl
-                            ? 'Video generado con IA · vertical 9:16 · listo para TikTok'
-                            : 'Video subido · listo para publicar en TikTok'}
-                        </p>
-                      </div>
-                    ) : (
-                      <SocialPostPreview
-                        network={RED_PRINCIPAL}
-                        authorName={displayName}
-                        authorInitials={initials}
-                        content={generatedText || topic}
-                        imageUrl={previewImageUrl}
-                        charLimit={3000}
-                      />
-                    )}
-                    {generateImage && imagenNota && (
-                      <p className="text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl px-3 py-2">
-                        {imagenNota}
-                      </p>
-                    )}
-                  </motion.div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Sticky Bottom Bar */}
-        <AnimatePresence>
-          {hasContent && (
-            <motion.div
-              initial={{ y: 80, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 80, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className="fixed bottom-0 left-0 right-0 z-30"
-            >
-              <div className="liquid-glass-header border-t border-white/30 p-4">
-                <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <select
-                      value={scheduleMode}
-                      onChange={(e) => setScheduleMode(e.target.value as 'now' | 'schedule')}
-                      className="px-3 py-2.5 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-2xl text-sm cursor-pointer transition-all hover:bg-white/70 dark:hover:bg-input-background/80 focus:ring-2 focus:ring-[#06b6d4]/30 focus:outline-none"
-                    >
-                      <option value="now">Publicar ahora</option>
-                      <option value="schedule">Programar</option>
-                    </select>
-                    <AnimatePresence>
-                      {scheduleMode === 'schedule' && (
-                        <motion.div
-                          initial={{ opacity: 0, width: 0 }}
-                          animate={{ opacity: 1, width: 'auto' }}
-                          exit={{ opacity: 0, width: 0 }}
-                          className="flex items-center gap-2 overflow-hidden"
-                        >
-                          <input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="px-3 py-2.5 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-2xl text-sm w-40 focus:ring-2 focus:ring-[#06b6d4]/30 focus:outline-none" />
-                          <input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="px-3 py-2.5 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-2xl text-sm w-32 focus:ring-2 focus:ring-[#06b6d4]/30 focus:outline-none" />
-                          <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="px-3 py-2.5 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-2xl text-sm cursor-pointer focus:ring-2 focus:ring-[#06b6d4]/30 focus:outline-none">
-                            <option value="America/Bogota">Colombia</option>
-                            <option value="America/Mexico_City">México</option>
-                            <option value="UTC">UTC</option>
-                          </select>
-                          <select value={repeatMode} onChange={(e) => setRepeatMode(e.target.value)} className="px-3 py-2.5 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-2xl text-sm cursor-pointer focus:ring-2 focus:ring-[#06b6d4]/30 focus:outline-none" title="Repetir la misma publicación">
-                            <option value="none">Sin repetir</option>
-                            <option value="daily">Diario</option>
-                            <option value="weekly">Semanal</option>
-                          </select>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button variant="outline" icon={<Save />} onClick={handleSaveBorrador}>
-                      Guardar borrador
-                    </Button>
-                    <Button
-                      variant="liquid"
-                      icon={scheduleMode === 'now' ? <Send /> : <Calendar />}
-                      onClick={handleSchedule}
-                      disabled={scheduleMode === 'schedule' && (!scheduledDate || !scheduledTime)}
-                    >
-                      {scheduleMode === 'now' ? 'Publicar ahora' : 'Programar'}
-                    </Button>
-                  </div>
+                    {scheduleMode === 'now' ? 'Publicar ahora' : 'Programar'}
+                  </Button>
                 </div>
               </div>
+            ) : undefined
+          }
+        >
+          {!showPreview && !isGenerating && (
+            <EmptyState
+              icon={<Eye />}
+              title="Aún no hay contenido"
+              text="Escribe un tema y pulsa Generar con IA para ver aquí la vista previa."
+            />
+          )}
+
+          {isGenerating && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-11 w-11 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3.5 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3.5 w-full" />
+                <Skeleton className="h-3.5 w-full" />
+                <Skeleton className="h-3.5 w-3/4" />
+              </div>
+              <Skeleton className="h-44 w-full rounded-xl" />
+            </div>
+          )}
+
+          {showPreview && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-4">
+              {videoUrl || manualUploads[0]?.type === 'video' ? (
+                <div className="overflow-hidden rounded-xl border border-border bg-black/5 dark:bg-black/30">
+                  <video src={videoUrl || (previewImageUrl ?? undefined)} controls playsInline className="max-h-[420px] w-full object-contain" />
+                  <p className="px-3 py-2 text-center text-xs text-muted-foreground">
+                    {videoUrl ? 'Video generado con IA · vertical 9:16 · listo para TikTok' : 'Video subido · listo para publicar en TikTok'}
+                  </p>
+                </div>
+              ) : (
+                <SocialPostPreview
+                  network={RED_PRINCIPAL}
+                  authorName={displayName}
+                  authorInitials={initials}
+                  content={generatedText || topic}
+                  imageUrl={previewImageUrl}
+                  charLimit={3000}
+                />
+              )}
+              {generateImage && imagenNota && <Notice tone="warning">{imagenNota}</Notice>}
             </motion.div>
           )}
-        </AnimatePresence>
+        </Panel>
       </div>
-    </div>
+    </ScreenLayout>
   );
 };
 
@@ -2097,382 +2295,279 @@ const ManualPostScreen: React.FC = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
+  const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
+
+  const guardarBorradorManual = async () => {
+    if (!user || !postText.trim()) return;
+    await crearBorrador(user.uid, {
+      promptOriginal: 'Publicación manual',
+      tono: 'profesional',
+      redesDestino: redesDestino,
+      contenidoGenerado: postText,
+      titulo: postText.slice(0, 80),
+    });
+    invalidate();
+    notify('Borrador guardado');
+  };
+
+  const vistaPrevia =
+    uploadedFiles[0]?.type === 'video' && uploadedFiles[0]?.preview ? (
+      <div className="overflow-hidden rounded-xl border border-border bg-black/5 dark:bg-black/30">
+        <video src={uploadedFiles[0].preview} controls playsInline className="max-h-[360px] w-full object-contain" />
+        <p className="px-3 py-2 text-center text-xs text-muted-foreground">Video subido · listo para publicar en TikTok</p>
+      </div>
+    ) : (
+      <SocialPostPreview
+        network={RED_PRINCIPAL}
+        authorName="Influencer"
+        authorInitials="CL"
+        content={postText}
+        imageUrl={uploadedFiles[0]?.preview ?? null}
+        charLimit={3000}
+      />
+    );
+
   return (
-    <div className="h-full overflow-y-auto">
+    <ScreenLayout>
       <Toast message={toastMsg} type="success" show={showToast} />
 
-      <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+      <PageHeader
+        title="Subir publicación"
+        subtitle="Crea y programa contenido manualmente, sin IA"
+        actions={
+          <Button variant="outline" icon={<Eye />} className="xl:hidden" onClick={() => setVistaPreviaAbierta(true)}>
+            Vista previa
+          </Button>
+        }
+      />
+
+      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_340px]">
+        {/* Editor y medios */}
+        <Panel
+          title="Contenido del post"
+          icon={<PenSquare />}
+          actions={
+            <Badge variant={postText.length > 3000 ? 'danger' : 'default'} className="tabular-nums">
+              {postText.length} / 3000
+            </Badge>
+          }
+          bodyClassName="flex flex-col gap-4"
         >
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0B1F4B] to-[#2BBDE8] dark:from-[#60a5fa] dark:to-[#22d3ee] bg-clip-text text-transparent mb-1">Subir publicación</h1>
-            <p className="text-muted-foreground text-sm">Crea y programa contenido manualmente sin IA</p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl px-4 py-2.5">
-            <Info className="w-4 h-4 text-amber-500 shrink-0" />
-            <span>Las publicaciones programadas se envían via <strong>n8n + Postiz</strong></span>
-          </div>
-        </motion.div>
-
-        <div className="grid lg:grid-cols-[1fr_380px] gap-6">
-          {/* LEFT COLUMN */}
-          <div className="space-y-6">
-
-            {/* Content editor */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-              className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <PenSquare className="w-4 h-4 text-[#06b6d4]" />
-                    Contenido del post
-                  </h3>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-lg ${postText.length > 3000 ? 'bg-red-100 text-red-600' : 'bg-accent text-muted-foreground'}`}>
-                    {postText.length} / 3000
-                  </span>
-                </div>
-                <textarea
-                  placeholder="Escribe aquí el contenido de tu publicación..."
-                  value={postText}
-                  onChange={e => setPostText(e.target.value)}
-                  rows={8}
-                  className="w-full px-4 py-3 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-2xl text-sm transition-all duration-300 resize-none
-                    focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/40 focus:bg-white dark:focus:bg-input-background focus:shadow-lg focus:shadow-[#06b6d4]/5
-                    hover:bg-white/70 dark:hover:bg-input-background/80 leading-relaxed placeholder:text-muted-foreground/70"
-                />
-                <div className="flex items-center gap-2 flex-wrap">
-                  {['😊', '🚀', '✅', '💡', '🎯', '🔥', '📌', '💬'].map(e => (
-                    <motion.button key={e} onClick={() => setPostText(p => p + e)} whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }}
-                      className="w-9 h-9 text-lg hover:bg-white/60 dark:hover:bg-accent rounded-xl transition-colors cursor-pointer shadow-sm border border-transparent hover:border-border/50 flex items-center justify-center">
-                      {e}
-                    </motion.button>
-                  ))}
-                  <span className="text-xs text-muted-foreground ml-2">Emojis rápidos</span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Media Upload */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.15 }}
-              className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-            >
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Image className="w-4 h-4 text-[#06b6d4]" />
-                  Medios adjuntos
-                </h3>
-
-                {/* Drop zone */}
-                <div
-                  onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
-                  onDragLeave={() => setIsDragging(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-300
-                    ${isDragging ? 'border-[#06b6d4] bg-[#06b6d4]/5 scale-[1.02]' : 'border-border/50 hover:border-[#06b6d4]/40 hover:bg-[#06b6d4]/5'}`}
-                >
-                  <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 ${isDragging ? 'bg-gradient-to-br from-[#1e3a8a] to-[#06b6d4] shadow-lg shadow-[#06b6d4]/20' : 'bg-accent'}`}>
-                    <FileUp className={`w-6 h-6 ${isDragging ? 'text-white' : 'text-muted-foreground'}`} />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium">Arrastra archivos aquí o <span className="text-[#06b6d4]">haz clic para seleccionar</span></p>
-                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG, GIF, MP4 — máx. 10 MB por archivo</p>
-                  </div>
-                  <div className="flex gap-3 mt-1">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-white/50 dark:bg-accent border border-white/40 dark:border-border px-3 py-1.5 rounded-xl shadow-sm">
-                      <Image className="w-3.5 h-3.5 text-[#06b6d4]" />Imagen
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-white/50 dark:bg-accent border border-white/40 dark:border-border px-3 py-1.5 rounded-xl shadow-sm">
-                      <Video className="w-3.5 h-3.5 text-[#06b6d4]" />Video
-                    </div>
-                  </div>
-                  <input ref={fileInputRef} type="file" multiple accept="image/*,video/*" className="hidden"
-                    onChange={e => e.target.files && handleFiles(Array.from(e.target.files))} />
-                </div>
-
-                {/* Uploaded files */}
-                {uploadedFiles.length > 0 && (
-                  <div className="grid grid-cols-3 gap-3">
-                    <AnimatePresence>
-                      {uploadedFiles.map((f, i) => (
-                        <motion.div key={i} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
-                          className="relative group rounded-2xl overflow-hidden bg-accent aspect-square shadow-sm border border-border/50">
-                          {f.preview ? (
-                            f.type === 'video' ? (
-                              <video src={f.preview} muted playsInline className="w-full h-full object-cover" />
-                            ) : (
-                              <img src={f.preview} alt={f.name} className="w-full h-full object-cover" />
-                            )
-                          ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                              <Video className="w-8 h-8 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground truncate px-2 text-center">{f.name}</span>
-                            </div>
-                          )}
-                          <button onClick={() => removeFile(i)}
-                            className="absolute top-2 right-2 w-7 h-7 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-red-500/80 hover:scale-110 cursor-pointer">
-                            <X className="w-3.5 h-3.5 text-white" />
-                          </button>
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm text-white text-xs p-2 truncate opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            {f.name}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => fileInputRef.current?.click()}
-                      className="aspect-square border-2 border-dashed border-border/50 rounded-2xl flex flex-col items-center justify-center gap-2 hover:border-[#06b6d4]/40 hover:bg-[#06b6d4]/5 transition-all cursor-pointer">
-                      <Plus className="w-6 h-6 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Añadir más</span>
-                    </motion.button>
-                  </div>
-                )}
-              </div>
-            </motion.div>
+          <textarea
+            aria-label="Contenido de la publicación"
+            placeholder="Escribe aquí el contenido de tu publicación…"
+            value={postText}
+            onChange={(e) => setPostText(e.target.value)}
+            className="field min-h-[140px] flex-1 resize-none py-3 leading-relaxed"
+          />
+          <div className="flex flex-wrap items-center gap-1">
+            {['😊', '🚀', '✅', '💡', '🎯', '🔥', '📌', '💬'].map((e) => (
+              <button
+                key={e}
+                type="button"
+                aria-label={`Insertar ${e}`}
+                onClick={() => setPostText((p) => p + e)}
+                className="press flex h-8 w-8 items-center justify-center rounded-lg text-base transition-colors hover:bg-accent"
+              >
+                {e}
+              </button>
+            ))}
+            <span className="ml-1 text-xs text-muted-foreground">Emojis rápidos</span>
           </div>
 
-          {/* RIGHT COLUMN — Scheduling & Actions */}
-          <div className="space-y-6">
-
-            {/* Destinos */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-              className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-[#06b6d4]/10 rounded-2xl flex items-center justify-center shrink-0">
-                  <Share2 className="w-6 h-6 text-[#06b6d4]" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Redes de publicación</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Elige dónde publicar (puede ser más de una)</p>
-                </div>
+          <div className="space-y-2 border-t border-border pt-4">
+            <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Image className="h-4 w-4 text-brand-strong" />
+              Medios adjuntos
+            </span>
+            {uploadedFiles.length === 0 ? (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`press flex cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition-all duration-200 ${
+                  isDragging ? 'border-brand bg-brand-soft' : 'border-border hover:border-brand/50 hover:bg-brand-soft'
+                }`}
+              >
+                <IconTile tone={isDragging ? 'brand' : 'neutral'}>
+                  <FileUp />
+                </IconTile>
+                <span className="text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">Arrastra archivos o haz clic</span> · PNG, JPG, GIF, MP4 (máx. 10 MB)
+                </span>
               </div>
-              <RedSelector value={redesDestino} onChange={setRedesDestino} canales={canales} />
-            </motion.div>
-
-            {/* Scheduling card */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.25 }}
-              className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-            >
-              <div className="space-y-5">
-                <div className="flex items-center gap-2">
-                  <CalendarClock className="w-5 h-5 text-[#06b6d4]" />
-                  <h3 className="font-semibold">Programación</h3>
-                </div>
-
-                {/* Mode toggle */}
-                <div className="grid grid-cols-2 gap-2 p-1.5 bg-white/50 dark:bg-accent/50 border border-white/40 dark:border-border rounded-2xl backdrop-blur-sm">
-                  {([['now', 'Publicar ahora'], ['schedule', 'Programar']] as const).map(([mode, label]) => (
-                    <button key={mode} onClick={() => setScheduleMode(mode)}
-                      className={`py-2 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer
-                        ${scheduleMode === mode
-                          ? 'bg-white shadow-md text-foreground'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-white/40'}`}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                <AnimatePresence mode="wait">
-                  {scheduleMode === 'now' && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden">
-                      <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-2xl">
-                        <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
-                          <Send className="w-5 h-5 text-white" />
+            ) : (
+              <div className="grid grid-cols-5 gap-2">
+                <AnimatePresence>
+                  {uploadedFiles.map((f, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.85 }}
+                      className="group relative aspect-square overflow-hidden rounded-[10px] border border-border bg-accent"
+                    >
+                      {f.preview ? (
+                        f.type === 'video' ? (
+                          <video src={f.preview} muted playsInline className="h-full w-full object-cover" />
+                        ) : (
+                          <img src={f.preview} alt={f.name} className="h-full w-full object-cover" />
+                        )
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Video className="h-5 w-5 text-muted-foreground" />
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-400">Publicación inmediata</p>
-                          <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">Se enviará a LinkedIn ahora mismo</p>
-                        </div>
-                      </div>
+                      )}
+                      <button
+                        type="button"
+                        aria-label={`Quitar ${f.name}`}
+                        onClick={() => removeFile(i)}
+                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-destructive"
+                      >
+                        <X className="h-3 w-3 text-white" />
+                      </button>
                     </motion.div>
-                  )}
-
-                  {scheduleMode === 'schedule' && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                      className="space-y-4 overflow-hidden">
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-foreground">Fecha</label>
-                        <input type="date" min={today} value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/40 hover:bg-white/70 transition-all cursor-pointer" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-foreground">Hora</label>
-                        <input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/40 hover:bg-white/70 transition-all cursor-pointer" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                          <Globe className="w-4 h-4 text-muted-foreground" />Zona horaria
-                        </label>
-                        <select value={timezone} onChange={e => setTimezone(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/40 hover:bg-white/70 transition-all cursor-pointer">
-                          <option value="America/Bogota">Colombia (UTC-5)</option>
-                          <option value="America/Mexico_City">México (UTC-6)</option>
-                          <option value="America/Lima">Perú (UTC-5)</option>
-                          <option value="America/Argentina/Buenos_Aires">Argentina (UTC-3)</option>
-                          <option value="Europe/Madrid">España (UTC+1)</option>
-                          <option value="UTC">UTC</option>
-                        </select>
-                      </div>
-
-                      {/* Repeat */}
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                          <AlarmClock className="w-4 h-4 text-muted-foreground" />Repetir
-                        </label>
-                        <select value={repeatMode} onChange={e => setRepeatMode(e.target.value)}
-                          className="w-full px-4 py-2.5 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/40 hover:bg-white/70 transition-all cursor-pointer">
-                          <option value="none">Sin repetición</option>
-                          <option value="daily">Diario</option>
-                          <option value="weekly">Semanal</option>
-                          <option value="biweekly">Cada 2 semanas</option>
-                          <option value="monthly">Mensual</option>
-                        </select>
-                      </div>
-
-                      <AnimatePresence>
-                        {scheduledDate && scheduledTime && (
-                          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-                            className="p-4 bg-gradient-to-r from-[#1e3a8a]/5 to-[#06b6d4]/5 border border-[#06b6d4]/20 rounded-2xl">
-                            <p className="text-xs font-medium text-[#1e3a8a] dark:text-[#06b6d4] flex items-center gap-1.5">
-                              <CalendarClock className="w-4 h-4" />Programado para
-                            </p>
-                            <p className="text-sm font-semibold text-foreground mt-1.5">
-                              {new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString('es-CO', {
-                                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-                                hour: '2-digit', minute: '2-digit'
-                              })}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{timezone.replace('_', ' ')}</p>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  )}
+                  ))}
                 </AnimatePresence>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="press flex aspect-square flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-border text-muted-foreground transition-colors hover:border-brand/50 hover:bg-brand-soft hover:text-brand-strong"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="text-xs">Añadir</span>
+                </button>
               </div>
-            </motion.div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={(e) => e.target.files && handleFiles(Array.from(e.target.files))}
+            />
+          </div>
+        </Panel>
 
-            {/* Preview mini */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.4, delay: 0.3 }}
-              className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-            >
-              <div className="space-y-4">
-                <h3 className="font-semibold flex items-center gap-2 text-sm">
-                  <Eye className="w-4 h-4 text-[#06b6d4]" />
-                  Vista previa
-                </h3>
-                <div className="max-h-[300px] overflow-y-auto rounded-2xl bg-white/50 dark:bg-black/20 backdrop-blur-sm">
-                  {uploadedFiles[0]?.type === 'video' && uploadedFiles[0]?.preview ? (
-                    <div className="rounded-2xl overflow-hidden border border-white/40 dark:border-border bg-black/5 dark:bg-black/20">
-                      <video
-                        src={uploadedFiles[0].preview}
-                        controls
-                        playsInline
-                        className="w-full max-h-[260px] object-contain"
-                      />
-                      <p className="text-xs text-center text-muted-foreground px-3 py-2">
-                        Video subido · listo para publicar en TikTok
-                      </p>
-                    </div>
-                  ) : (
-                    <SocialPostPreview
-                      network={RED_PRINCIPAL}
-                      authorName="Influencer"
-                      authorInitials="CL"
-                      content={postText}
-                      imageUrl={uploadedFiles[0]?.preview ?? null}
-                      charLimit={3000}
-                    />
-                  )}
-                </div>
-              </div>
-            </motion.div>
+        {/* Vista previa (pantallas anchas) */}
+        <Panel title="Vista previa" icon={<Eye />} delay={60} className="hidden xl:flex">
+          {vistaPrevia}
+        </Panel>
 
-            {/* Action buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.35 }}
-              className="space-y-3"
-            >
-              <Button variant="liquid" className="w-full" size="lg"
+        {/* Publicación */}
+        <Panel
+          title="Publicación"
+          icon={<CalendarClock />}
+          delay={120}
+          footer={
+            <div className="grid gap-2">
+              <Button
+                variant="liquid"
+                className="w-full"
                 icon={saving ? <Loader2 className="animate-spin" /> : scheduleMode === 'now' ? <Send /> : <CalendarClock />}
                 onClick={handleSchedule}
-                disabled={saving || !postText.trim()}>
+                disabled={saving || !postText.trim()}
+              >
                 {saving ? 'Guardando…' : scheduleMode === 'now' ? 'Publicar ahora' : 'Programar publicación'}
               </Button>
-              <Button variant="outline" className="w-full bg-white/60 dark:bg-card backdrop-blur-xl border-white/40 dark:border-border shadow-sm hover:bg-white/80" icon={<Save />}
-                onClick={async () => {
-                  if (!user || !postText.trim()) return;
-                  await crearBorrador(user.uid, {
-                    promptOriginal: 'Publicación manual',
-                    tono: 'profesional',
-                    redesDestino: redesDestino,
-                    contenidoGenerado: postText,
-                    titulo: postText.slice(0, 80),
-                  });
-                  invalidate();
-                  notify('Borrador guardado');
-                }}
-                disabled={!postText.trim()}>
+              <Button variant="outline" className="w-full" icon={<Save />} onClick={guardarBorradorManual} disabled={!postText.trim()}>
                 Guardar como borrador
               </Button>
-            </motion.div>
+            </div>
+          }
+        >
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Redes de publicación</span>
+              <RedSelector value={redesDestino} onChange={setRedesDestino} canales={canales} />
+            </div>
 
-            {/* Pipeline info */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4, delay: 0.4 }}
-              className="p-5 bg-white/40 dark:bg-accent/30 backdrop-blur-xl border border-white/30 dark:border-border/50 rounded-3xl space-y-3"
-            >
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                <Activity className="w-3.5 h-3.5" />
-                Pipeline de publicación
-              </p>
-              <div className="space-y-2.5">
-                {[
-                  { icon: <Save className="w-4 h-4" />, label: 'Conect.ia', desc: 'Almacena y programa' },
-                  { icon: <ChevronRight className="w-4 h-4" />, label: 'n8n', desc: 'Automatiza el flujo' },
-                  { icon: <ChevronRight className="w-4 h-4" />, label: 'Postiz', desc: 'Publica en LinkedIn' },
-                ].map((s, i) => (
-                  <div key={i} className="flex items-center gap-3 text-xs group">
-                    <div className="w-6 h-6 rounded-lg bg-white/50 dark:bg-accent flex items-center justify-center text-[#06b6d4] shadow-sm group-hover:scale-110 transition-transform">
-                      {s.icon}
+            <div className="space-y-3 border-t border-border pt-5">
+              <Segmented
+                full
+                value={scheduleMode}
+                onChange={(v) => setScheduleMode(v as 'now' | 'schedule')}
+                options={[
+                  { value: 'now', label: 'Publicar ahora' },
+                  { value: 'schedule', label: 'Programar' },
+                ]}
+              />
+
+              <AnimatePresence mode="wait" initial={false}>
+                {scheduleMode === 'now' ? (
+                  <motion.div key="ahora" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}>
+                    <Notice tone="success" icon={<Send />}>
+                      <span className="font-medium">Publicación inmediata.</span> Se enviará a las redes seleccionadas al confirmar.
+                    </Notice>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="programar"
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="space-y-3"
+                  >
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="space-y-1.5">
+                        <span className="text-sm font-medium text-foreground">Fecha</span>
+                        <input type="date" min={today} value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="field" />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className="text-sm font-medium text-foreground">Hora</span>
+                        <input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="field" />
+                      </label>
                     </div>
-                    <span className="font-medium text-foreground">{s.label}</span>
-                    <span className="text-muted-foreground/70">— {s.desc}</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+                    <Dropdown label="Zona horaria" icon={<Globe />} value={timezone} onChange={setTimezone} options={ZONAS_HORARIAS} />
+                    <Dropdown
+                      label="Repetir"
+                      icon={<AlarmClock />}
+                      value={repeatMode}
+                      onChange={setRepeatMode}
+                      options={[
+                        { value: 'none', label: 'Sin repetición' },
+                        { value: 'daily', label: 'Diario' },
+                        { value: 'weekly', label: 'Semanal' },
+                        { value: 'biweekly', label: 'Cada 2 semanas' },
+                        { value: 'monthly', label: 'Mensual' },
+                      ]}
+                    />
+                    {scheduledDate && scheduledTime && (
+                      <Notice tone="info" icon={<CalendarClock />}>
+                        <span className="block font-medium">
+                          {new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString('es-CO', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{timezone.replace('_', ' ')}</span>
+                      </Notice>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <p className="flex items-center gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
+              <Activity className="h-3.5 w-3.5 shrink-0" />
+              Flujo: Conect.ia <ChevronRight className="h-3 w-3" /> n8n / Make <ChevronRight className="h-3 w-3" /> red social
+            </p>
           </div>
-        </div>
+        </Panel>
       </div>
-    </div>
+
+      <Modal isOpen={vistaPreviaAbierta} onClose={() => setVistaPreviaAbierta(false)} title="Vista previa" maxWidthClass="max-w-xl">
+        {vistaPrevia}
+      </Modal>
+    </ScreenLayout>
   );
 };
 
@@ -2508,78 +2603,74 @@ const DraftsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNa
     fiverr: <Store className="w-4 h-4 text-[#1dbf73]" />,
   } as const;
 
+  const conteo = {
+    todos: drafts.length,
+    pendientes: drafts.filter((d) => d.estado === 'pendiente').length,
+    programados: drafts.filter((d) => d.estado === 'programado' || d.estado === 'aprobado').length,
+  };
+
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-8"
-        >
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0B1F4B] to-[#2BBDE8] dark:from-[#60a5fa] dark:to-[#22d3ee] bg-clip-text text-transparent mb-1">
-            Borradores
-          </h1>
-          <p className="text-muted-foreground text-sm">Gestiona tus publicaciones guardadas y programadas</p>
-        </motion.div>
+    <ScreenLayout>
+      <PageHeader
+        title="Borradores"
+        subtitle="Gestiona tus publicaciones guardadas y programadas"
+        actions={
+          <Segmented
+            value={filter}
+            onChange={setFilter}
+            options={(['todos', 'pendientes', 'programados'] as const).map((f) => ({
+              value: f,
+              label: (
+                <>
+                  <span className="capitalize">{f}</span>
+                  <span className="rounded-md bg-background/70 px-1.5 text-xs tabular-nums text-muted-foreground">{conteo[f]}</span>
+                </>
+              ),
+            }))}
+          />
+        }
+      />
 
-        {/* Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="flex items-center gap-3 mb-6 p-1.5 bg-white/40 dark:bg-accent/30 border border-white/40 dark:border-border/50 rounded-2xl w-fit backdrop-blur-md"
-        >
-          {['todos', 'pendientes', 'programados'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-5 py-2 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer
-                ${filter === f 
-                  ? 'bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4] text-white shadow-md shadow-[#06b6d4]/20' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-accent/50'
-                }`}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </motion.div>
-
-        {/* Table / List */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden"
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-white/40 dark:border-border/50 bg-white/30 dark:bg-accent/20">
-                  <th className="py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Título</th>
-                  <th className="py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Redes</th>
-                  <th className="py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado</th>
-                  <th className="py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fecha</th>
-                  <th className="py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Acciones</th>
+      <Panel scroll={false} className="flex-1" bodyClassName="!p-0 flex flex-col">
+        {isLoading ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-brand-strong" />
+            <p className="text-sm text-muted-foreground">Cargando borradores…</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={<FileText />}
+            title="No hay borradores"
+            text="Aún no tienes borradores en este estado. Crea contenido y guárdalo aquí para más tarde."
+            action={
+              <Button variant="liquid" icon={<Plus />} onClick={() => onNavigate('new-post')}>
+                Crear publicación
+              </Button>
+            }
+          />
+        ) : (
+          <div className="min-h-0 flex-1 overflow-auto">
+            <table className="w-full border-collapse text-left">
+              <thead className="sticky top-0 z-10 bg-card">
+                <tr className="border-b border-border">
+                  {['Título', 'Redes', 'Estado', 'Fecha', ''].map((h, i) => (
+                    <th
+                      key={i}
+                      className={`h-11 px-5 text-xs font-medium uppercase tracking-wider text-muted-foreground ${i === 4 ? 'text-right' : ''}`}
+                    >
+                      {h || <span className="sr-only">Acciones</span>}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/30 dark:divide-border/40">
-                {isLoading && (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center">
-                      <Loader2 className="w-6 h-6 text-[#06b6d4] animate-spin mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">Cargando borradores...</p>
-                    </td>
-                  </tr>
-                )}
-                {!isLoading && filtered.length > 0 && filtered.map((draft, i) => (
+              <tbody className="divide-y divide-border">
+                {filtered.map((draft, i) => (
                   <motion.tr
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.1 + i * 0.05 }}
                     key={draft.id}
-                    className="hover:bg-white/50 dark:hover:bg-accent/30 transition-colors duration-200 cursor-pointer group"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.03 }}
+                    className="group cursor-pointer transition-colors duration-150 hover:bg-accent/70"
                     onClick={() => resumeBorradorAndNavigate(draft, onNavigate)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -2591,48 +2682,46 @@ const DraftsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNa
                     role="button"
                     aria-label={`Continuar borrador: ${draft.titulo || draft.promptOriginal.slice(0, 50)}`}
                   >
-                    <td className="py-4 px-6">
-                      <div className="font-medium text-foreground group-hover:text-[#06b6d4] transition-colors line-clamp-1 max-w-[400px]">
+                    <td className="h-14 max-w-[420px] px-5">
+                      <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-brand-strong">
                         {draft.titulo || draft.promptOriginal.slice(0, 50)}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        Clic para continuar editando
-                      </div>
+                      </p>
                     </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-2">
+                    <td className="px-5">
+                      <div className="flex items-center -space-x-1.5">
                         {draft.redesDestino.map((net) => (
-                          <div key={net} className="w-8 h-8 rounded-full bg-white/80 dark:bg-accent flex items-center justify-center shadow-sm border border-white/50 dark:border-border">
+                          <span
+                            key={net}
+                            className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-secondary"
+                          >
                             {networkIcons[net as keyof typeof networkIcons]}
-                          </div>
+                          </span>
                         ))}
                       </div>
                     </td>
-                    <td className="py-4 px-6">
-                      <Badge variant={statusColors[draft.estado] ?? 'default'} className="shadow-sm">
-                        {draft.estado}
-                      </Badge>
+                    <td className="px-5">
+                      <Badge variant={statusColors[draft.estado] ?? 'default'} className="capitalize">{draft.estado}</Badge>
                     </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {formatRelative(toDate(draft.creadoEn))}
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="whitespace-nowrap px-5 text-sm text-muted-foreground">{formatRelative(toDate(draft.creadoEn))}</td>
+                    <td className="px-5">
+                      <div className="flex items-center justify-end gap-1 opacity-60 transition-opacity group-hover:opacity-100">
                         <button
                           type="button"
                           title="Continuar editando"
-                          className="w-8 h-8 rounded-full hover:bg-white/80 dark:hover:bg-accent flex items-center justify-center transition-all duration-300 text-[#06b6d4] hover:scale-110 shadow-sm border border-transparent hover:border-white/50"
+                          aria-label="Continuar editando"
+                          className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-brand-soft hover:text-brand-strong"
                           onClick={(e) => {
                             e.stopPropagation();
                             resumeBorradorAndNavigate(draft, onNavigate);
                           }}
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="h-4 w-4" />
                         </button>
                         <button
                           type="button"
                           title="Eliminar"
-                          className="w-8 h-8 rounded-full hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center justify-center transition-all duration-300 text-red-500 hover:scale-110 shadow-sm border border-transparent hover:border-red-100"
+                          aria-label="Eliminar borrador"
+                          className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive-soft hover:text-destructive"
                           onClick={async (e) => {
                             e.stopPropagation();
                             if (!user || !confirm('¿Eliminar borrador?')) return;
@@ -2641,7 +2730,7 @@ const DraftsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNa
                             refetch();
                           }}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -2650,30 +2739,9 @@ const DraftsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNa
               </tbody>
             </table>
           </div>
-        </motion.div>
-
-        {/* Empty State (conditional) */}
-        {!isLoading && filtered.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="mt-6 bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-12 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-          >
-            <div className="w-20 h-20 bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-white/50">
-              <FileText className="w-10 h-10 text-[#06b6d4]" />
-            </div>
-            <h3 className="text-xl font-bold bg-gradient-to-r from-[#0B1F4B] to-[#2BBDE8] dark:from-[#60a5fa] dark:to-[#22d3ee] bg-clip-text text-transparent mb-2">No hay borradores</h3>
-            <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
-              Aún no tienes borradores en este estado. Empieza a crear contenido genial y guárdalo aquí para más tarde.
-            </p>
-            <Button variant="liquid" icon={<Plus />} onClick={() => onNavigate('new-post')}>
-              Crear nueva publicación
-            </Button>
-          </motion.div>
         )}
-      </div>
-    </div>
+      </Panel>
+    </ScreenLayout>
   );
 };
 
@@ -2788,174 +2856,167 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
     }
   };
 
+  const semanas = Math.ceil((firstDayOffset + daysInMonth) / 7);
+  const esMesActual = anio === now.getFullYear() && mes === now.getMonth();
+
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-4"
-        >
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0B1F4B] to-[#2BBDE8] dark:from-[#60a5fa] dark:to-[#22d3ee] bg-clip-text text-transparent mb-2">Calendario Editorial</h1>
-            <p className="text-muted-foreground text-sm max-w-xl">
-              Visualiza y organiza tus publicaciones programadas. Arrastra una publicación a otro día para reprogramarla.
-            </p>
-          </div>
+    <ScreenLayout>
+      <PageHeader
+        title="Calendario editorial"
+        subtitle="Organiza tus publicaciones. Arrastra una publicación a otro día para reprogramarla."
+        actions={
           <Button variant="liquid" icon={<Plus />} onClick={() => onNavigate('new-post')}>
             Nueva publicación
           </Button>
-        </motion.div>
+        }
+      />
 
-        <AnimatePresence>
+      {(overdueCount > 0 || schedulerMsg) && (
+        <div className="shrink-0 space-y-2">
           {overdueCount > 0 && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-              className="mb-6 overflow-hidden">
-              <div className="rounded-2xl border border-[#06b6d4]/30 bg-gradient-to-r from-[#1e3a8a]/5 to-[#06b6d4]/5 backdrop-blur-md px-5 py-4 text-sm text-[#1e3a8a] dark:text-[#06b6d4] shadow-sm flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#06b6d4]/20 flex items-center justify-center shrink-0">
-                  <Clock className="w-4 h-4 text-[#06b6d4]" />
-                </div>
-                <div>
-                  <span className="font-semibold">{overdueCount} publicación(es) pasaron su hora</span> y siguen programadas. Se publicarán automáticamente en el próximo ciclo (cada 1 min) o usa <strong>Publicar ahora</strong>.
-                </div>
-              </div>
-            </motion.div>
+            <Notice tone="warning" icon={<Clock />}>
+              <span className="font-medium">{overdueCount} publicación(es) pasaron su hora</span> y siguen programadas. Se
+              publicarán en el próximo ciclo del programador, o usa <span className="font-medium">Publicar</span> en el día
+              correspondiente.
+            </Notice>
           )}
+          {schedulerMsg && <Notice tone="success">{schedulerMsg}</Notice>}
+        </div>
+      )}
 
-          {schedulerMsg && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="mb-6 overflow-hidden">
-              <div className="rounded-2xl border border-emerald-200/50 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-950/20 backdrop-blur-md px-5 py-4 text-sm text-emerald-800 dark:text-emerald-300 shadow-sm flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                {schedulerMsg}
+      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        {/* Mes */}
+        <Panel
+          title={<span className="inline-block first-letter:uppercase">{monthLabel}</span>}
+          icon={<Calendar />}
+          scroll={false}
+          bodyClassName="flex flex-col"
+          actions={
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setViewDate(new Date(now.getFullYear(), now.getMonth(), 1));
+                  setSelectedDay(now.getDate());
+                }}
+              >
+                Hoy
+              </Button>
+              <button
+                type="button"
+                aria-label="Mes anterior"
+                onClick={() => setViewDate(new Date(anio, mes - 1, 1))}
+                className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Mes siguiente"
+                onClick={() => setViewDate(new Date(anio, mes + 1, 1))}
+                className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          }
+        >
+          <div className="mb-2 grid shrink-0 grid-cols-7 gap-2">
+            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
+              <div key={d} className="py-1 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {d}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            ))}
+          </div>
 
-        <div className="grid lg:grid-cols-[1fr_360px] gap-6">
-          {/* Calendar Grid */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
+          <div
+            key={`${anio}-${mes}`}
+            className="grid min-h-[320px] flex-1 animate-fade grid-cols-7 gap-2"
+            style={{ gridTemplateRows: `repeat(${semanas}, minmax(0, 1fr))` }}
           >
-            <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-foreground capitalize flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#06b6d4]" />
-                {monthLabel}
-              </h3>
-              <div className="flex items-center gap-2 bg-white/50 dark:bg-accent/30 p-1 rounded-2xl border border-white/40 dark:border-border">
-                <button onClick={() => setViewDate(new Date(anio, mes - 1, 1))} className="p-2 hover:bg-white dark:hover:bg-accent rounded-xl transition-all text-muted-foreground hover:text-foreground">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-sm font-medium px-2 text-muted-foreground">Mes</span>
-                <button onClick={() => setViewDate(new Date(anio, mes + 1, 1))} className="p-2 hover:bg-white dark:hover:bg-accent rounded-xl transition-all text-muted-foreground hover:text-foreground">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+            {Array.from({ length: firstDayOffset }).map((_, i) => (
+              <div key={`vacio-${i}`} />
+            ))}
 
-            {/* Days header */}
-            <div className="grid grid-cols-7 gap-3 mb-3">
-              {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
-                <div key={day} className="text-center text-xs font-bold text-muted-foreground uppercase tracking-widest py-2">
-                  {day}
-                </div>
-              ))}
-            </div>
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const posts = porDia[day] || [];
+              const isSelected = selectedDay === day;
+              const esHoy = esMesActual && day === now.getDate();
+              const destino = dropTargetDay === day && draggingPostId;
 
-            {/* Calendar days */}
-            <div className="grid grid-cols-7 gap-3">
-              {/* Empty cells for offset */}
-              {Array.from({ length: firstDayOffset }).map((_, i) => (
-                <div key={`empty-${i}`} className="aspect-square opacity-0" />
-              ))}
-              
-              {/* Days */}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const day = i + 1;
-                const posts = porDia[day] || [];
-                const isSelected = selectedDay === day;
-                const hasContent = posts.length > 0;
-                
-                return (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    key={day}
-                    type="button"
-                    onClick={() => setSelectedDay(day)}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDropTargetDay(day);
-                    }}
-                    onDragLeave={() => setDropTargetDay((d) => (d === day ? null : d))}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      if (draggingPostId && user) void reprogramarEnDia(draggingPostId, day);
-                    }}
-                    className={`aspect-square p-2 rounded-2xl border transition-all duration-300 relative flex flex-col
-                      ${isSelected ? 'border-[#06b6d4] bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 shadow-md shadow-[#06b6d4]/20' : 'border-white/50 dark:border-border/50 hover:border-[#06b6d4]/50 hover:bg-[#06b6d4]/5'}
-                      ${dropTargetDay === day && draggingPostId ? 'ring-2 ring-[#06b6d4] ring-offset-2 ring-offset-transparent bg-[#06b6d4]/10 scale-105' : ''}
-                      ${hasContent && !isSelected ? 'bg-white dark:bg-accent/40 shadow-sm' : ''}
-                      ${!hasContent && !isSelected ? 'bg-white/30 dark:bg-card/50' : ''}
-                    `}
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => setSelectedDay(day)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDropTargetDay(day);
+                  }}
+                  onDragLeave={() => setDropTargetDay((d) => (d === day ? null : d))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggingPostId && user) void reprogramarEnDia(draggingPostId, day);
+                  }}
+                  aria-pressed={isSelected}
+                  aria-label={`${day} de ${monthLabel}${posts.length ? `, ${posts.length} publicación(es)` : ''}`}
+                  className={`press flex min-h-0 flex-col overflow-hidden rounded-[10px] border p-2 text-left transition-all duration-200
+                    ${isSelected ? 'border-brand bg-brand-soft shadow-[var(--glow)]' : 'border-border hover:border-brand/40 hover:bg-accent'}
+                    ${destino ? 'scale-[1.03] border-brand ring-2 ring-brand/40' : ''}`}
+                >
+                  <span
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+                      esHoy ? 'bg-brand text-white' : isSelected ? 'text-brand-strong' : 'text-foreground'
+                    }`}
                   >
-                    <div className={`text-sm font-semibold ml-1 mt-1 ${isSelected ? 'text-[#06b6d4]' : 'text-foreground'}`}>{day}</div>
-                    
-                    {hasContent && (
-                      <div className="mt-auto mb-1 flex flex-col gap-1 w-full px-1">
-                        {posts.slice(0, 2).map(post => (
-                          <div key={post.id} className={`h-1.5 w-full rounded-full ${isPostOverdue(post) ? 'bg-red-400' : 'bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4]'}`} />
-                        ))}
-                        {posts.length > 2 && (
-                          <div className="text-[10px] text-muted-foreground font-medium text-right leading-none">+{posts.length - 2}</div>
-                        )}
-                      </div>
-                    )}
-                  </motion.button>
-                );
-              })}
+                    {day}
+                  </span>
+                  {posts.length > 0 && (
+                    <div className="mt-auto flex w-full flex-col gap-1">
+                      {posts.slice(0, 2).map((post) => (
+                        <span
+                          key={post.id}
+                          className={`h-1.5 w-full rounded-full ${isPostOverdue(post) ? 'bg-destructive' : 'bg-brand'}`}
+                        />
+                      ))}
+                      {posts.length > 2 && (
+                        <span className="text-right text-xs leading-none text-muted-foreground">+{posts.length - 2}</span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </Panel>
+
+        {/* Día seleccionado */}
+        <Panel
+          title={selectedDay ? `${selectedDay} de ${monthLabel}` : 'Selecciona un día'}
+          icon={<CalendarClock />}
+          delay={80}
+          actions={selectedPosts.length > 0 ? <Badge variant="purple">{selectedPosts.length}</Badge> : undefined}
+        >
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-brand-strong" />
+              <p className="text-sm text-muted-foreground">Cargando…</p>
             </div>
-          </motion.div>
-
-          {/* Sidebar - Selected Day Posts */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-fit sticky top-8"
-          >
-            <h3 className="text-lg font-bold mb-5 flex items-center gap-2">
-              <CalendarClock className="w-5 h-5 text-[#06b6d4]" />
-              {selectedDay ? `${selectedDay} de ${monthLabel}` : 'Selecciona un día'}
-            </h3>
-            
-            {isLoading && (
-              <div className="flex flex-col items-center justify-center py-10">
-                <Loader2 className="w-6 h-6 text-[#06b6d4] animate-spin mb-3" />
-                <p className="text-sm text-muted-foreground">Cargando...</p>
-              </div>
-            )}
-
-            {!isLoading && selectedDay && selectedPosts.length > 0 ? (
-              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 -mr-2">
-                <AnimatePresence>
-                  {selectedPosts.map((post, i) => {
-                    const fp = toDate(post.fechaProgramada);
-                    const overdue = isPostOverdue(post);
-                    return (
+          ) : selectedDay && selectedPosts.length > 0 ? (
+            <div className="space-y-3">
+              <AnimatePresence>
+                {selectedPosts.map((post, i) => {
+                  const fp = toDate(post.fechaProgramada);
+                  const overdue = isPostOverdue(post);
+                  return (
                     <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.2, delay: i * 0.05 }}
                       key={post.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={{ duration: 0.22, delay: i * 0.04 }}
                       draggable={!moving}
                       role="button"
                       tabIndex={0}
@@ -2979,68 +3040,59 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
                           dragRef.current = false;
                         }, 0);
                       }}
-                      className={`p-4 bg-white/80 dark:bg-accent/50 rounded-2xl border border-white/60 dark:border-border/50 hover:bg-white dark:hover:bg-accent shadow-sm hover:shadow-md transition-all cursor-pointer relative group overflow-hidden
-                        ${draggingPostId === post.id ? 'opacity-50 ring-2 ring-[#06b6d4] cursor-grabbing scale-95' : 'active:cursor-grab'}
-                        ${overdue ? 'border-red-200 dark:border-red-900/50 bg-red-50/30 dark:bg-red-950/10' : ''}`}
                       title="Clic para previsualizar · arrastra para cambiar la fecha"
+                      className={`hover-lift group cursor-pointer overflow-hidden rounded-xl border bg-card p-3.5
+                        ${draggingPostId === post.id ? 'scale-95 opacity-50 ring-2 ring-brand' : 'active:cursor-grabbing'}
+                        ${overdue ? 'border-destructive/30' : 'border-border'}`}
                     >
-                      {/* Drag handle indicator */}
-                      <div className="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="w-1 h-8 rounded-full bg-border" />
-                      </div>
-
                       {post.imagenUrl && (
-                        <div className="w-full h-32 rounded-xl overflow-hidden mb-3">
-                          <img src={post.imagenUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 pointer-events-none" />
+                        <div className="mb-3 h-28 overflow-hidden rounded-lg">
+                          <img
+                            src={post.imagenUrl}
+                            alt=""
+                            className="pointer-events-none h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          />
                         </div>
                       )}
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1 pr-3">
-                          <div className="font-semibold text-sm line-clamp-1 mb-1 group-hover:text-[#06b6d4] transition-colors">{post.titulo}</div>
-                          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-accent w-fit px-2 py-0.5 rounded-lg">
-                            <Clock className="w-3 h-3 text-[#06b6d4]" />
-                            {fp ? fp.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}
-                          </div>
-                        </div>
-                        <div className="w-7 h-7 rounded-full bg-[#0a66c2]/10 flex items-center justify-center shrink-0">
-                          <Linkedin className="w-3.5 h-3.5 text-[#0a66c2]" />
-                        </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="line-clamp-1 text-sm font-medium transition-colors group-hover:text-brand-strong">{post.titulo}</p>
+                        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
+                          {fp ? fp.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mb-3 pl-1 leading-relaxed">{post.contenido}</p>
-                      
-                      <div className="flex items-center gap-2 pt-3 border-t border-border/50">
+                      <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{post.contenido}</p>
+
+                      <div className="mt-3 flex items-center gap-1.5 border-t border-border pt-3">
                         {overdue && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="success"
+                            size="sm"
                             disabled={publishingId === post.id}
-                            className="flex-1 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 font-semibold"
+                            icon={publishingId === post.id ? <Loader2 className="animate-spin" /> : <Send />}
                             onClick={(e) => {
                               e.stopPropagation();
                               void publicarProgramadoAhora(post);
                             }}
                           >
-                            {publishingId === post.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Send className="w-3.5 h-3.5" />
-                            )}
                             Publicar
-                          </button>
+                          </Button>
                         )}
-                        <button
-                          type="button"
-                          className="flex-1 py-1.5 text-muted-foreground text-xs hover:bg-accent rounded-lg transition-colors flex items-center justify-center gap-1.5 font-medium border border-transparent hover:border-border"
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Eye />}
                           onClick={(e) => {
                             e.stopPropagation();
                             setPreviewPost(post);
                           }}
                         >
-                          <Eye className="w-3.5 h-3.5" />
                           Ver
-                        </button>
+                        </Button>
                         <button
                           type="button"
-                          className="px-3 py-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                          aria-label="Eliminar publicación"
+                          className="press ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive-soft hover:text-destructive"
                           onClick={async (e) => {
                             e.stopPropagation();
                             if (!user || !confirm('¿Eliminar publicación?')) return;
@@ -3049,69 +3101,59 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
                             invalidate();
                           }}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </motion.div>
-                  );})}
-                </AnimatePresence>
-              </div>
-            ) : !isLoading && selectedDay ? (
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-12 bg-white/40 dark:bg-accent/20 rounded-2xl border border-dashed border-border/50">
-                <div className="w-14 h-14 bg-gradient-to-br from-accent to-background border border-border/50 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                  <Calendar className="w-6 h-6 text-muted-foreground/70" />
-                </div>
-                <p className="text-sm font-medium text-foreground mb-1">Día libre</p>
-                <p className="text-xs text-muted-foreground px-4">No hay publicaciones programadas para este día.</p>
-              </motion.div>
-            ) : null}
-          </motion.div>
-        </div>
-
-        <Modal
-          isOpen={!!previewPost}
-          onClose={() => setPreviewPost(null)}
-          title={previewPost?.titulo || 'Vista previa'}
-          maxWidthClass="max-w-xl"
-          footer={
-            <Button variant="outline" onClick={() => setPreviewPost(null)} className="w-full sm:w-auto">
-              Cerrar vista previa
-            </Button>
-          }
-        >
-          {previewPost && (
-            <div className="space-y-5">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground bg-accent/50 p-3 rounded-2xl border border-border/50">
-                {previewPost.fechaProgramada && (
-                  <span className="inline-flex items-center gap-1.5 font-medium bg-white dark:bg-card px-2.5 py-1 rounded-lg shadow-sm border border-border/50">
-                    <Clock className="w-4 h-4 text-[#06b6d4]" />
-                    {formatDateTime(toDate(previewPost.fechaProgramada))}
-                  </span>
-                )}
-                <Badge variant={previewPost.estado === 'publicado' ? 'success' : 'default'} className="shadow-sm">
-                  {previewPost.estado}
-                </Badge>
-                {previewPost.redesDestino.map((net) => (
-                  <Badge key={net} variant="purple" className="shadow-sm">
-                    {net}
-                  </Badge>
-                ))}
-              </div>
-              <div className="bg-white/50 dark:bg-black/20 rounded-2xl overflow-hidden shadow-inner border border-border/50 backdrop-blur-sm">
-                <SocialPostPreview
-                  network={previewPost.redesDestino[0] || RED_PRINCIPAL}
-                  authorName={displayName}
-                  authorInitials={initials}
-                  content={previewPost.contenido}
-                  imageUrl={previewPost.imagenUrl}
-                  charLimit={3000}
-                />
-              </div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
-          )}
-        </Modal>
+          ) : selectedDay ? (
+            <EmptyState icon={<Calendar />} title="Día libre" text="No hay publicaciones programadas para este día." />
+          ) : null}
+        </Panel>
       </div>
-    </div>
+
+      <Modal
+        isOpen={!!previewPost}
+        onClose={() => setPreviewPost(null)}
+        title={previewPost?.titulo || 'Vista previa'}
+        maxWidthClass="max-w-xl"
+        footer={
+          <Button variant="outline" onClick={() => setPreviewPost(null)}>
+            Cerrar
+          </Button>
+        }
+      >
+        {previewPost && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {previewPost.fechaProgramada && (
+                <Badge>
+                  <Clock className="h-3.5 w-3.5" />
+                  {formatDateTime(toDate(previewPost.fechaProgramada))}
+                </Badge>
+              )}
+              <Badge variant={previewPost.estado === 'publicado' ? 'success' : 'default'} className="capitalize">{previewPost.estado}</Badge>
+              {previewPost.redesDestino.map((net) => (
+                <Badge key={net} variant="purple">
+                  {net}
+                </Badge>
+              ))}
+            </div>
+            <SocialPostPreview
+              network={previewPost.redesDestino[0] || RED_PRINCIPAL}
+              authorName={displayName}
+              authorInitials={initials}
+              content={previewPost.contenido}
+              imageUrl={previewPost.imagenUrl}
+              charLimit={3000}
+            />
+          </div>
+        )}
+      </Modal>
+    </ScreenLayout>
   );
 };
 
@@ -3130,7 +3172,9 @@ type AgentChatMessage = {
 const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
   const { user } = useAuth();
   const invalidate = useInvalidateCampus();
-  const { data: stored = [], isLoading } = useChatMensajes();
+  const { data: storedData, isLoading } = useChatMensajes();
+  // Referencia estable: un [] nuevo en cada render dispararía el efecto de abajo en bucle.
+  const stored = useMemo(() => storedData ?? [], [storedData]);
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
   const [lastUserPrompt, setLastUserPrompt] = useState('');
   const [input, setInput] = useState('');
@@ -3228,208 +3272,182 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
     }
   };
 
+  const finChatRef = useRef<HTMLDivElement>(null);
+
+  // Desplazamiento suave hasta el último mensaje.
+  useEffect(() => {
+    finChatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages.length, sending]);
+
+  const sinConexion = backendOk === false || Boolean(error);
+
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="max-w-[1400px] w-full mx-auto p-4 sm:p-6 lg:p-8 flex-1 flex flex-col min-h-0">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-6 shrink-0"
-        >
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0B1F4B] to-[#2BBDE8] dark:from-[#60a5fa] dark:to-[#22d3ee] bg-clip-text text-transparent mb-1">
-            Asistente IA
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Apartado del agente Conect.ia: ideas, edición y copy para LinkedIn (Gemini)
-          </p>
-        </motion.div>
-
-        <div className="grid lg:grid-cols-[1fr_300px] gap-6 flex-1 min-h-0">
-          {/* Chat Area */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="flex flex-col bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden"
+    <ScreenLayout>
+      <PageHeader
+        title="Asistente IA"
+        subtitle="Ideas, edición y copy para tus redes, con Gemini"
+        actions={
+          <span
+            className={`inline-flex h-8 items-center gap-2 rounded-full border px-3 text-xs font-medium ${
+              sinConexion ? 'border-destructive/25 bg-destructive-soft text-destructive' : 'border-brand/20 bg-brand-soft text-brand-strong'
+            }`}
           >
-            {/* Banner */}
-            <div className="px-5 py-3 bg-white/40 dark:bg-accent/20 border-b border-white/40 dark:border-border/50 flex items-center justify-between shrink-0 backdrop-blur-md">
-              <div className="flex items-center gap-3">
-                <div className="relative flex h-3 w-3">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${backendOk === false || error ? 'bg-red-400' : 'bg-[#06b6d4]'}`}></span>
-                  <span className={`relative inline-flex rounded-full h-3 w-3 ${backendOk === false || error ? 'bg-red-500' : 'bg-[#06b6d4]'}`}></span>
-                </div>
-                <span className="text-sm font-medium text-foreground">
-                  {backendOk === false || error
-                    ? `Sin conexión IA${aiHint ? ` · ${aiHint}` : ''}`
-                    : `Asistente de marketing`}
-                </span>
-              </div>
-              {backendOk && !error && <span className="text-xs font-semibold px-2 py-1 bg-[#06b6d4]/10 text-[#06b6d4] rounded-lg">{aiHint || 'IA Activa'}</span>}
-            </div>
+            <span className="relative flex h-2 w-2">
+              <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-70 ${sinConexion ? 'bg-destructive' : 'bg-brand-light'}`} />
+              <span className={`relative inline-flex h-2 w-2 rounded-full ${sinConexion ? 'bg-destructive' : 'bg-brand'}`} />
+            </span>
+            {sinConexion ? `Sin conexión IA${aiHint ? ` · ${aiHint}` : ''}` : aiHint || 'IA activa'}
+          </span>
+        }
+      />
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-6 scroll-smooth">
-              <AnimatePresence initial={false}>
-                {messages.map((msg, i) => (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.3 }}
-                    key={i}
-                    className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
-                  >
-                    <div className="flex items-end gap-2 max-w-[85%]">
-                      {msg.role === 'bot' && (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1e3a8a] to-[#06b6d4] flex items-center justify-center shrink-0 shadow-sm text-white mb-1">
-                          <Sparkles className="w-4 h-4" />
-                        </div>
-                      )}
-                      <div className={`px-5 py-3.5 rounded-2xl whitespace-pre-wrap shadow-sm ${
-                        msg.role === 'user' 
-                          ? 'bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4] text-white ml-auto rounded-br-sm' 
-                          : 'bg-white dark:bg-accent border border-white/50 dark:border-border/50 text-foreground rounded-bl-sm'
-                      }`}>
-                        {msg.role === 'bot' ? (
-                          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-a:text-[#06b6d4]">
-                            <ChatMessageBody text={msg.text} />
-                          </div>
-                        ) : (
-                          <p className="text-sm leading-relaxed">{msg.text}</p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Action buttons from bot */}
-                    {msg.role === 'bot' && (msg.accionSugerida === 'generar_publicacion' || msg.accionSugerida === 'ver_calendario') && (
-                      <div className="ml-10 flex gap-2 mt-1">
-                        {msg.accionSugerida === 'generar_publicacion' && (
-                          <Button
-                            variant="liquid"
-                            size="sm"
-                            icon={<PenSquare className="w-4 h-4" />}
-                            onClick={() =>
-                              irAGenerarPublicacion(
-                                msg.temaSugerido || lastUserPrompt,
-                                msg.tonoSugerido || 'profesional'
-                              )
-                            }
-                          >
-                            Generar publicación
-                          </Button>
-                        )}
-                        {msg.accionSugerida === 'ver_calendario' && (
-                          <Button variant="outline" size="sm" icon={<Calendar className="w-4 h-4" />} onClick={() => onNavigate('calendar')}>
-                            Ver calendario
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              {sending && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-end gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1e3a8a] to-[#06b6d4] flex items-center justify-center shrink-0 shadow-sm text-white mb-1">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div className="px-5 py-4 bg-white dark:bg-accent border border-white/50 dark:border-border/50 rounded-2xl rounded-bl-sm flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#06b6d4] animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 rounded-full bg-[#06b6d4] animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 rounded-full bg-[#06b6d4] animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </motion.div>
-              )}
-            </div>
-
-            {/* Input */}
-            <div className="p-4 bg-white/40 dark:bg-accent/20 border-t border-white/40 dark:border-border/50 shrink-0 backdrop-blur-md">
-              <div className="flex items-end gap-3 relative">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder="Pide ideas, optimiza copy, o genera contenido..."
-                  className="flex-1 bg-white/70 dark:bg-input-background border border-white/60 dark:border-input rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/50 hover:bg-white transition-all shadow-inner resize-none min-h-[52px] max-h-[120px]"
-                  rows={1}
-                />
-                <button 
-                  onClick={handleSend}
-                  disabled={!input.trim() || sending}
-                  className="w-[52px] h-[52px] rounded-2xl bg-gradient-to-br from-[#1e3a8a] to-[#06b6d4] text-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed shadow-md shadow-[#06b6d4]/20 shrink-0"
-                >
-                  <Send className="w-5 h-5 ml-1" />
-                </button>
-              </div>
-              <div className="text-center mt-2">
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Conect.ia AI • Gemini Powered</span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Quick Actions Sidebar */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col shrink-0 overflow-y-auto"
-          >
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <Zap className="w-5 h-5 text-[#06b6d4]" />
-              Acciones rápidas
-            </h3>
-            
-            <Button
-              variant="liquid"
-              className="w-full mb-4 shadow-md shadow-[#06b6d4]/20"
-              icon={<Sparkles className="w-4 h-4" />}
-              onClick={() => irAGenerarPublicacion(lastUserPrompt || input || 'Publicación Conect.ia')}
-            >
-              Generar publicación
-            </Button>
-            <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
-              Abre Nueva publicación con el tema del chat y genera el borrador con IA automáticamente.
-            </p>
-            
-            <div className="space-y-2.5">
-              {quickActions.map((action, i) => (
-                <button
+      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+        {/* Chat */}
+        <section className="surface flex min-h-[420px] animate-enter flex-col overflow-hidden lg:min-h-0">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+            <AnimatePresence initial={false}>
+              {messages.map((msg, i) => (
+                <motion.div
                   key={i}
-                  onClick={() => setInput(action)}
-                  className="w-full text-left px-4 py-3 bg-white/50 dark:bg-accent/40 hover:bg-white dark:hover:bg-accent border border-white/60 dark:border-border/50 rounded-xl text-sm transition-all duration-200 hover:shadow-sm hover:border-[#06b6d4]/30 group flex items-center justify-between"
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+                  className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
                 >
-                  <span className="text-foreground font-medium">{action}</span>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-[#06b6d4] transition-colors" />
-                </button>
-              ))}
-            </div>
+                  <div className="flex max-w-[85%] items-end gap-2.5">
+                    {msg.role === 'bot' && (
+                      <span className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+                        <Sparkles className="h-4 w-4" />
+                      </span>
+                    )}
+                    <div
+                      className={`whitespace-pre-wrap rounded-2xl px-4 py-3 ${
+                        msg.role === 'user'
+                          ? 'rounded-br-md bg-brand text-white'
+                          : 'rounded-bl-md border border-border bg-accent text-foreground'
+                      }`}
+                    >
+                      {msg.role === 'bot' ? (
+                        <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-a:text-brand-strong">
+                          <ChatMessageBody text={msg.text} />
+                        </div>
+                      ) : (
+                        <p className="text-sm leading-relaxed">{msg.text}</p>
+                      )}
+                    </div>
+                  </div>
 
-            <div className="mt-8 pt-6 border-t border-white/40 dark:border-border/50">
-              <h4 className="text-sm font-bold mb-3 uppercase tracking-wider text-muted-foreground">Sugerencias</h4>
-              <ul className="space-y-3">
-                {[
-                  'Pide ideas de contenido específicas',
-                  'Solicita optimización de copy',
-                  'Genera hashtags relevantes',
-                  'Analiza borradores guardados'
-                ].map((sug, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground font-medium">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#06b6d4] mt-1 shrink-0" />
+                  {msg.role === 'bot' && (msg.accionSugerida === 'generar_publicacion' || msg.accionSugerida === 'ver_calendario') && (
+                    <div className="ml-11 flex gap-2">
+                      {msg.accionSugerida === 'generar_publicacion' && (
+                        <Button
+                          variant="liquid"
+                          size="sm"
+                          icon={<PenSquare />}
+                          onClick={() => irAGenerarPublicacion(msg.temaSugerido || lastUserPrompt, msg.tonoSugerido || 'profesional')}
+                        >
+                          Generar publicación
+                        </Button>
+                      )}
+                      {msg.accionSugerida === 'ver_calendario' && (
+                        <Button variant="outline" size="sm" icon={<Calendar />} onClick={() => onNavigate('calendar')}>
+                          Ver calendario
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {sending && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-end gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-border bg-accent px-4 py-3.5">
+                  {[0, 150, 300].map((d) => (
+                    <span key={d} className="h-2 w-2 animate-bounce rounded-full bg-brand" style={{ animationDelay: `${d}ms` }} />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+            <div ref={finChatRef} />
+          </div>
+
+          <div className="shrink-0 border-t border-border p-4">
+            <div className="flex items-end gap-2.5">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                aria-label="Mensaje para el asistente"
+                placeholder="Pide ideas, optimiza copy o genera contenido…"
+                className="field max-h-[120px] min-h-11 resize-none py-2.5"
+                rows={1}
+              />
+              <button
+                type="button"
+                aria-label="Enviar mensaje"
+                onClick={handleSend}
+                disabled={!input.trim() || sending}
+                className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-brand text-white transition-all hover:bg-brand-deep hover:shadow-[var(--glow)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-2 text-center text-xs text-muted-foreground">Enter para enviar · Shift + Enter para nueva línea</p>
+          </div>
+        </section>
+
+        {/* Acciones rápidas */}
+        <Panel title="Acciones rápidas" icon={<Zap />} delay={80}>
+          <Button
+            variant="liquid"
+            className="w-full"
+            icon={<Sparkles />}
+            onClick={() => irAGenerarPublicacion(lastUserPrompt || input || 'Publicación Conect.ia')}
+          >
+            Generar publicación
+          </Button>
+          <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+            Abre Nueva publicación con el tema del chat y genera el borrador automáticamente.
+          </p>
+
+          <div className="mt-5 space-y-2">
+            {quickActions.map((action, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setInput(action)}
+                className="press group flex w-full items-center justify-between gap-3 rounded-[10px] border border-border px-3.5 py-2.5 text-left text-sm transition-all duration-200 hover:border-brand/40 hover:bg-brand-soft"
+              >
+                <span className="text-foreground">{action}</span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand-strong" />
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 border-t border-border pt-5">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Sugerencias</p>
+            <ul className="space-y-2.5">
+              {['Pide ideas de contenido específicas', 'Solicita optimización de copy', 'Genera hashtags relevantes', 'Analiza borradores guardados'].map(
+                (sug) => (
+                  <li key={sug} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
                     {sug}
                   </li>
-                ))}
-              </ul>
-            </div>
-          </motion.div>
-        </div>
+                )
+              )}
+            </ul>
+          </div>
+        </Panel>
       </div>
-    </div>
+    </ScreenLayout>
   );
 };
 
@@ -3499,7 +3517,7 @@ const ChannelsScreen: React.FC = () => {
     invalidate();
   };
 
-  const renderCanalCard = (red: (typeof CATALOGO_REDES)[number]) => {
+  const renderCanalCard = (red: (typeof CATALOGO_REDES)[number], indice: number) => {
     const config = redConfig(red.id);
     if (!config) return null;
     const canal = canales?.[red.id];
@@ -3507,53 +3525,50 @@ const ChannelsScreen: React.FC = () => {
     const cuenta = canal?.cuentaNombre;
 
     return (
-      <Card key={red.id} className={conectado ? 'border-emerald-200 dark:border-emerald-900' : ''}>
-        <div className="flex items-start gap-4">
-          <div
-            className="w-14 h-14 bg-white dark:bg-card rounded-xl flex items-center justify-center shadow-sm shrink-0"
-            style={{ border: `1px solid ${config.color}22` }}
+      <div
+        key={red.id}
+        className={`surface hover-lift flex animate-enter flex-col gap-4 p-5 ${conectado ? 'border-success/35' : ''}`}
+        style={{ animationDelay: `${Math.min(indice, 8) * 45}ms` }}
+      >
+        <div className="flex items-start gap-3.5">
+          <span
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-card"
+            style={{ borderColor: `${config.color}33` }}
           >
-            {redIcono(red.id, 'w-7 h-7')}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold text-lg flex items-center gap-2">
-              {config.nombre}
-              {conectado && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+            {redIcono(red.id, 'w-5 h-5')}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="truncate text-sm font-semibold text-foreground">{config.nombre}</h3>
+              {config.tipo === 'proximamente' ? (
+                <Badge>Próximamente</Badge>
+              ) : conectado ? (
+                <Badge variant="success">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Conectado
+                </Badge>
+              ) : (
+                <Badge>Sin conectar</Badge>
+              )}
             </div>
-            {config.tipo === 'proximamente' ? (
-              <span className="inline-block mt-1 text-[11px] font-medium px-2 py-0.5 rounded-lg bg-accent text-muted-foreground">
-                Próximamente
-              </span>
-            ) : conectado ? (
-              <p className="text-sm text-muted-foreground mt-1">
-                {config.tipo === 'manual' ? (
-                  'Canal manual activo'
-                ) : (
-                  <>
-                    Conectado:{' '}
-                    <span className="font-medium text-foreground">{cuenta ?? 'Cuenta'}</span>
-                  </>
-                )}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground mt-1">Sin conectar</p>
-            )}
-            <p className="text-xs text-muted-foreground mt-2">{config.descripcion}</p>
+            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              {conectado
+                ? config.tipo === 'manual'
+                  ? 'Canal manual activo.'
+                  : `Cuenta: ${cuenta ?? 'conectada'}`
+                : config.descripcion}
+            </p>
           </div>
         </div>
-        <div className="mt-6 pt-4 border-t border-border flex flex-wrap gap-2">
+        <div className="mt-auto flex flex-wrap gap-2">
           {config.tipo === 'proximamente' ? (
-            <Button variant="ghost" size="sm" disabled>
-              Se habilita con la conexión real
+            <Button variant="secondary" size="sm" disabled>
+              Disponible pronto
             </Button>
           ) : config.tipo === 'manual' ? (
             fiverrActivo ? (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => void toggleCanal(red.id, false)}
-              >
-                Desactivar canal manual
+              <Button variant="destructive" size="sm" onClick={() => void toggleCanal(red.id, false)}>
+                Desactivar
               </Button>
             ) : (
               <Button variant="primary" size="sm" onClick={() => void toggleCanal(red.id, true)}>
@@ -3562,14 +3577,10 @@ const ChannelsScreen: React.FC = () => {
             )
           ) : conectado ? (
             <>
-              <Button variant="ghost" size="sm" onClick={() => setConnectModalRed(red.id)}>
+              <Button variant="outline" size="sm" onClick={() => setConnectModalRed(red.id)}>
                 Reconfigurar
               </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => void toggleCanal(red.id, false)}
-              >
+              <Button variant="destructive" size="sm" onClick={() => void toggleCanal(red.id, false)}>
                 Desconectar
               </Button>
             </>
@@ -3579,54 +3590,51 @@ const ChannelsScreen: React.FC = () => {
             </Button>
           )}
         </div>
-      </Card>
+      </div>
     );
   };
 
+  const indicadores = [
+    { label: 'Canales OAuth conectados', value: `${conectadas}/${totalOauth}`, icon: <Share2 />, tone: 'brand' as const },
+    { label: 'Publicaciones publicadas', value: String(stats.publicados), icon: <CheckCircle2 />, tone: 'success' as const },
+    { label: 'Publicaciones programadas', value: String(stats.programados), icon: <CalendarClock />, tone: 'warning' as const },
+  ];
+
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Canales conectados</h1>
-        <p className="text-muted-foreground">
-          Conecta tus redes con OAuth oficial. Las publicaciones usan las APIs reales de cada
-          plataforma y puedes elegir las redes al crear cada publicación.
-        </p>
+    <ScreenLayout>
+      <PageHeader
+        title="Canales"
+        subtitle="Conecta tus redes con OAuth oficial y elige dónde publicar en cada publicación"
+      />
+
+      <div className="grid shrink-0 gap-4 sm:grid-cols-3">
+        {indicadores.map((m, i) => (
+          <div key={m.label} className="surface flex animate-enter items-center gap-3.5 px-5 py-4" style={{ animationDelay: `${i * 50}ms` }}>
+            <IconTile tone={m.tone}>{m.icon}</IconTile>
+            <div className="min-w-0">
+              <p className="text-lg font-semibold tabular-nums leading-tight text-foreground">{m.value}</p>
+              <p className="truncate text-xs text-muted-foreground">{m.label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {oauthNotice && (
-        <div className="mb-4 p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-sm text-emerald-900">
+        <Notice tone={/correctamente/.test(oauthNotice) ? 'success' : 'danger'} className="shrink-0">
           {oauthNotice}
-        </div>
+        </Notice>
       )}
 
-      {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-40 w-full rounded-3xl" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid md:grid-cols-2 gap-4 mb-8">
-          {CATALOGO_REDES.map(renderCanalCard)}
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="mt-4 grid md:grid-cols-3 gap-4">
-        <Card className="text-center">
-          <div className="text-3xl font-bold bg-gradient-to-r from-[#667eea] to-[#764ba2] bg-clip-text text-transparent">
-            {conectadas}/{totalOauth}
+      <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
+        {isLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-36 w-full rounded-2xl" />
+            ))}
           </div>
-          <p className="text-sm text-muted-foreground mt-1">Canales OAuth conectados</p>
-        </Card>
-        <Card className="text-center">
-          <div className="text-3xl font-bold text-emerald-600">{stats.publicados}</div>
-          <p className="text-sm text-muted-foreground mt-1">Posts publicados</p>
-        </Card>
-        <Card className="text-center">
-          <div className="text-3xl font-bold text-purple-600">{stats.programados}</div>
-          <p className="text-sm text-muted-foreground mt-1">Posts programados</p>
-        </Card>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{CATALOGO_REDES.map(renderCanalCard)}</div>
+        )}
       </div>
 
       <ConnectChannelModal
@@ -3644,7 +3652,7 @@ const ChannelsScreen: React.FC = () => {
           invalidate();
         }}
       />
-    </div>
+    </ScreenLayout>
   );
 };
 
@@ -3671,278 +3679,227 @@ const SettingsScreen: React.FC = () => {
     }
   }, [config]);
 
+  const { mode, setTheme } = useTheme();
+
+  const guardar = async () => {
+    if (!user) return;
+    setSaving(true);
+    setSaveError('');
+    try {
+      if (notifications && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+      await guardarConfiguracion(user.uid, {
+        n8nWebhookUrl: automationWebhook.trim(),
+        makeWebhookUrl: automationWebhook.trim(),
+        notifications,
+        timezone,
+      });
+      invalidate();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'No se pudo guardar. Inténtalo de nuevo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const codigo = (t: string) => (
+    <code className="rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-xs text-foreground">{t}</code>
+  );
+
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-6 lg:p-8">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-8"
-        >
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0B1F4B] to-[#2BBDE8] dark:from-[#60a5fa] dark:to-[#22d3ee] bg-clip-text text-transparent mb-1">
-            Ajustes
-          </h1>
-          <p className="text-muted-foreground text-sm">Configura integraciones y preferencias de la plataforma</p>
-        </motion.div>
-
-        <div className="space-y-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
+    <ScreenLayout maxWidth="max-w-[1100px]">
+      <PageHeader
+        title="Ajustes"
+        subtitle="Integraciones y preferencias de la plataforma"
+        actions={
+          <Button
+            variant="liquid"
+            icon={saving ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+            disabled={saving || !user || isLoading}
+            onClick={() => void guardar()}
+            className="min-w-[160px]"
           >
-            <h3 className="font-semibold mb-3 flex items-center gap-2 text-foreground">
-              <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0">
-                <Sparkles className="w-4 h-4 text-purple-600" />
-              </div>
-              Secretos del servidor
-            </h3>
-            <p className="text-sm text-muted-foreground ml-10">
-              Gemini, Telegram y Postiz se configuran como variables de entorno en Vercel, no aquí.
-            </p>
-          </motion.div>
+            {saved ? '¡Guardado!' : 'Guardar cambios'}
+          </Button>
+        }
+      />
 
-          {/* n8n / Make Webhook */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-          >
-            <h3 className="font-semibold mb-5 flex items-center gap-2 text-foreground">
-              <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                <Network className="w-4 h-4 text-emerald-600" />
-              </div>
-              Automatización Make / n8n
-            </h3>
-            <div className="space-y-4 ml-10">
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Network className="h-5 w-5 text-muted-foreground group-focus-within:text-[#06b6d4] transition-colors" />
+      {saveError && <Notice tone="danger" className="shrink-0">{saveError}</Notice>}
+
+      <div className="grid min-h-0 flex-1 content-start gap-5 lg:grid-cols-2">
+        <Panel title="Automatización Make / n8n" icon={<Network />} className="lg:h-full">
+          <div className="space-y-4">
+            <Input
+              label="URL del webhook"
+              icon={<Network />}
+              value={automationWebhook}
+              onChange={(e) => setAutomationWebhook(e.target.value)}
+              placeholder="https://hook.us2.make.com/xxxxxxxx"
+            />
+            <div className="surface-muted space-y-2.5 p-4 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                El secreto va en las variables de entorno de Vercel: {codigo('MAKE_WEBHOOK_SECRET')} (API key del Custom webhook en
+                Make). Se envía en las cabeceras {codigo('x-make-apikey')} y {codigo('X-Campus-Secret')}.
+              </p>
+              <p>
+                Guía: {codigo('Flujo_Automatizacion/POSTMAN_MAKE.md')} · n8n local: {codigo('docker compose up -d')}
+              </p>
+            </div>
+          </div>
+        </Panel>
+
+        <div className="flex min-h-0 flex-col gap-5">
+          <Panel title="Preferencias" icon={<Settings />} scroll={false} delay={60}>
+            <div className="space-y-5">
+              <Dropdown label="Zona horaria" icon={<Globe />} value={timezone} onChange={setTimezone} options={ZONAS_HORARIAS} />
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Tema</p>
+                  <p className="text-xs text-muted-foreground">Se aplica con un fundido suave</p>
                 </div>
-                <input
-                  type="text"
-                  value={automationWebhook}
-                  onChange={(e) => setAutomationWebhook(e.target.value)}
-                  placeholder="https://hook.us2.make.com/xxxxxxxx"
-                  className="w-full pl-11 pr-4 py-3 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/50 hover:bg-white/70 transition-all shadow-inner"
+                <Segmented
+                  value={mode}
+                  onChange={(v) => setTheme(v as 'light' | 'dark')}
+                  options={[
+                    { value: 'light', label: <><Sun className="h-3.5 w-3.5" />Claro</> },
+                    { value: 'dark', label: <><Moon className="h-3.5 w-3.5" />Oscuro</> },
+                  ]}
                 />
               </div>
-              <div className="p-4 bg-accent/40 rounded-2xl border border-border/50 text-xs text-muted-foreground space-y-2">
-                <p>
-                  Secreto en <code className="bg-background px-1.5 py-0.5 rounded text-[11px] font-mono border border-border">variables de entorno de Vercel</code>:{' '}
-                  <code className="bg-background px-1.5 py-0.5 rounded text-[11px] font-mono border border-border">MAKE_WEBHOOK_SECRET</code> = API key del Custom webhook en Make
-                  (no el token de API access). Headers: <code className="bg-background px-1.5 py-0.5 rounded text-[11px] font-mono border border-border">x-make-apikey</code> y{' '}
-                  <code className="bg-background px-1.5 py-0.5 rounded text-[11px] font-mono border border-border">X-Campus-Secret</code>. Guía:{' '}
-                  <code className="bg-background px-1.5 py-0.5 rounded text-[11px] font-mono border border-border">Flujo_Automatizacion/POSTMAN_MAKE.md</code>
-                </p>
-                <p>
-                  n8n local: <code className="bg-background px-1.5 py-0.5 rounded text-[11px] font-mono border border-border">cd Flujo_Automatizacion &amp;&amp; docker compose up -d</code>
-                </p>
+              <div className="border-t border-border pt-5">
+                <Toggle
+                  label="Notificaciones"
+                  description="Recibir alertas en el navegador"
+                  checked={notifications}
+                  onChange={setNotifications}
+                />
               </div>
             </div>
-          </motion.div>
+          </Panel>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
-            className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
-          >
-            <h3 className="font-semibold mb-5 flex items-center gap-2 text-foreground">
-              <div className="w-8 h-8 rounded-full bg-slate-500/10 flex items-center justify-center shrink-0">
-                <Settings className="w-4 h-4 text-slate-600" />
-              </div>
-              Preferencias
-            </h3>
-            <div className="space-y-6 ml-10">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Zona horaria</label>
-                <select
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/50 dark:bg-input-background border border-white/40 dark:border-input rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/50 hover:bg-white/70 transition-all shadow-inner cursor-pointer"
-                >
-                  <option value="America/Bogota">Colombia (Bogotá)</option>
-                  <option value="America/Mexico_City">México</option>
-                  <option value="UTC">UTC</option>
-                </select>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-accent/40 rounded-2xl border border-white/40 dark:border-border/50">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Notificaciones</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Recibir alertas en el navegador</p>
-                </div>
-                <Toggle checked={notifications} onChange={setNotifications} />
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.4 }}
-            className="flex flex-col items-end gap-3 pt-4"
-          >
-            <AnimatePresence>
-              {saveError && (
-                <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-sm text-red-500 bg-red-50 px-4 py-2 rounded-xl">
-                  {saveError}
-                </motion.p>
-              )}
-            </AnimatePresence>
-            <Button
-              variant="liquid"
-              icon={saving ? <Loader2 className="animate-spin w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-              disabled={saving || !user || isLoading}
-              onClick={async () => {
-                if (!user) return;
-                setSaving(true);
-                setSaveError('');
-                try {
-                  if (notifications && typeof Notification !== 'undefined') {
-                    if (Notification.permission === 'default') {
-                      await Notification.requestPermission();
-                    }
-                  }
-                  await guardarConfiguracion(user.uid, {
-                    n8nWebhookUrl: automationWebhook.trim(),
-                    makeWebhookUrl: automationWebhook.trim(),
-                    notifications,
-                    timezone,
-                  });
-                  invalidate();
-                  setSaved(true);
-                  setTimeout(() => setSaved(false), 2000);
-                } catch (e) {
-                  setSaveError(e instanceof Error ? e.message : 'No se pudo guardar. ¿Emulador activo?');
-                } finally {
-                  setSaving(false);
-                }
-              }}
-              className="min-w-[160px] shadow-md shadow-[#06b6d4]/20"
-            >
-              {saved ? '¡Guardado!' : 'Guardar cambios'}
-            </Button>
-          </motion.div>
+          <Panel title="Secretos del servidor" icon={<Sparkles />} scroll={false} delay={120}>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Las claves de Gemini, de las redes sociales y de los webhooks se configuran como variables de entorno en Vercel.
+              Nunca se guardan en el navegador.
+            </p>
+          </Panel>
         </div>
       </div>
-    </div>
+    </ScreenLayout>
   );
 };
 
-const DashboardHome: React.FC = () => {
+const DashboardHome: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
+  const { profile } = useAuth();
   const { stats, isLoading } = useDashboardStats();
   const { data: actividad = [], isLoading: loadingAct } = useActividad();
+  const primerNombre = (profile?.nombre || '').split(' ')[0];
 
   const statCards = [
-    { label: 'Posts publicados', value: stats.publicados, icon: <BarChart3 className="w-6 h-6" />, color: 'from-[#1e3a8a]/10 to-[#06b6d4]/10', iconColor: 'text-[#1e3a8a]' },
-    { label: 'Programados', value: stats.programados, icon: <Calendar className="w-6 h-6" />, color: 'from-emerald-50 to-teal-50', iconColor: 'text-emerald-600' },
-    { label: 'Borradores', value: stats.borradores, icon: <FileText className="w-6 h-6" />, color: 'from-amber-50 to-orange-50', iconColor: 'text-amber-600' },
+    { label: 'Publicadas', value: stats.publicados, icon: <BarChart3 />, tone: 'brand' as const },
+    { label: 'Programadas', value: stats.programados, icon: <Calendar />, tone: 'success' as const },
+    { label: 'Borradores', value: stats.borradores, icon: <FileText />, tone: 'warning' as const },
   ];
 
-  return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-[#0B1F4B] to-[#2BBDE8] dark:from-[#60a5fa] dark:to-[#22d3ee] bg-clip-text text-transparent">Panel principal</h1>
-        <p className="text-sm text-muted-foreground mt-1">Resumen de tu actividad en Conect.ia</p>
-      </motion.div>
+  const accesos = [
+    { id: 'new-post', icon: <Sparkles />, label: 'Nueva publicación', desc: 'Genera contenido con IA' },
+    { id: 'manual-post', icon: <Upload />, label: 'Subir publicación', desc: 'Escribe y programa sin IA' },
+    { id: 'calendar', icon: <Calendar />, label: 'Calendario', desc: 'Revisa lo programado' },
+    { id: 'agent', icon: <MessageSquare />, label: 'Asistente IA', desc: 'Ideas y copy al instante' },
+  ];
 
-      {/* Stat Cards */}
-      <div className="grid md:grid-cols-3 gap-4">
+  const tonoActividad = (tipo: string) =>
+    tipo === 'publicado' ? 'success' : tipo === 'borrador' ? 'warning' : tipo === 'error' ? 'danger' : 'brand';
+
+  return (
+    <ScreenLayout>
+      <PageHeader
+        title={primerNombre ? `Hola, ${primerNombre}` : 'Panel principal'}
+        subtitle="Resumen de tu actividad en Conect.ia"
+        actions={
+          <Button variant="liquid" icon={<Plus />} onClick={() => onNavigate('new-post')}>
+            Nueva publicación
+          </Button>
+        }
+      />
+
+      <div className="grid shrink-0 gap-4 sm:grid-cols-3">
         {statCards.map((card, i) => (
-          <motion.div
+          <div
             key={card.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 * (i + 1) }}
+            className="surface hover-lift group flex animate-enter items-center justify-between gap-4 p-5"
+            style={{ animationDelay: `${i * 60}ms` }}
           >
-            <div className="group relative bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-2xl hover:shadow-[#06b6d4]/8 hover:-translate-y-1 transition-all duration-300 cursor-default">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{card.label}</p>
-                  <motion.p
-                    className="text-3xl font-bold mt-2"
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.5, delay: 0.2 * (i + 1), type: 'spring', stiffness: 200 }}
-                  >
-                    {isLoading ? '…' : card.value}
-                  </motion.p>
-                </div>
-                <div className={`w-14 h-14 bg-gradient-to-br ${card.color} rounded-2xl flex items-center justify-center ${card.iconColor} group-hover:scale-110 transition-transform duration-300`}>
-                  {card.icon}
-                </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{card.label}</p>
+              <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+                {isLoading ? <Skeleton className="mt-1 h-7 w-10" /> : <CountUp value={card.value} />}
               </div>
             </div>
-          </motion.div>
+            <IconTile tone={card.tone} className="!h-11 !w-11 transition-transform duration-300 group-hover:scale-110">
+              {card.icon}
+            </IconTile>
+          </div>
         ))}
       </div>
 
-      {/* Activity Feed */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.4 }}
-      >
-        <div className="bg-white/60 dark:bg-card backdrop-blur-xl border border-white/40 dark:border-border rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <h3 className="font-semibold mb-5 flex items-center gap-2">
-            <Zap className="w-5 h-5 text-[#06b6d4]" />
-            Actividad reciente
-          </h3>
-          {loadingAct && (
-            <div className="flex items-center gap-3 py-8 justify-center">
-              <Loader2 className="w-5 h-5 animate-spin text-[#06b6d4]" />
-              <p className="text-sm text-muted-foreground">Cargando…</p>
+      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <Panel title="Actividad reciente" icon={<Activity />} delay={120}>
+          {loadingAct ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 rounded-[10px]" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3.5 w-2/3" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              ))}
             </div>
+          ) : actividad.length === 0 ? (
+            <EmptyState icon={<Sparkles />} title="Sin actividad aún" text="Crea tu primera publicación y verás aquí su historial." />
+          ) : (
+            <ul className="stagger -mx-2 space-y-0.5">
+              {actividad.map((a) => (
+                <li key={a.id} className="flex items-center gap-3 rounded-[10px] px-2 py-2.5 transition-colors duration-150 hover:bg-accent">
+                  <IconTile tone={tonoActividad(a.tipo)}>
+                    {a.tipo === 'programado' ? <Calendar /> : a.tipo === 'borrador' ? <FileText /> : a.tipo === 'error' ? <X /> : <CheckCircle2 />}
+                  </IconTile>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{a.mensaje}</p>
+                    <p className="text-xs text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
-          {!loadingAct && actividad.length === 0 && (
-            <div className="text-center py-10">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 rounded-2xl flex items-center justify-center">
-                <Sparkles className="w-8 h-8 text-[#06b6d4]" />
-              </div>
-              <p className="text-sm text-muted-foreground">Sin actividad aún. ¡Crea tu primera publicación!</p>
-            </div>
-          )}
+        </Panel>
+
+        <Panel title="Accesos rápidos" icon={<Zap />} delay={180}>
           <div className="space-y-2">
-            {actividad.map((a, idx) => (
-              <motion.div
+            {accesos.map((a) => (
+              <button
                 key={a.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.05 * idx }}
-                className="flex items-center gap-3 p-3 rounded-2xl hover:bg-accent/40 transition-colors duration-200"
+                type="button"
+                onClick={() => onNavigate(a.id)}
+                className="press group flex w-full items-center gap-3 rounded-xl border border-border p-3 text-left transition-all duration-200 hover:border-brand/40 hover:bg-brand-soft"
               >
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                  a.tipo === 'publicado' ? 'bg-emerald-100 text-emerald-600' :
-                  a.tipo === 'programado' ? 'bg-[#1e3a8a]/10 text-[#1e3a8a]' :
-                  a.tipo === 'borrador' ? 'bg-amber-100 text-amber-600' :
-                  a.tipo === 'error' ? 'bg-red-100 text-red-600' :
-                  'bg-[#06b6d4]/10 text-[#06b6d4]'
-                }`}>
-                  {a.tipo === 'publicado' && <CheckCircle2 className="w-4 h-4" />}
-                  {a.tipo === 'programado' && <Calendar className="w-4 h-4" />}
-                  {a.tipo === 'borrador' && <FileText className="w-4 h-4" />}
-                  {a.tipo === 'sistema' && <CheckCircle2 className="w-4 h-4" />}
-                  {a.tipo === 'error' && <X className="w-4 h-4" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{a.mensaje}</p>
-                  <p className="text-xs text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
-                </div>
-              </motion.div>
+                <IconTile>{a.icon}</IconTile>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-foreground">{a.label}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{a.desc}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand-strong" />
+              </button>
             ))}
           </div>
-        </div>
-      </motion.div>
-    </div>
+        </Panel>
+      </div>
+    </ScreenLayout>
   );
 };
 
@@ -3974,161 +3931,91 @@ export default function App({ productionMode = false }: { productionMode?: boole
     }
   }, [productionMode]);
 
-  // Simulate responsive views
-  const viewports = [
-    { name: 'Desktop', width: 1440 },
-    { name: 'Tablet', width: 768 }
-  ];
+  const pantallaActiva = currentScreen === 'login' ? 'dashboard' : currentScreen;
 
-  const renderScreen = () => {
-    const onLogout = () => setCurrentScreen(productionMode ? 'login' : 'landing');
-
-    switch (currentScreen) {
-      case 'landing':
-        return <LandingPage onNavigate={setCurrentScreen} />;
-      
-      case 'login':
-      case 'dashboard':
-        return (
-          <DashboardShell activeScreen="dashboard" onNavigate={setCurrentScreen} onLogout={() => logout()}>
-            <DashboardHome />
-          </DashboardShell>
-        );
-      
+  const contenido = () => {
+    switch (pantallaActiva) {
       case 'new-post':
-        return (
-          <DashboardShell activeScreen="new-post" onNavigate={setCurrentScreen} onLogout={() => logout()}>
-            <NewPostScreen />
-          </DashboardShell>
-        );
-
+        return <NewPostScreen />;
       case 'manual-post':
-        return (
-          <DashboardShell activeScreen="manual-post" onNavigate={setCurrentScreen} onLogout={() => logout()}>
-            <ManualPostScreen />
-          </DashboardShell>
-        );
-
+        return <ManualPostScreen />;
       case 'drafts':
-        return (
-          <DashboardShell activeScreen="drafts" onNavigate={setCurrentScreen} onLogout={() => logout()}>
-            <DraftsScreen onNavigate={setCurrentScreen} />
-          </DashboardShell>
-        );
-      
+        return <DraftsScreen onNavigate={setCurrentScreen} />;
       case 'calendar':
-        return (
-          <DashboardShell activeScreen="calendar" onNavigate={setCurrentScreen} onLogout={() => logout()}>
-            <CalendarScreen onNavigate={setCurrentScreen} />
-          </DashboardShell>
-        );
-      
+        return <CalendarScreen onNavigate={setCurrentScreen} />;
       case 'agent':
-        return (
-          <DashboardShell activeScreen="agent" onNavigate={setCurrentScreen} onLogout={() => logout()}>
-            <AgentScreen onNavigate={setCurrentScreen} />
-          </DashboardShell>
-        );
-      
+        return <AgentScreen onNavigate={setCurrentScreen} />;
       case 'channels':
-        return (
-          <DashboardShell activeScreen="channels" onNavigate={setCurrentScreen} onLogout={() => logout()}>
-            <ChannelsScreen />
-          </DashboardShell>
-        );
-      
+        return <ChannelsScreen />;
       case 'settings':
-        return (
-          <DashboardShell activeScreen="settings" onNavigate={setCurrentScreen} onLogout={() => logout()}>
-            <SettingsScreen />
-          </DashboardShell>
-        );
-      
+        return <SettingsScreen />;
+      case 'dashboard':
       default:
-        return <LandingPage onNavigate={setCurrentScreen} />;
+        return <DashboardHome onNavigate={setCurrentScreen} />;
     }
   };
 
+  const renderScreen = () =>
+    currentScreen === 'landing' ? (
+      <LandingPage onNavigate={setCurrentScreen} />
+    ) : (
+      // Un solo shell persistente: el menú anima su indicador y las pantallas hacen transición.
+      <DashboardShell activeScreen={pantallaActiva} onNavigate={setCurrentScreen} onLogout={() => logout()}>
+        {contenido()}
+      </DashboardShell>
+    );
+
   if (productionMode) {
-    return <div className="w-full min-h-screen bg-background overflow-auto">{renderScreen()}</div>;
+    return <div className="h-full w-full bg-background">{renderScreen()}</div>;
   }
 
+  // Modo diseño: vista de todas las pantallas en un marco de tamaño fijo.
   return (
-    <div className="w-full h-screen bg-muted/30 overflow-auto">
-      {/* Viewport Controls */}
-      <div className="sticky top-0 z-50 bg-card/95 backdrop-blur-sm border-b border-border">
-        <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <ConectiaLogo size="sm" textClassName="!text-foreground font-bold text-sm !bg-none" />
-            </div>
-            <Badge variant="purple">8 pantallas</Badge>
-          </div>
-          
+    <div className="h-full w-full overflow-auto bg-muted/50">
+      <div className="surface-glass sticky top-0 z-50 border-x-0 border-t-0">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4 px-6 py-3">
           <div className="flex items-center gap-3">
-            {/* Screen Selector */}
-            <select
+            <ConectiaLogo size="sm" />
+            <Badge variant="purple">Modo diseño</Badge>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Dropdown
+              size="sm"
+              className="w-60"
               value={currentScreen}
-              onChange={(e) => setCurrentScreen(e.target.value)}
-              className="px-3 py-1.5 bg-accent border border-border rounded-lg text-sm font-medium cursor-pointer"
-            >
-              <option value="landing">1. Landing</option>
-              <option value="dashboard">2. Dashboard</option>
-              <option value="new-post">3. Nueva publicación</option>
-              <option value="manual-post">3b. Subir publicación manual</option>
-              <option value="drafts">4. Borradores</option>
-              <option value="calendar">5. Calendario</option>
-              <option value="agent">6. Asistente IA</option>
-              <option value="channels">7. Canales</option>
-              <option value="settings">8. Ajustes</option>
-            </select>
-
-            {/* Viewport Selector */}
-            <div className="flex gap-2 px-2 py-1 bg-accent rounded-lg">
-              {viewports.map(vp => (
-                <button
-                  key={vp.width}
-                  onClick={() => setViewportWidth(vp.width)}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                    viewportWidth === vp.width
-                      ? 'bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {vp.name} ({vp.width}px)
-                </button>
-              ))}
-            </div>
+              onChange={setCurrentScreen}
+              options={[
+                { value: 'landing', label: 'Landing' },
+                { value: 'dashboard', label: 'Inicio' },
+                { value: 'new-post', label: 'Nueva publicación' },
+                { value: 'manual-post', label: 'Subir publicación' },
+                { value: 'drafts', label: 'Borradores' },
+                { value: 'calendar', label: 'Calendario' },
+                { value: 'agent', label: 'Asistente IA' },
+                { value: 'channels', label: 'Canales' },
+                { value: 'settings', label: 'Ajustes' },
+              ]}
+            />
+            <Segmented
+              value={String(viewportWidth)}
+              onChange={(v) => setViewportWidth(Number(v))}
+              options={[
+                { value: '1440', label: 'Escritorio' },
+                { value: '1024', label: 'Laptop' },
+                { value: '768', label: 'Tablet' },
+              ]}
+            />
           </div>
         </div>
       </div>
 
-      {/* Frame Container */}
-      <div className="flex items-start justify-center p-6 min-h-screen">
-        <div 
-          className="bg-background shadow-2xl rounded-2xl overflow-hidden border border-border transition-all duration-300"
-          style={{ 
-            width: `${viewportWidth}px`,
-            height: '900px'
-          }}
+      <div className="flex min-h-[calc(100%-4rem)] items-start justify-center p-6">
+        <div
+          className="overflow-auto rounded-2xl border border-border bg-background shadow-lg transition-[width] duration-300"
+          style={{ width: `${viewportWidth}px`, height: '860px' }}
         >
           {renderScreen()}
         </div>
-      </div>
-
-      {/* Component Library Footer */}
-      <div className="fixed bottom-6 right-6 bg-card border border-border rounded-xl shadow-lg p-4 max-w-xs">
-        <h4 className="text-sm font-semibold mb-2">Componentes incluidos</h4>
-        <div className="flex flex-wrap gap-1.5 text-xs">
-          {['Button', 'Input', 'Textarea', 'Select', 'Toggle', 'Checkbox', 'Badge', 'Card', 'Modal', 'Toast', 'Skeleton'].map(comp => (
-            <span key={comp} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-md">
-              {comp}
-            </span>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground mt-3">
-          Estados: hover, focus, disabled, loading
-        </p>
       </div>
     </div>
   );

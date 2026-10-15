@@ -130,7 +130,7 @@ export function SocialPostPreview({
         <div className="flex items-center justify-between px-3 py-2">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#f09433] via-[#e6683c] to-[#bc1888] p-[2px]">
-              <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-[10px] font-bold text-[#262626]">
+              <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-xs font-bold text-[#262626]">
                 {authorInitials}
               </div>
             </div>
@@ -151,7 +151,7 @@ export function SocialPostPreview({
           <span className="text-[#262626] whitespace-pre-wrap">{text}</span>
         </div>
         {charLimit != null && (
-          <p className="px-3 pb-2 text-[11px] text-[#8e8e8e] text-right">
+          <p className="px-3 pb-2 text-xs text-[#8e8e8e] text-right">
             {content.length} / {charLimit}
           </p>
         )}

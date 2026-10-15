@@ -126,7 +126,7 @@ export function LinkedInOAuthCallback() {
             </a>
             <p className="text-xs text-muted-foreground">
               Tras autorizar, la barra del navegador debe mostrar{' '}
-              <code className="text-[10px]">?code=…&amp;state=…</code>
+              <code className="text-xs">?code=…&amp;state=…</code>
             </p>
           </div>
         ) : null}

@@ -15,8 +15,8 @@ export function TermsPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#f8fafc] via-[#eff6ff] to-[#f0fdfa] dark:from-background dark:via-background dark:to-background/90 text-slate-800 dark:text-slate-200 relative overflow-hidden">
       {/* Background Orbs */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none fixed">
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-[#06b6d4]/10 to-[#1e3a8a]/10 blur-[120px] animate-pulse-slow" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[60%] rounded-full bg-gradient-to-br from-[#2BBDE8]/10 to-[#0B1F4B]/10 blur-[100px]" style={{ animation: 'pulse 8s infinite alternate' }} />
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-brand/10 to-brand-deep/10 blur-[120px] animate-pulse-slow" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[60%] rounded-full bg-gradient-to-br from-brand-light/10 to-brand-deep/10 blur-[100px]" style={{ animation: 'pulse 8s infinite alternate' }} />
       </div>
 
       <header className="border-b border-white/60 dark:border-border/50 bg-white/60 dark:bg-card/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
@@ -24,7 +24,7 @@ export function TermsPage() {
           <ConectiaLogo size="sm" textClassName="!text-foreground !bg-none" />
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-[#06b6d4] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-brand transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             Volver al inicio
@@ -34,8 +34,8 @@ export function TermsPage() {
 
       <main className="relative z-10 max-w-4xl mx-auto px-4 py-12">
         <div className="bg-white/70 dark:bg-card/80 backdrop-blur-2xl border border-white/80 dark:border-border/50 rounded-3xl p-8 sm:p-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:text-slate-900 dark:prose-headings:text-slate-100 prose-a:text-[#06b6d4] hover:prose-a:text-[#1e3a8a] transition-colors">
-            <h1 className="text-3xl md:text-4xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4]">Términos y Condiciones</h1>
+          <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:text-slate-900 dark:prose-headings:text-slate-100 prose-a:text-brand hover:prose-a:text-brand-deep transition-colors">
+            <h1 className="text-3xl md:text-4xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-brand-deep to-brand">Términos y Condiciones</h1>
             <p className="text-sm font-medium text-muted-foreground not-prose mb-10">Última actualización: {LAST_UPDATED}</p>
 
             <section className="space-y-4 text-[15px] leading-relaxed text-slate-600 dark:text-slate-300">
@@ -46,7 +46,7 @@ export function TermsPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">1</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">1</span>
                 Aceptación de los términos
               </h2>
               <p>
@@ -58,7 +58,7 @@ export function TermsPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">2</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">2</span>
                 Descripción del servicio
               </h2>
               <p>
@@ -72,10 +72,10 @@ export function TermsPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">3</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">3</span>
                 Cuenta y registro
               </h2>
-              <ul className="list-disc pl-6 space-y-2 marker:text-[#06b6d4]">
+              <ul className="list-disc pl-6 space-y-2 marker:text-brand">
                 <li>Debes proporcionar información veraz y mantener tus credenciales seguras.</li>
                 <li>Eres responsable de toda la actividad que ocurra con tu cuenta.</li>
                 <li>Debes tener al menos 18 años para usar el servicio.</li>
@@ -83,7 +83,7 @@ export function TermsPage() {
               </ul>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">4</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">4</span>
                 Conexión de redes sociales
               </h2>
               <p>
@@ -98,7 +98,7 @@ export function TermsPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">5</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">5</span>
                 Contenido generado con IA
               </h2>
               <p>
@@ -108,11 +108,11 @@ export function TermsPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">6</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">6</span>
                 Usos prohibidos
               </h2>
               <p>No puedes usar Conect.ia para:</p>
-              <ul className="list-disc pl-6 space-y-2 marker:text-[#06b6d4]">
+              <ul className="list-disc pl-6 space-y-2 marker:text-brand">
                 <li>Publicar contenido ilegal, fraudulento, difamatorio o que viole derechos de terceros.</li>
                 <li>Difundir spam, malware o contenido engañoso.</li>
                 <li>Publicar contenido que infrinja las políticas de las redes sociales conectadas.</li>
@@ -121,7 +121,7 @@ export function TermsPage() {
               </ul>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">7</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">7</span>
                 Responsabilidad sobre el contenido publicado
               </h2>
               <p>
@@ -131,7 +131,7 @@ export function TermsPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">8</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">8</span>
                 Propiedad intelectual
               </h2>
               <p>
@@ -141,7 +141,7 @@ export function TermsPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">9</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">9</span>
                 Limitación de responsabilidad
               </h2>
               <p>
@@ -152,7 +152,7 @@ export function TermsPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">10</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">10</span>
                 Terminación
               </h2>
               <p>
@@ -162,7 +162,7 @@ export function TermsPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">11</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">11</span>
                 Cambios a estos términos
               </h2>
               <p>

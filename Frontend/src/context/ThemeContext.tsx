@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -10,25 +11,59 @@ type ThemeState = {
 
 const ThemeCtx = createContext<ThemeState | null>(null);
 const STORAGE_KEY = 'conect-ia-theme';
+const DURACION_FUNDIDO_MS = 450;
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>(() => {
+function temaInicial(): ThemeMode {
+  try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === 'dark' || saved === 'light') return saved;
-    return 'light';
-  });
+  } catch {
+    // Sin acceso a localStorage: se usa la preferencia del sistema.
+  }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function aplicarTema(mode: ThemeMode) {
+  const root = document.documentElement;
+  root.setAttribute('data-theme', mode);
+  root.classList.toggle('dark', mode === 'dark');
+}
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [mode, setMode] = useState<ThemeMode>(temaInicial);
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute('data-theme', mode);
-    root.classList.toggle('dark', mode === 'dark');
-    localStorage.setItem(STORAGE_KEY, mode);
+    aplicarTema(mode);
+    try {
+      localStorage.setItem(STORAGE_KEY, mode);
+    } catch {
+      // Preferencia no persistida; el tema sigue funcionando en esta sesión.
+    }
   }, [mode]);
 
-  const toggleTheme = () => setMode((m) => (m === 'dark' ? 'light' : 'dark'));
+  /** Cambia el tema con un fundido: View Transitions si existe, transición de colores si no. */
+  const setTheme = useCallback((next: ThemeMode) => {
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+
+    if (!reduceMotion && typeof doc.startViewTransition === 'function') {
+      doc.startViewTransition(() => {
+        flushSync(() => setMode(next));
+        aplicarTema(next);
+      });
+      return;
+    }
+
+    const root = document.documentElement;
+    root.classList.add('theme-fading');
+    setMode(next);
+    window.setTimeout(() => root.classList.remove('theme-fading'), DURACION_FUNDIDO_MS);
+  }, []);
+
+  const toggleTheme = useCallback(() => setTheme(mode === 'dark' ? 'light' : 'dark'), [mode, setTheme]);
 
   return (
-    <ThemeCtx.Provider value={{ mode, toggleTheme, setTheme: setMode }}>
+    <ThemeCtx.Provider value={{ mode, toggleTheme, setTheme }}>
       {children}
     </ThemeCtx.Provider>
   );

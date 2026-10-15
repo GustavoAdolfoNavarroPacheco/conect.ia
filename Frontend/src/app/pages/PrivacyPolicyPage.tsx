@@ -15,8 +15,8 @@ export function PrivacyPolicyPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#f8fafc] via-[#eff6ff] to-[#f0fdfa] dark:from-background dark:via-background dark:to-background/90 text-slate-800 dark:text-slate-200 relative overflow-hidden">
       {/* Background Orbs */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none fixed">
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-[#06b6d4]/10 to-[#1e3a8a]/10 blur-[120px] animate-pulse-slow" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[60%] rounded-full bg-gradient-to-br from-[#2BBDE8]/10 to-[#0B1F4B]/10 blur-[100px]" style={{ animation: 'pulse 8s infinite alternate' }} />
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-brand/10 to-brand-deep/10 blur-[120px] animate-pulse-slow" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[60%] rounded-full bg-gradient-to-br from-brand-light/10 to-brand-deep/10 blur-[100px]" style={{ animation: 'pulse 8s infinite alternate' }} />
       </div>
 
       <header className="border-b border-white/60 dark:border-border/50 bg-white/60 dark:bg-card/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
@@ -24,7 +24,7 @@ export function PrivacyPolicyPage() {
           <ConectiaLogo size="sm" textClassName="!text-foreground !bg-none" />
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-[#06b6d4] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-brand transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             Volver al inicio
@@ -34,8 +34,8 @@ export function PrivacyPolicyPage() {
 
       <main className="relative z-10 max-w-4xl mx-auto px-4 py-12">
         <div className="bg-white/70 dark:bg-card/80 backdrop-blur-2xl border border-white/80 dark:border-border/50 rounded-3xl p-8 sm:p-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:text-slate-900 dark:prose-headings:text-slate-100 prose-a:text-[#06b6d4] hover:prose-a:text-[#1e3a8a] transition-colors">
-            <h1 className="text-3xl md:text-4xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4]">Política de Privacidad</h1>
+          <div className="prose prose-slate dark:prose-invert max-w-none prose-headings:text-slate-900 dark:prose-headings:text-slate-100 prose-a:text-brand hover:prose-a:text-brand-deep transition-colors">
+            <h1 className="text-3xl md:text-4xl font-extrabold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-brand-deep to-brand">Política de Privacidad</h1>
             <p className="text-sm font-medium text-muted-foreground not-prose mb-10">Última actualización: {LAST_UPDATED}</p>
 
             <section className="space-y-4 text-[15px] leading-relaxed text-slate-600 dark:text-slate-300">
@@ -47,7 +47,7 @@ export function PrivacyPolicyPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">1</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">1</span>
                 Responsable del tratamiento
               </h2>
               <div className="bg-white/50 dark:bg-accent/20 p-5 rounded-2xl border border-white/60 dark:border-border/50">
@@ -62,7 +62,7 @@ export function PrivacyPolicyPage() {
               </div>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">2</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">2</span>
                 Datos que recopilamos
               </h2>
               <ul className="list-none pl-0 space-y-3">
@@ -73,7 +73,7 @@ export function PrivacyPolicyPage() {
                   { title: 'Técnico', desc: 'Registros de uso, identificadores de sesión y metadatos de ejecución de automatizaciones (webhooks n8n/Make).' }
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3 bg-white/40 dark:bg-accent/10 p-4 rounded-2xl border border-white/50 dark:border-border/30">
-                    <div className="w-2 h-2 mt-2 rounded-full bg-[#06b6d4] shrink-0" />
+                    <div className="w-2 h-2 mt-2 rounded-full bg-brand shrink-0" />
                     <div>
                       <strong className="text-slate-800 dark:text-slate-200">{item.title}:</strong> <span className="text-slate-600 dark:text-slate-400">{item.desc}</span>
                     </div>
@@ -82,10 +82,10 @@ export function PrivacyPolicyPage() {
               </ul>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">3</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">3</span>
                 Finalidad del tratamiento
               </h2>
-              <ul className="list-disc pl-6 space-y-2 marker:text-[#06b6d4]">
+              <ul className="list-disc pl-6 space-y-2 marker:text-brand">
                 <li>Autenticarte y mantener tu sesión segura.</li>
                 <li>Generar y editar contenido con asistentes de inteligencia artificial.</li>
                 <li>Programar y publicar en las redes que autorices.</li>
@@ -94,7 +94,7 @@ export function PrivacyPolicyPage() {
               </ul>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">4</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">4</span>
                 Base legal
               </h2>
               <p>
@@ -104,7 +104,7 @@ export function PrivacyPolicyPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">5</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">5</span>
                 Servicios de terceros
               </h2>
               <p>Podemos compartir datos limitados con proveedores que nos ayudan a operar Conect.ia:</p>
@@ -127,7 +127,7 @@ export function PrivacyPolicyPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">6</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">6</span>
                 Conservación
               </h2>
               <p>
@@ -137,11 +137,11 @@ export function PrivacyPolicyPage() {
               </p>
 
               <h2 className="text-xl font-bold mt-10 mb-4 text-slate-800 dark:text-slate-100 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1e3a8a]/10 to-[#06b6d4]/10 dark:from-[#1e3a8a]/30 dark:to-[#06b6d4]/30 flex items-center justify-center text-[#06b6d4]">7</span>
+                <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-deep/10 to-brand/10 dark:from-brand-deep/30 dark:to-brand/30 flex items-center justify-center text-brand">7</span>
                 Tus derechos
               </h2>
               <p>De acuerdo con la normativa aplicable en Colombia, puedes:</p>
-              <ul className="list-disc pl-6 space-y-2 marker:text-[#06b6d4]">
+              <ul className="list-disc pl-6 space-y-2 marker:text-brand">
                 <li>Acceder, rectificar o suprimir tus datos personales.</li>
                 <li>Revocar el consentimiento de una red social desde la app (Canales → Desconectar) o desde la configuración de LinkedIn/Meta.</li>
                 <li>Oponerte a tratamientos no esenciales o solicitar limitación del tratamiento.</li>

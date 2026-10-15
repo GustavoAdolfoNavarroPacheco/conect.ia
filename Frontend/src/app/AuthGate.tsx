@@ -19,8 +19,7 @@ function errorDesdeUrl(): string {
   return MENSAJES_ERROR[codigo] ?? 'No se pudo iniciar sesión. Intenta de nuevo.';
 }
 
-const CAMPO =
-  'w-full px-4 py-3 bg-white/50 dark:bg-accent/30 border border-white/40 dark:border-border rounded-2xl text-sm transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/40 focus:bg-white dark:focus:bg-card focus:shadow-lg focus:shadow-[#06b6d4]/5 hover:bg-white/70 dark:hover:bg-accent/50 cursor-text';
+const CAMPO = 'field h-11';
 
 /** Login con correo y contraseña, con Google; invitados ven la landing primero */
 export default function AuthGate() {
@@ -42,13 +41,13 @@ export default function AuthGate() {
   if (user) {
     if (initError) {
       return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
-          <div className="max-w-md bg-white border rounded-2xl p-6 shadow-sm">
-            <p className="text-sm font-semibold text-red-600 mb-2">No se pudo preparar tu cuenta</p>
-            <p className="text-sm text-slate-600 mb-4">{initError}</p>
+        <div className="ambient-light flex h-full min-h-screen items-center justify-center bg-background p-4">
+          <div className="surface w-full max-w-md animate-enter p-6">
+            <p className="mb-2 text-sm font-semibold text-destructive">No se pudo preparar tu cuenta</p>
+            <p className="mb-5 text-sm text-muted-foreground">{initError}</p>
             <button
               type="button"
-              className="w-full py-2 rounded-xl border text-sm"
+              className="press h-10 w-full rounded-[10px] border border-border bg-card text-sm font-medium transition-colors hover:bg-accent"
               onClick={() => void logout()}
             >
               Cerrar sesión e intentar de nuevo
@@ -97,18 +96,18 @@ export default function AuthGate() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f8fafc] via-[#eff6ff] to-[#f0fdfa] dark:from-background dark:via-background dark:to-background/90 p-4 relative overflow-hidden">
+    <div className="ambient-light relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
       {/* Background Orbs */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-[#06b6d4]/20 to-[#1e3a8a]/20 blur-[120px] animate-pulse-slow" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[60%] rounded-full bg-gradient-to-br from-[#2BBDE8]/20 to-[#0B1F4B]/20 blur-[100px]" style={{ animation: 'pulse 8s infinite alternate' }} />
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
+        <div className="absolute -left-32 -top-32 h-96 w-96 animate-pulse-slow rounded-full bg-brand/15 blur-[120px]" />
+        <div className="absolute -bottom-32 -right-24 h-96 w-96 animate-pulse-slow rounded-full bg-brand-light/10 blur-[120px] [animation-delay:2s]" />
       </div>
 
-      <div className="w-full max-w-md bg-white/60 dark:bg-card/80 backdrop-blur-xl border border-white/60 dark:border-border/50 rounded-3xl p-8 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative z-10">
+      <div className="surface relative z-10 w-full max-w-md animate-enter p-8 shadow-lg sm:p-10">
         <button
           type="button"
           onClick={() => setGuestView('landing')}
-          className="absolute left-6 top-6 flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-[#06b6d4] transition-colors cursor-pointer"
+          className="press absolute left-6 top-6 flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           aria-label="Volver a inicio"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -117,7 +116,7 @@ export default function AuthGate() {
         <div className="mb-8 mt-6 flex justify-center">
           <ConectiaLogo size="lg" textClassName="!text-foreground !bg-none" />
         </div>
-        <p className="text-sm font-medium text-center text-muted-foreground mb-8">Automatización de redes con IA y Make</p>
+        <p className="mb-8 text-center text-sm text-muted-foreground">Automatización de redes con IA</p>
 
         <form onSubmit={submit} className="space-y-4">
           {modo === 'registro' && (
@@ -148,11 +147,11 @@ export default function AuthGate() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          {error && <p className="text-sm text-red-500 font-medium text-center bg-red-50 dark:bg-red-950/30 py-2 rounded-xl border border-red-100 dark:border-red-900/50">{error}</p>}
+          {error && <p className="rounded-[10px] border border-destructive/20 bg-destructive-soft px-3 py-2 text-center text-sm font-medium text-destructive">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 mt-2 rounded-2xl relative overflow-hidden bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4] text-white font-semibold shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_15px_rgba(6,182,212,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_6px_20px_rgba(6,182,212,0.3)] hover:-translate-y-[1px] transition-all duration-300 disabled:opacity-60 disabled:hover:translate-y-0 cursor-pointer disabled:cursor-not-allowed"
+            className="press mt-2 h-11 w-full rounded-[10px] bg-brand text-sm font-semibold text-white shadow-xs transition-all duration-200 hover:bg-brand-deep hover:shadow-[var(--glow)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Cargando…' : modo === 'login' ? 'Entrar al Panel' : 'Crear mi cuenta'}
           </button>
@@ -168,7 +167,7 @@ export default function AuthGate() {
           type="button"
           disabled={loading}
           onClick={() => void handleGoogle()}
-          className="w-full py-3 bg-white/50 dark:bg-accent/30 border border-white/60 dark:border-border/50 rounded-2xl text-sm font-medium hover:bg-white/80 dark:hover:bg-accent/50 transition-all duration-300 disabled:opacity-50 shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+          className="press flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-border bg-card text-sm font-medium transition-colors duration-200 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -181,7 +180,7 @@ export default function AuthGate() {
 
         <button
           type="button"
-          className="w-full mt-6 text-sm font-medium text-transparent bg-clip-text bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4] dark:from-[#60a5fa] dark:to-[#22d3ee] hover:opacity-80 transition-opacity cursor-pointer"
+          className="link-underline mx-auto mt-6 block text-sm font-medium text-brand-strong"
           onClick={() => {
             setModo(modo === 'login' ? 'registro' : 'login');
             setError('');
@@ -190,12 +189,12 @@ export default function AuthGate() {
           {modo === 'login' ? '¿No tienes cuenta? Crear una' : 'Ya tengo cuenta, iniciar sesión'}
         </button>
 
-        <p className="mt-8 text-center text-xs text-muted-foreground/80 font-medium">
-          <a href="/privacidad" className="hover:text-[#06b6d4] transition-colors cursor-pointer">
+        <p className="mt-8 text-center text-xs text-muted-foreground">
+          <a href="/privacidad" className="link-underline transition-colors hover:text-foreground">
             Política de privacidad
           </a>
           {' · '}
-          <a href="/terminos" className="hover:text-[#06b6d4] transition-colors cursor-pointer">
+          <a href="/terminos" className="link-underline transition-colors hover:text-foreground">
             Términos y condiciones
           </a>
         </p>

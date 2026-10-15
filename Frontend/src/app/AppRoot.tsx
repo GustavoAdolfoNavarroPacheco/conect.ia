@@ -11,6 +11,8 @@ import { TikTokOAuthCallback } from './TikTokOAuthCallback';
 import { isLinkedInOAuthCallbackPath } from '../lib/linkedinOAuth';
 import { isMetaOAuthCallbackPath } from '../lib/metaOAuth';
 import { isTikTokOAuthCallbackPath } from '../lib/tiktokOAuth';
+import { useScrollReveal } from '../hooks/useScrollReveal';
+import { ConectiaLogo } from './components/ConectiaLogo';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -25,8 +27,11 @@ function AppWithAuth() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fafafa] text-slate-600">
-        Cargando Conect.ia…
+      <div className="ambient-light flex h-full flex-col items-center justify-center gap-4 bg-background" role="status">
+        <div className="animate-pulse-slow">
+          <ConectiaLogo size="lg" />
+        </div>
+        <span className="text-sm text-muted-foreground">Cargando…</span>
       </div>
     );
   }
@@ -39,6 +44,7 @@ function AppWithAuth() {
 }
 
 export default function AppRoot() {
+  useScrollReveal();
   const oauthCallback =
     typeof window !== 'undefined' &&
     (isLinkedInOAuthCallbackPath() || isMetaOAuthCallbackPath() || isTikTokOAuthCallbackPath());

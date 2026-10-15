@@ -1,18 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Conect.ia — Automatización de publicaciones</title>
+    <meta name="theme-color" content="#0076B7" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script>
+      // Aplica el tema antes del primer pintado para evitar el destello claro/oscuro.
+      (function () {
+        var tema;
+        try { tema = localStorage.getItem('conect-ia-theme'); } catch (e) {}
+        if (tema !== 'dark' && tema !== 'light') {
+          tema = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', tema);
+        if (tema === 'dark') document.documentElement.classList.add('dark');
+      })();
+    </script>
+    <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+  </head>
 
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Conect.ia — Automatización de publicaciones</title>
-      <link rel="icon" type="image/png" href="/logo.png" />
-      <link rel="apple-touch-icon" href="/logo.png" />
-      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
-    </head>
-
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
-  
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
