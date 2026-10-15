@@ -12,7 +12,6 @@ import { isLinkedInOAuthCallbackPath } from '../lib/linkedinOAuth';
 import { isMetaOAuthCallbackPath } from '../lib/metaOAuth';
 import { isTikTokOAuthCallbackPath } from '../lib/tiktokOAuth';
 import { useScrollReveal } from '../hooks/useScrollReveal';
-import { useSmoothScroll } from '../hooks/useSmoothScroll';
 import { ConectiaLogo } from './components/ConectiaLogo';
 
 const queryClient = new QueryClient({
@@ -46,7 +45,6 @@ function AppWithAuth() {
 
 export default function AppRoot() {
   useScrollReveal();
-  useSmoothScroll();
   const oauthCallback =
     typeof window !== 'undefined' &&
     (isLinkedInOAuthCallbackPath() || isMetaOAuthCallbackPath() || isTikTokOAuthCallbackPath());
