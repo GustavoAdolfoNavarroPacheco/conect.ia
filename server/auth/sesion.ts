@@ -1,5 +1,3 @@
-import { decode } from '@auth/core/jwt';
-
 export type SesionUsuario = { uid: string; email: string; nombre: string };
 
 /** Nombres de cookie que usa Auth.js (con prefijo __Secure- en HTTPS). */
@@ -21,6 +19,9 @@ function leerCookie(cabecera: string, nombre: string): string | undefined {
 export async function sesionDesdeCookie(cabecera: string | null | undefined): Promise<SesionUsuario | null> {
   const secret = process.env.AUTH_SECRET;
   if (!secret || !cabecera) return null;
+
+  // import() dinámico: @auth/core es solo ESM y las funciones Node compilan a CommonJS.
+  const { decode } = await import('@auth/core/jwt');
 
   for (const nombre of NOMBRES_COOKIE) {
     const token = leerCookie(cabecera, nombre);

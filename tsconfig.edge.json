@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "api/auth.ts",
+    "server/auth/config.ts"
+  ],
+  "exclude": []
+}
