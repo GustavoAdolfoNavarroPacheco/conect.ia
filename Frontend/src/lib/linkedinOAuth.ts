@@ -15,6 +15,8 @@ export function normalizeLinkedInRedirectUri(uri: string): string {
 
 /** URIs que debes registrar en LinkedIn (pestaña Auth → Authorized redirect URLs) */
 export const LINKEDIN_REDIRECT_URLS_TO_REGISTER = [
+  'https://conectia-campuslands.vercel.app/oauth/linkedin',
+  'http://localhost:3000/oauth/linkedin',
   'http://localhost:5173/oauth/linkedin',
   'http://127.0.0.1:5173/oauth/linkedin',
 ] as const;
