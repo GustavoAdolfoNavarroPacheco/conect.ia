@@ -1,4 +1,5 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, ChevronDown } from 'lucide-react';
 
@@ -18,6 +19,7 @@ type Props = {
   placeholder?: string;
   size?: 'sm' | 'md';
   className?: string;
+  /** md: 44px (formularios) · sm: 40px (barras). Ningún control baja de 40px. */
   /** Ancho del menú: igual al disparador (por defecto) o automático. */
   menuWidth?: 'trigger' | 'auto';
   align?: 'start' | 'end';
@@ -28,7 +30,13 @@ type Props = {
 /**
  * Desplegable estilizado (reemplaza a <select>). Accesible: rol listbox,
  * teclado (flechas, Inicio/Fin, Enter, Escape, búsqueda por letra) y cierre al hacer clic fuera.
+ * El menú se pinta en un portal (no lo recorta un Panel con overflow-hidden) y se abre
+ * hacia arriba si no cabe debajo.
  */
+const ALTO_MAX = 256;
+const SEPARACION = 6;
+
+type Posicion = { left: number; width: number; top?: number; bottom?: number; arriba: boolean };
 export function Dropdown({
   value,
   onChange,
@@ -46,6 +54,9 @@ export function Dropdown({
   const [open, setOpen] = useState(false);
   const [activo, setActivo] = useState(0);
   const raiz = useRef<HTMLDivElement>(null);
+  const disparador = useRef<HTMLButtonElement>(null);
+  const lista = useRef<HTMLUListElement>(null);
+  const [pos, setPos] = useState<Posicion | null>(null);
   const id = useId();
 
   const indiceActual = useMemo(() => options.findIndex((o) => o.value === value), [options, value]);
@@ -55,15 +66,43 @@ export function Dropdown({
     if (!open) return;
     setActivo(indiceActual >= 0 ? indiceActual : 0);
     const cerrar = (e: MouseEvent) => {
-      if (!raiz.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!raiz.current?.contains(t) && !lista.current?.contains(t)) setOpen(false);
     };
     document.addEventListener('mousedown', cerrar);
     return () => document.removeEventListener('mousedown', cerrar);
   }, [open, indiceActual]);
 
   useEffect(() => {
-    if (open) raiz.current?.querySelector<HTMLElement>(`[role="listbox"] [data-index="${activo}"]`)?.scrollIntoView({ block: 'nearest' });
+    if (open) lista.current?.querySelector<HTMLElement>(`[data-index="${activo}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [activo, open]);
+
+  // Posición fija junto al disparador; se recalcula al desplazar o redimensionar.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const calcular = () => {
+      const r = disparador.current?.getBoundingClientRect();
+      if (!r) return;
+      const alto = Math.min(ALTO_MAX, options.length * 44 + 8);
+      const abajo = window.innerHeight - r.bottom;
+      const arriba = abajo < alto + SEPARACION + 8 && r.top > abajo;
+      const ancho = menuWidth === 'trigger' ? r.width : Math.max(192, r.width);
+      const left = menuWidth === 'auto' && align === 'end' ? r.right - ancho : r.left;
+      setPos({
+        left: Math.max(8, Math.min(left, window.innerWidth - ancho - 8)),
+        width: ancho,
+        arriba,
+        ...(arriba ? { bottom: window.innerHeight - r.top + SEPARACION } : { top: r.bottom + SEPARACION }),
+      });
+    };
+    calcular();
+    window.addEventListener('resize', calcular);
+    window.addEventListener('scroll', calcular, true);
+    return () => {
+      window.removeEventListener('resize', calcular);
+      window.removeEventListener('scroll', calcular, true);
+    };
+  }, [open, options.length, menuWidth, align]);
 
   const elegir = (i: number) => {
     const opt = options[i];
@@ -115,10 +154,10 @@ export function Dropdown({
     }
   };
 
-  const alto = size === 'sm' ? 'h-9 text-sm' : 'h-10 text-sm';
+  const alto = size === 'sm' ? '!min-h-10 h-10 text-sm' : 'h-11 text-sm';
 
   return (
-    <div className={`flex flex-col gap-1.5 ${className}`} ref={raiz}>
+    <div className={`flex flex-col gap-2 ${className}`} ref={raiz}>
       {label && (
         <span id={`${id}-label`} className="text-sm font-medium text-foreground">
           {label}
@@ -126,11 +165,13 @@ export function Dropdown({
       )}
       <div className="relative">
         <button
+          ref={disparador}
           type="button"
           title={title}
           disabled={disabled}
           aria-haspopup="listbox"
           aria-expanded={open}
+          aria-controls={open ? `${id}-lista` : undefined}
           aria-labelledby={label ? `${id}-label` : undefined}
           onClick={() => setOpen((o) => !o)}
           onKeyDown={onKeyDown}
@@ -151,48 +192,55 @@ export function Dropdown({
           />
         </button>
 
-        <AnimatePresence>
-          {open && (
-            <motion.ul
-              role="listbox"
-              aria-activedescendant={`${id}-opt-${activo}`}
-              initial={{ opacity: 0, y: -6, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -6, scale: 0.98 }}
-              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-              className={`absolute z-50 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-lg ${
-                menuWidth === 'trigger' ? 'left-0 right-0' : `min-w-[12rem] ${align === 'end' ? 'right-0' : 'left-0'}`
-              }`}
-              style={{ transformOrigin: 'top' }}
-            >
-              {options.map((opt, i) => {
-                const elegido = opt.value === value;
-                return (
-                  <li
-                    key={opt.value}
-                    id={`${id}-opt-${i}`}
-                    data-index={i}
-                    role="option"
-                    aria-selected={elegido}
-                    onMouseEnter={() => setActivo(i)}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => elegir(i)}
-                    className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
-                      i === activo ? 'bg-brand-soft text-foreground' : 'text-foreground'
-                    }`}
-                  >
-                    {opt.icon && <span className="flex shrink-0 items-center text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">{opt.icon}</span>}
-                    <span className="flex-1 min-w-0">
-                      <span className={`block truncate ${elegido ? 'font-medium text-brand-strong' : ''}`}>{opt.label}</span>
-                      {opt.description && <span className="block truncate text-xs text-muted-foreground">{opt.description}</span>}
-                    </span>
-                    {elegido && <Check className="h-4 w-4 shrink-0 text-brand-strong" />}
-                  </li>
-                );
-              })}
-            </motion.ul>
+        {typeof document !== 'undefined' &&
+          createPortal(
+            <AnimatePresence>
+              {open && pos && (
+                <motion.ul
+                  ref={lista}
+                  id={`${id}-lista`}
+                  role="listbox"
+                  aria-labelledby={label ? `${id}-label` : undefined}
+                  aria-activedescendant={`${id}-opt-${activo}`}
+                  initial={{ opacity: 0, y: pos.arriba ? 6 : -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: pos.arriba ? 6 : -6 }}
+                  transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                  data-lenis-prevent
+                  className="fixed z-[70] overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-float"
+                  style={{ left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom, maxHeight: ALTO_MAX }}
+                >
+                  {options.length === 0 && <li className="px-3 py-2.5 text-sm text-muted-foreground">Sin opciones</li>}
+                  {options.map((opt, i) => {
+                    const elegido = opt.value === value;
+                    return (
+                      <li
+                        key={opt.value}
+                        id={`${id}-opt-${i}`}
+                        data-index={i}
+                        role="option"
+                        aria-selected={elegido}
+                        onMouseEnter={() => setActivo(i)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => elegir(i)}
+                        className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
+                          i === activo ? 'bg-accent text-foreground' : 'text-foreground'
+                        }`}
+                      >
+                        {opt.icon && <span className="flex shrink-0 items-center text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">{opt.icon}</span>}
+                        <span className="min-w-0 flex-1">
+                          <span className={`block truncate ${elegido ? 'font-medium text-brand-strong' : ''}`}>{opt.label}</span>
+                          {opt.description && <span className="block truncate text-xs text-muted-foreground">{opt.description}</span>}
+                        </span>
+                        {elegido && <Check className="h-4 w-4 shrink-0 text-brand-strong" />}
+                      </li>
+                    );
+                  })}
+                </motion.ul>
+              )}
+            </AnimatePresence>,
+            document.body
           )}
-        </AnimatePresence>
       </div>
     </div>
   );

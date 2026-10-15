@@ -113,6 +113,7 @@ export function useDashboardStats() {
   return {
     stats,
     isLoading: pubs.isLoading || borradores.isLoading,
+    error: pubs.error ?? borradores.error,
     refetch: () => {
       pubs.refetch();
       borradores.refetch();

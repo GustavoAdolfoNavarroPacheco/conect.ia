@@ -65,99 +65,161 @@ import type { CanalesDoc } from '../lib/db/types';
 // DESIGN SYSTEM - COMPONENTES REUTILIZABLES
 // ============================================================================
 
+// Curva y duraciones únicas del sistema (docs/MAQUETACION_CONECTIA.md §2.6)
+const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+const DUR = 0.24;
+const TRANSICION = { duration: DUR, ease: EASE_OUT };
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Atrapa el foco dentro de `ref` mientras `activo`: lleva el foco al primer control
+ * (o a `inicial`), cicla con Tab y lo devuelve al disparador al cerrar.
+ */
+function useFocusTrap(ref: React.RefObject<HTMLElement | null>, activo: boolean, inicial?: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!activo) return;
+    const previo = document.activeElement as HTMLElement | null;
+    const t = window.setTimeout(() => {
+      const el = inicial?.current ?? ref.current?.querySelector<HTMLElement>(FOCUSABLE) ?? ref.current;
+      el?.focus({ preventScroll: true });
+    }, 0);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !ref.current) return;
+      const items = [...ref.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((n) => n.offsetParent !== null);
+      if (items.length === 0) return;
+      const primero = items[0];
+      const ultimo = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === primero) {
+        e.preventDefault();
+        ultimo.focus();
+      } else if (!e.shiftKey && document.activeElement === ultimo) {
+        e.preventDefault();
+        primero.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener('keydown', onKey);
+      // Un tick después: el disparador puede seguir `inert` mientras se cierran otros efectos.
+      window.setTimeout(() => previo?.focus?.({ preventScroll: true }), 0);
+    };
+  }, [activo, ref, inicial]);
+}
+
+/** Bloquea el scroll del documento mientras `activo`. */
+function useScrollLock(activo: boolean) {
+  useEffect(() => {
+    if (!activo) return;
+    const html = document.documentElement;
+    const previo = html.style.overflow;
+    html.style.overflow = 'hidden';
+    return () => {
+      html.style.overflow = previo;
+    };
+  }, [activo]);
+}
+
 // Button Component
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'success' | 'destructive' | 'outline' | 'liquid';
+  /** md 40px · lg 44px. `sm` se conserva por compatibilidad y mide también 40px (ningún control baja de 40). */
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ReactNode;
   children: React.ReactNode;
 }
 
-const Button: React.FC<ButtonProps> = ({
-  variant = 'primary',
-  size = 'md',
-  icon,
-  children,
-  className = '',
-  disabled,
-  onClick,
-  ...props
-}) => {
-  const ref = useRef<HTMLButtonElement>(null);
-
-  /** Onda de clic desde el punto pulsado. */
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const el = ref.current;
-    if (el && !disabled) {
-      const r = el.getBoundingClientRect();
-      const d = Math.max(r.width, r.height);
-      const onda = document.createElement('span');
-      onda.className = 'ripple';
-      onda.style.width = onda.style.height = `${d}px`;
-      onda.style.left = `${e.clientX - r.left - d / 2}px`;
-      onda.style.top = `${e.clientY - r.top - d / 2}px`;
-      el.appendChild(onda);
-      window.setTimeout(() => onda.remove(), 650);
-    }
-    onClick?.(e);
-  };
-
+const Button: React.FC<ButtonProps> = ({ variant = 'primary', size = 'md', icon, children, className = '', ...props }) => {
   const base =
-    'press relative isolate overflow-hidden inline-flex items-center justify-center gap-2 rounded-[10px] font-medium whitespace-nowrap select-none cursor-pointer transition-[background-color,box-shadow,color,border-color,transform,filter] duration-200 ease-out disabled:opacity-50 disabled:cursor-not-allowed';
+    'press inline-flex items-center justify-center gap-2 rounded-[10px] font-medium whitespace-nowrap select-none cursor-pointer transition-[background-color,color,border-color] duration-150 ease-out disabled:opacity-50 disabled:cursor-not-allowed';
 
+  const primario = 'bg-brand text-white hover:bg-brand-strong';
   const variants = {
-    primary: 'bg-brand text-white shadow-xs hover:bg-brand-deep hover:shadow-[var(--glow)]',
-    liquid: 'bg-gradient-to-b from-[#0a89d1] to-brand text-white shadow-xs hover:brightness-110 hover:shadow-[var(--glow)]',
+    primary: primario,
+    liquid: primario,
     secondary: 'border border-border bg-secondary text-secondary-foreground hover:bg-accent',
     ghost: 'bg-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
-    success: 'bg-success text-white shadow-xs hover:brightness-110',
+    success: 'bg-success text-white hover:brightness-110',
     destructive: 'bg-destructive-soft text-destructive hover:bg-destructive hover:text-white',
-    outline: 'border border-border bg-card text-foreground hover:border-brand/40 hover:bg-brand-soft',
+    outline: 'border border-border bg-card text-foreground hover:bg-accent',
   };
 
   const sizes = {
-    sm: 'h-8 px-3 text-xs [&_svg]:h-3.5 [&_svg]:w-3.5',
+    sm: 'h-10 px-3 text-sm [&_svg]:h-4 [&_svg]:w-4',
     md: 'h-10 px-4 text-sm [&_svg]:h-4 [&_svg]:w-4',
     lg: 'h-11 px-5 text-sm [&_svg]:h-[18px] [&_svg]:w-[18px]',
   };
 
   return (
-    <button
-      ref={ref}
-      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
-      disabled={disabled}
-      onClick={handleClick}
-      {...props}
-    >
+    <button className={`${base} ${variants[variant]} ${sizes[size]} ${className}`} {...props}>
       {icon && <span className="flex shrink-0 items-center justify-center">{icon}</span>}
       {children}
     </button>
   );
 };
 
+/** Botón cuadrado de icono (40×40) con nombre accesible obligatorio. */
+const IconButton = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string; tone?: 'default' | 'danger'; active?: boolean }
+>(({ label, tone = 'default', active = false, className = '', children, ...props }, ref) => (
+  <button
+    ref={ref}
+    type="button"
+    aria-label={label}
+    title={label}
+    className={`press relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:h-[18px] [&_svg]:w-[18px] ${
+      active
+        ? 'bg-accent text-foreground'
+        : tone === 'danger'
+          ? 'text-muted-foreground hover:bg-destructive-soft hover:text-destructive'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+    } ${className}`}
+    {...props}
+  >
+    {children}
+  </button>
+));
+IconButton.displayName = 'IconButton';
+
 // Input Component
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  hint?: string;
   icon?: React.ReactNode;
 }
 
-const Input: React.FC<InputProps> = ({ label, error, icon, className = '', ...props }) => {
+const Input: React.FC<InputProps> = ({ label, error, hint, icon, className = '', id, ...props }) => {
+  const autoId = React.useId();
+  const campoId = id ?? autoId;
   return (
-    <div className="flex flex-col gap-1.5">
-      {label && <label className="text-sm font-medium text-foreground">{label}</label>}
+    <div className="flex flex-col gap-2">
+      {label && (
+        <label htmlFor={campoId} className="text-sm font-medium text-foreground">
+          {label}
+        </label>
+      )}
       <div className="relative">
         {icon && (
-          <div className="pointer-events-none absolute left-3 top-1/2 flex -translate-y-1/2 items-center text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
+          <div className="pointer-events-none absolute left-4 top-1/2 flex -translate-y-1/2 items-center text-muted-foreground [&>svg]:h-4 [&>svg]:w-4">
             {icon}
           </div>
         )}
         <input
-          className={`field ${icon ? 'pl-9' : ''} ${error ? '!border-destructive' : ''} ${className}`}
+          id={campoId}
+          aria-invalid={error ? true : undefined}
+          className={`field ${icon ? 'pl-10' : ''} ${error ? '!border-destructive' : ''} ${className}`}
           {...props}
         />
       </div>
-      {error && <span className="text-xs text-destructive">{error}</span>}
+      {error ? (
+        <span className="-mt-1 text-xs text-destructive">{error}</span>
+      ) : (
+        hint && <span className="-mt-1 text-xs text-muted-foreground">{hint}</span>
+      )}
     </div>
   );
 };
@@ -168,20 +230,27 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
   error?: string;
 }
 
-const Textarea: React.FC<TextareaProps> = ({ label, error, className = '', ...props }) => {
+const Textarea: React.FC<TextareaProps> = ({ label, error, className = '', id, ...props }) => {
+  const autoId = React.useId();
+  const campoId = id ?? autoId;
   return (
-    <div className="flex flex-col gap-1.5">
-      {label && <label className="text-sm font-medium text-foreground">{label}</label>}
+    <div className="flex flex-col gap-2">
+      {label && (
+        <label htmlFor={campoId} className="text-sm font-medium text-foreground">
+          {label}
+        </label>
+      )}
       <textarea
-        className={`field resize-none py-2.5 leading-relaxed ${error ? '!border-destructive' : ''} ${className}`}
+        id={campoId}
+        className={`field min-h-11 resize-none py-3 leading-5 ${error ? '!border-destructive' : ''} ${className}`}
         {...props}
       />
-      {error && <span className="text-xs text-destructive">{error}</span>}
+      {error && <span className="-mt-1 text-xs text-destructive">{error}</span>}
     </div>
   );
 };
 
-// Toggle Component
+// Toggle Component: la zona de activación es toda la fila (mín. 40px)
 interface ToggleProps {
   label?: string;
   description?: string;
@@ -192,34 +261,34 @@ interface ToggleProps {
 
 const Toggle: React.FC<ToggleProps> = ({ label, description, checked, onChange, disabled = false }) => {
   return (
-    <label className={`flex items-center justify-between gap-4 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`flex min-h-10 w-full items-center justify-between gap-4 rounded-[10px] text-left disabled:cursor-not-allowed disabled:opacity-50 ${
+        disabled ? '' : 'cursor-pointer'
+      }`}
+    >
       {(label || description) && (
         <span className="min-w-0">
           {label && <span className="block text-sm font-medium text-foreground">{label}</span>}
           {description && <span className="block text-xs text-muted-foreground">{description}</span>}
         </span>
       )}
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        disabled={disabled}
-        onClick={() => !disabled && onChange(!checked)}
-        className={`press flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors duration-300 ${
+      <span
+        className={`flex h-6 w-10 shrink-0 items-center rounded-full p-0.5 transition-colors duration-[240ms] ${
           checked ? 'justify-end bg-brand' : 'justify-start bg-switch-background'
         }`}
       >
-        <motion.span
-          layout
-          className="h-5 w-5 rounded-full bg-white shadow-sm"
-          transition={{ type: 'spring', stiffness: 600, damping: 34 }}
-        />
-      </button>
-    </label>
+        <motion.span layout className="h-5 w-5 rounded-full bg-white shadow-sm" transition={TRANSICION} />
+      </span>
+    </button>
   );
 };
 
-// Checkbox Component
+// Checkbox Component: la zona de activación es la fila completa (mín. 40px)
 interface CheckboxProps {
   label?: string;
   checked: boolean;
@@ -230,12 +299,18 @@ interface CheckboxProps {
 
 const Checkbox: React.FC<CheckboxProps> = ({ label, checked, onChange, disabled = false, icon }) => {
   return (
-    <label className="flex cursor-pointer items-center gap-3">
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="group flex min-h-10 items-center gap-3 rounded-[10px] text-left disabled:cursor-not-allowed disabled:opacity-50"
+    >
       <span
-        onClick={() => !disabled && onChange(!checked)}
-        className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border transition-all duration-200
-          ${checked ? 'border-brand bg-brand' : 'border-input bg-input-background'}
-          ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-brand'}`}
+        className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[6px] border transition-colors duration-150 ${
+          checked ? 'border-brand bg-brand' : 'border-input bg-input-background group-hover:border-brand'
+        }`}
       >
         {checked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
       </span>
@@ -243,7 +318,7 @@ const Checkbox: React.FC<CheckboxProps> = ({ label, checked, onChange, disabled 
         {icon && <span className="h-4 w-4 text-muted-foreground">{icon}</span>}
         {label && <span className="text-sm font-medium text-foreground">{label}</span>}
       </span>
-    </label>
+    </button>
   );
 };
 
@@ -264,7 +339,7 @@ const Badge: React.FC<BadgeProps> = ({ children, variant = 'default', className 
   };
 
   return (
-    <span className={`inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs font-medium ${variants[variant]} ${className}`}>
+    <span className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] px-2 text-xs font-medium ${variants[variant]} ${className}`}>
       {children}
     </span>
   );
@@ -281,7 +356,7 @@ const Card: React.FC<CardProps> = ({ children, className = '', hover = false }) 
   return <div className={`surface p-6 ${hover ? 'hover-lift' : ''} ${className}`}>{children}</div>;
 };
 
-// Modal Component
+// Modal Component: centrado desde 640px; hoja inferior en móvil
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -291,7 +366,11 @@ interface ModalProps {
   maxWidthClass?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, maxWidthClass = 'max-w-md' }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, maxWidthClass = 'sm:max-w-md' }) => {
+  const panel = useRef<HTMLDivElement>(null);
+  useFocusTrap(panel, isOpen);
+  useScrollLock(isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -299,42 +378,43 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
+  // Compatibilidad: los usos antiguos pasan "max-w-xl" sin prefijo.
+  const ancho = maxWidthClass.startsWith('max-w') ? `sm:${maxWidthClass}` : maxWidthClass;
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" data-lenis-prevent>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/45 backdrop-blur-[3px]"
+            transition={TRANSICION}
+            className="absolute inset-0 bg-black/45"
             onClick={onClose}
           />
           <motion.div
+            ref={panel}
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 8 }}
-            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-            className={`relative flex max-h-[88vh] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg ${maxWidthClass}`}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={TRANSICION}
+            className={`relative flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-float sm:rounded-2xl ${ancho}`}
           >
-            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-6 py-4">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border py-3 pl-6 pr-4">
               <h3 className="truncate text-base font-semibold">{title}</h3>
-              <button
-                type="button"
-                aria-label="Cerrar"
-                onClick={onClose}
-                className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <IconButton label="Cerrar" onClick={onClose}>
+                <X />
+              </IconButton>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-6">{children}</div>
+            <div className={`min-h-0 flex-1 overflow-y-auto p-6 ${footer ? '' : 'pb-[max(24px,env(safe-area-inset-bottom))]'}`}>
+              {children}
+            </div>
             {footer && (
-              <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border bg-accent/50 px-6 py-4">
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-border bg-accent/50 px-6 pb-[max(16px,env(safe-area-inset-bottom))] pt-4">
                 {footer}
               </div>
             )}
@@ -345,7 +425,48 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
   );
 };
 
-// Toast Notification
+/**
+ * Confirmación de acciones destructivas con Modal (sustituye a window.confirm).
+ * Uso: const [confirmar, dialogo] = useConfirm(); … if (await confirmar({...})) …; render {dialogo}
+ */
+type OpcionesConfirmacion = { titulo: string; mensaje: string; accion: string; destructiva?: boolean };
+function useConfirm(): [(o: OpcionesConfirmacion) => Promise<boolean>, React.ReactNode] {
+  const [estado, setEstado] = useState<(OpcionesConfirmacion & { resolver: (v: boolean) => void }) | null>(null);
+  const confirmar = useCallback(
+    (o: OpcionesConfirmacion) => new Promise<boolean>((resolver) => setEstado({ ...o, resolver })),
+    []
+  );
+  const cerrar = (v: boolean) => {
+    estado?.resolver(v);
+    setEstado(null);
+  };
+  const dialogo = (
+    <Modal
+      isOpen={estado !== null}
+      onClose={() => cerrar(false)}
+      title={estado?.titulo ?? ''}
+      footer={
+        <>
+          <Button variant="outline" onClick={() => cerrar(false)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="primary"
+            className={estado?.destructiva !== false ? '!bg-destructive hover:!brightness-110' : ''}
+            onClick={() => cerrar(true)}
+          >
+            {estado?.accion}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm text-muted-foreground">{estado?.mensaje}</p>
+    </Modal>
+  );
+  return [confirmar, dialogo];
+}
+
+// Toast Notification: abajo (no tapa la topbar)
 interface ToastProps {
   message: string;
   type?: 'success' | 'error' | 'info';
@@ -368,14 +489,14 @@ const Toast: React.FC<ToastProps> = ({ message, type = 'success', show }) => {
     <AnimatePresence>
       {show && (
         <motion.div
-          role="status"
-          initial={{ opacity: 0, y: -16, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -12, scale: 0.97 }}
-          transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-          className="fixed right-5 top-5 z-[60] flex max-w-sm items-center gap-3 rounded-xl border border-border bg-popover px-4 py-3 shadow-lg"
+          role={type === 'error' ? 'alert' : 'status'}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 12 }}
+          transition={TRANSICION}
+          className="fixed inset-x-4 bottom-[max(16px,env(safe-area-inset-bottom))] z-[60] flex items-center gap-3 rounded-xl border border-border bg-popover px-4 py-3 shadow-float sm:inset-x-auto sm:bottom-5 sm:right-5 sm:max-w-sm"
         >
-          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tints[type]}`}>{icons[type]}</span>
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] ${tints[type]}`}>{icons[type]}</span>
           <span className="text-sm font-medium text-foreground">{message}</span>
         </motion.div>
       )}
@@ -383,14 +504,16 @@ const Toast: React.FC<ToastProps> = ({ message, type = 'success', show }) => {
   );
 };
 
-// Loading Skeleton
+// Loading Skeleton (radio 6 en líneas de texto; pasar rounded-[10px]/rounded-2xl para controles/superficies)
 const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) => {
-  return <div className={`skeleton rounded-lg ${className}`} />;
+  return <div aria-hidden className={`skeleton rounded-[6px] ${className}`} />;
 };
 
 // ----------------------------------------------------------------------------
-// Layout de pantallas funcionales: ocupan el alto disponible sin scroll de página
-// (en escritorio); los listados largos se desplazan dentro de su panel.
+// Layout de pantallas funcionales (§3.5)
+// - < 1024: este contenedor es el único scroll; los Paneles crecen con su contenido.
+// - ≥ 1024: la pantalla ocupa el alto disponible y cada pantalla tiene un único scroll
+//   interno. Si una altura muy corta no cabe, el contenedor desplaza en vez de recortar.
 // ----------------------------------------------------------------------------
 
 const ScreenLayout: React.FC<{ children: React.ReactNode; maxWidth?: string; className?: string }> = ({
@@ -398,20 +521,24 @@ const ScreenLayout: React.FC<{ children: React.ReactNode; maxWidth?: string; cla
   maxWidth = 'max-w-[1440px]',
   className = '',
 }) => (
-  <div className="h-full w-full overflow-y-auto lg:overflow-hidden">
-    <div className={`mx-auto flex w-full ${maxWidth} flex-col gap-5 p-4 sm:p-6 lg:h-full lg:min-h-0 ${className}`}>
+  <div className="h-full w-full overflow-y-auto">
+    <div className={`mx-auto flex w-full ${maxWidth} flex-col gap-6 p-4 sm:p-6 lg:h-full lg:min-h-[560px] lg:p-8 ${className}`}>
       {children}
     </div>
   </div>
 );
 
 const PageHeader: React.FC<{ title: string; subtitle?: string; actions?: React.ReactNode }> = ({ title, subtitle, actions }) => (
-  <header className="flex shrink-0 animate-enter flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+  <header className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div className="min-w-0">
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+      <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground" title={title}>
+        {title}
+      </h1>
       {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
     </div>
-    {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+    {actions && (
+      <div className="flex shrink-0 flex-wrap items-center gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">{actions}</div>
+    )}
   </header>
 );
 
@@ -423,15 +550,14 @@ const Panel: React.FC<{
   children: React.ReactNode;
   className?: string;
   bodyClassName?: string;
+  /** Scroll interno del cuerpo; solo desde 1024 (por debajo, el Panel crece). */
   scroll?: boolean;
+  /** Obsoleto: sin escalonado dentro de las pantallas. */
   delay?: number;
-}> = ({ title, icon, actions, footer, children, className = '', bodyClassName = '', scroll = true, delay = 0 }) => (
-  <section
-    className={`surface flex min-h-0 animate-enter flex-col overflow-hidden ${className}`}
-    style={{ animationDelay: `${delay}ms` }}
-  >
+}> = ({ title, icon, actions, footer, children, className = '', bodyClassName = '', scroll = true }) => (
+  <section className={`surface-flat flex min-h-0 flex-col overflow-hidden ${className}`}>
     {(title || actions) && (
-      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-5">
+      <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border px-5 lg:px-6">
         <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
           {icon && <span className="flex shrink-0 text-brand-strong [&>svg]:h-4 [&>svg]:w-4">{icon}</span>}
           <span className="truncate">{title}</span>
@@ -439,44 +565,60 @@ const Panel: React.FC<{
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
     )}
-    <div className={`min-h-0 flex-1 p-5 ${scroll ? 'overflow-y-auto' : ''} ${bodyClassName}`}>{children}</div>
-    {footer && <div className="shrink-0 border-t border-border bg-accent/40 px-5 py-3.5">{footer}</div>}
+    <div className={`min-h-0 flex-1 p-5 lg:p-6 ${scroll ? 'lg:overflow-y-auto' : ''} ${bodyClassName}`}>{children}</div>
+    {footer && <div className="shrink-0 border-t border-border bg-accent/40 px-5 py-3 lg:px-6">{footer}</div>}
   </section>
 );
 
-/** Control segmentado con indicador deslizante. */
+/** Control segmentado (radiogroup): ítems de 40px, flechas para cambiar. */
 const Segmented: React.FC<{
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: React.ReactNode }[];
   className?: string;
   full?: boolean;
-}> = ({ value, onChange, options, className = '', full = false }) => {
+  ariaLabel?: string;
+}> = ({ value, onChange, options, className = '', full = false, ariaLabel }) => {
   const id = React.useId();
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const mover = (e: React.KeyboardEvent, i: number) => {
+    const delta = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!delta) return;
+    e.preventDefault();
+    const n = (i + delta + options.length) % options.length;
+    onChange(options[n].value);
+    refs.current[n]?.focus();
+  };
   return (
     <div
-      role="tablist"
+      role="radiogroup"
+      aria-label={ariaLabel}
       className={`relative ${full ? 'grid w-full' : 'inline-flex'} rounded-[10px] border border-border bg-secondary p-1 ${className}`}
       style={full ? { gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` } : undefined}
     >
-      {options.map((o) => {
+      {options.map((o, i) => {
         const activo = o.value === value;
         return (
           <button
             key={o.value}
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
             type="button"
-            role="tab"
-            aria-selected={activo}
+            role="radio"
+            aria-checked={activo}
+            tabIndex={activo ? 0 : -1}
             onClick={() => onChange(o.value)}
-            className={`press relative z-10 flex h-8 items-center justify-center gap-1.5 rounded-lg px-3.5 text-sm transition-colors duration-200 ${
+            onKeyDown={(e) => mover(e, i)}
+            className={`relative z-10 flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-[6px] px-3 text-sm transition-colors duration-150 ${
               activo ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {activo && (
               <motion.span
                 layoutId={`seg-${id}`}
-                className="absolute inset-0 -z-10 rounded-lg bg-card shadow-sm"
-                transition={{ type: 'spring', stiffness: 520, damping: 38 }}
+                className="absolute inset-0 -z-10 rounded-[6px] bg-card shadow-sm"
+                transition={TRANSICION}
               />
             )}
             {o.label}
@@ -493,7 +635,8 @@ const Notice: React.FC<{
   icon?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
-}> = ({ tone = 'info', icon, children, className = '' }) => {
+  action?: React.ReactNode;
+}> = ({ tone = 'info', icon, children, className = '', action }) => {
   const tones = {
     info: { box: 'bg-brand-soft border-brand/20', icon: 'text-brand-strong', def: <Info /> },
     success: { box: 'bg-success-soft border-success/20', icon: 'text-success', def: <CheckCircle2 /> },
@@ -501,9 +644,13 @@ const Notice: React.FC<{
     danger: { box: 'bg-destructive-soft border-destructive/20', icon: 'text-destructive', def: <Info /> },
   }[tone];
   return (
-    <div className={`flex animate-enter items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm text-foreground ${tones.box} ${className}`}>
+    <div
+      role={tone === 'danger' ? 'alert' : 'status'}
+      className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm text-foreground ${tones.box} ${className}`}
+    >
       <span className={`mt-0.5 flex shrink-0 [&>svg]:h-4 [&>svg]:w-4 ${tones.icon}`}>{icon ?? tones.def}</span>
-      <div className="min-w-0 leading-relaxed">{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
+      {action && <div className="-my-1.5 shrink-0">{action}</div>}
     </div>
   );
 };
@@ -515,8 +662,8 @@ const EmptyState: React.FC<{ icon: React.ReactNode; title: string; text?: string
   text,
   action,
 }) => (
-  <div className="flex h-full min-h-[220px] animate-enter flex-col items-center justify-center px-6 py-10 text-center">
-    <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-strong [&>svg]:h-6 [&>svg]:w-6">
+  <div className="flex h-full min-h-[220px] flex-col items-center justify-center px-6 py-10 text-center">
+    <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-[10px] bg-brand-soft text-brand-strong [&>svg]:h-6 [&>svg]:w-6">
       {icon}
     </span>
     <p className="text-sm font-semibold text-foreground">{title}</p>
@@ -525,12 +672,13 @@ const EmptyState: React.FC<{ icon: React.ReactNode; title: string; text?: string
   </div>
 );
 
-/** Contenedor de icono con tinte de marca. */
-const IconTile: React.FC<{ children: React.ReactNode; tone?: 'brand' | 'success' | 'warning' | 'danger' | 'neutral'; className?: string }> = ({
-  children,
-  tone = 'brand',
-  className = '',
-}) => {
+/** Contenedor de icono con tinte de marca (36px; variante `lg` de 44px con icono de 20). */
+const IconTile: React.FC<{
+  children: React.ReactNode;
+  tone?: 'brand' | 'success' | 'warning' | 'danger' | 'neutral';
+  size?: 'md' | 'lg';
+  className?: string;
+}> = ({ children, tone = 'brand', size = 'md', className = '' }) => {
   const tones = {
     brand: 'bg-brand-soft text-brand-strong',
     success: 'bg-success-soft text-success',
@@ -538,29 +686,12 @@ const IconTile: React.FC<{ children: React.ReactNode; tone?: 'brand' | 'success'
     danger: 'bg-destructive-soft text-destructive',
     neutral: 'bg-secondary text-muted-foreground',
   };
+  const tam = size === 'lg' ? 'h-11 w-11 [&>svg]:h-5 [&>svg]:w-5' : 'h-9 w-9 [&>svg]:h-[18px] [&>svg]:w-[18px]';
   return (
-    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] [&>svg]:h-[18px] [&>svg]:w-[18px] ${tones[tone]} ${className}`}>
+    <span className={`flex shrink-0 items-center justify-center rounded-[10px] ${tam} ${tones[tone]} ${className}`}>
       {children}
     </span>
   );
-};
-
-/** Número que cuenta hasta su valor al aparecer. */
-const CountUp: React.FC<{ value: number; duration?: number }> = ({ value, duration = 900 }) => {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    let raf = 0;
-    const inicio = performance.now();
-    const paso = (t: number) => {
-      const p = Math.min(1, (t - inicio) / duration);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setN(Math.round(value * eased));
-      if (p < 1) raf = requestAnimationFrame(paso);
-    };
-    raf = requestAnimationFrame(paso);
-    return () => cancelAnimationFrame(raf);
-  }, [value, duration]);
-  return <>{n}</>;
 };
 
 const ZONAS_HORARIAS = [
@@ -858,7 +989,8 @@ const SEARCH_PLACEHOLDERS = [
 const SearchBarAnimated: React.FC<{
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-}> = ({ value, onChange }) => {
+  autoFocus?: boolean;
+}> = ({ value, onChange, autoFocus }) => {
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -885,12 +1017,13 @@ const SearchBarAnimated: React.FC<{
 
   return (
     <div className="group relative">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-brand-strong" />
+      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-brand-strong" />
       <input
         type="text"
         aria-label="Buscar"
         placeholder={value ? '' : displayedPlaceholder}
-        className="field h-9 min-h-0 border-transparent bg-secondary pl-9"
+        className="field h-10 min-h-0 border-transparent bg-secondary pl-10"
+        autoFocus={autoFocus}
         value={value}
         onChange={onChange}
       />
@@ -898,38 +1031,23 @@ const SearchBarAnimated: React.FC<{
   );
 };
 
-/** Botón de icono de la barra superior. */
-const IconButton: React.FC<{
-  label: string;
-  onClick?: () => void;
-  children: React.ReactNode;
-  active?: boolean;
-  className?: string;
-}> = ({ label, onClick, children, active = false, className = '' }) => (
-  <button
-    type="button"
-    aria-label={label}
-    title={label}
-    onClick={onClick}
-    className={`press relative flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors duration-200 [&_svg]:h-[18px] [&_svg]:w-[18px] ${
-      active ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-    } ${className}`}
-  >
-    {children}
-  </button>
-);
-
-/** Menú flotante anclado (notificaciones, perfil). */
-const Popover: React.FC<{ open: boolean; children: React.ReactNode; className?: string }> = ({ open, children, className = '' }) => (
+/** Menú flotante anclado (notificaciones, perfil, resultados de búsqueda). */
+const Popover: React.FC<{ open: boolean; children: React.ReactNode; className?: string; id?: string }> = ({
+  open,
+  children,
+  className = 'absolute right-0 top-full mt-2',
+  id,
+}) => (
   <AnimatePresence>
     {open && (
       <motion.div
-        initial={{ opacity: 0, y: -6, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -6, scale: 0.98 }}
-        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-        style={{ transformOrigin: 'top right' }}
-        className={`absolute right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-border bg-popover shadow-lg ${className}`}
+        id={id}
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6 }}
+        transition={TRANSICION}
+        data-lenis-prevent
+        className={`z-50 overflow-hidden rounded-xl border border-border bg-popover shadow-float ${className}`}
       >
         {children}
       </motion.div>
@@ -947,28 +1065,51 @@ const DashboardShell: React.FC<{
   const { mode, toggleTheme } = useTheme();
   const { data: actividad = [] } = useActividad();
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const cerrarDrawerRef = useRef<HTMLButtonElement>(null);
+  const contenidoRef = useRef<HTMLDivElement>(null);
   const searchResults = useCampusSearch(searchTerm);
   const nombre = profile?.nombre || 'Usuario';
   const email = profile?.email || user?.email || '';
   const initials = (profile?.nombre || user?.email || 'U').slice(0, 2).toUpperCase();
   const unreadCount = actividad.length;
 
+  useFocusTrap(drawerRef, isMenuOpen, cerrarDrawerRef);
+
+  // La primera pantalla aparece sin animación; las siguientes, con la entrada de 240ms.
+  const primeraPantalla = useRef(true);
+  useEffect(() => {
+    primeraPantalla.current = false;
+  }, []);
+
+  // Con el drawer abierto, la topbar y el contenido quedan inertes (ni foco ni lector de pantalla).
+  useEffect(() => {
+    const el = contenidoRef.current;
+    if (!el) return;
+    if (isMenuOpen) el.setAttribute('inert', '');
+    else el.removeAttribute('inert');
+  }, [isMenuOpen]);
+
   // Cierra los menús flotantes al hacer clic fuera o pulsar Escape.
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (!notifRef.current?.contains(e.target as Node)) setShowNotif(false);
       if (!profileRef.current?.contains(e.target as Node)) setShowProfile(false);
+      if (!searchRef.current?.contains(e.target as Node)) setSearchOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setShowNotif(false);
         setShowProfile(false);
         setIsMenuOpen(false);
+        setSearchOpen(false);
       }
     };
     document.addEventListener('mousedown', onDown);
@@ -1000,12 +1141,13 @@ const DashboardShell: React.FC<{
     },
   ];
 
+  // Navegación: contenedor px-2 + ítem px-3 → texto e iconos en x=20, igual que el logo.
   const navegacion = (grupo: 'fijo' | 'drawer') => (
-    <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
+    <nav aria-label="Principal" className="min-h-0 flex-1 overflow-y-auto px-2 py-5">
       {menuGroups.map((g) => (
         <div key={g.titulo} className="mb-6 last:mb-0">
-          <p className="px-3 pb-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground/75">{g.titulo}</p>
-          <ul className="space-y-0.5">
+          <p className="px-3 pb-2 text-xs font-semibold text-muted-foreground">{g.titulo}</p>
+          <ul className="space-y-1">
             {g.items.map((item) => {
               const activo = activeScreen === item.id;
               return (
@@ -1017,27 +1159,25 @@ const DashboardShell: React.FC<{
                       onNavigate(item.id);
                       setIsMenuOpen(false);
                     }}
-                    className={`press group relative flex h-10 w-full items-center gap-3 rounded-[10px] px-3 text-sm transition-colors duration-200 ${
-                      activo ? 'font-medium text-brand-strong' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    className={`relative flex h-10 w-full items-center gap-2 rounded-[10px] px-3 text-sm font-medium transition-colors duration-150 ${
+                      activo ? 'text-brand-strong' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                     }`}
                   >
                     {activo && (
                       <motion.span
                         layoutId={`nav-fondo-${grupo}`}
                         className="absolute inset-0 rounded-[10px] bg-brand-soft"
-                        transition={{ type: 'spring', stiffness: 520, damping: 42 }}
+                        transition={TRANSICION}
                       />
                     )}
                     {activo && (
                       <motion.span
-                        layoutId={`nav-luz-${grupo}`}
-                        className="absolute bottom-2 left-0 top-2 w-[3px] rounded-full bg-brand shadow-[0_0_10px_var(--brand)]"
-                        transition={{ type: 'spring', stiffness: 520, damping: 42 }}
+                        layoutId={`nav-barra-${grupo}`}
+                        className="absolute bottom-2 left-0 top-2 w-[3px] rounded-full bg-brand"
+                        transition={TRANSICION}
                       />
                     )}
-                    <span className="relative z-10 flex transition-transform duration-200 group-hover:scale-110 [&>svg]:h-[18px] [&>svg]:w-[18px]">
-                      {item.icon}
-                    </span>
+                    <span className="relative z-10 flex [&>svg]:h-[18px] [&>svg]:w-[18px]">{item.icon}</span>
                     <span className="relative z-10 truncate">{item.label}</span>
                   </button>
                 </li>
@@ -1049,35 +1189,73 @@ const DashboardShell: React.FC<{
     </nav>
   );
 
+  // Pie del sidebar: identidad. Cerrar sesión vive solo en el menú de perfil.
   const tarjetaUsuario = (
-    <div className="shrink-0 border-t border-sidebar-border p-3">
-      <div className="flex items-center gap-3 rounded-xl px-2 py-2">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
-          {initials}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">{nombre}</p>
-          <p className="truncate text-xs text-muted-foreground">{email}</p>
-        </div>
-        <button
-          type="button"
-          title="Cerrar sesión"
-          aria-label="Cerrar sesión"
-          onClick={onLogout}
-          className="press flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive-soft hover:text-destructive"
-        >
-          <LogOut className="h-4 w-4" />
-        </button>
+    <div className="flex shrink-0 items-center gap-3 border-t border-sidebar-border px-5 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
+        {initials}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground" title={nombre}>
+          {nombre}
+        </p>
+        <p className="truncate text-xs text-muted-foreground" title={email}>
+          {email}
+        </p>
       </div>
     </div>
   );
 
+  const resultadosBusqueda = (
+    <Popover
+      open={Boolean(searchTerm.trim())}
+      className="absolute left-0 right-0 top-full mt-2 max-h-72 overflow-y-auto p-1.5"
+    >
+      {searchResults.publicaciones.length === 0 && searchResults.borradores.length === 0 && (
+        <p className="px-3 py-3 text-sm text-muted-foreground">Sin resultados para “{searchTerm.trim()}”</p>
+      )}
+      {searchResults.publicaciones.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors duration-150 hover:bg-accent"
+          onClick={() => {
+            onNavigate('calendar');
+            setSearchTerm('');
+            setSearchOpen(false);
+          }}
+        >
+          <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">{p.titulo}</span>
+            <span className="block text-xs capitalize text-muted-foreground">{p.estado}</span>
+          </span>
+        </button>
+      ))}
+      {searchResults.borradores.map((b) => (
+        <button
+          key={b.id}
+          type="button"
+          className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors duration-150 hover:bg-accent"
+          onClick={() => {
+            resumeBorradorAndNavigate(b, onNavigate);
+            setSearchTerm('');
+            setSearchOpen(false);
+          }}
+        >
+          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="truncate text-sm font-medium">{b.titulo || 'Borrador'}</span>
+        </button>
+      ))}
+    </Popover>
+  );
+
   return (
     <div className="flex h-full overflow-hidden bg-background">
-      {/* Barra lateral fija (escritorio) */}
+      {/* Barra lateral fija (≥1024) */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:flex">
         <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-5">
-          <button type="button" className="press" onClick={() => onNavigate('dashboard')}>
+          <button type="button" aria-label="Ir al inicio" className="flex h-10 items-center rounded-[10px]" onClick={() => onNavigate('dashboard')}>
             <ConectiaLogo size="md" />
           </button>
         </div>
@@ -1085,7 +1263,7 @@ const DashboardShell: React.FC<{
         {tarjetaUsuario}
       </aside>
 
-      {/* Drawer (móvil y tablet) */}
+      {/* Drawer (< 1024): diálogo modal con foco atrapado */}
       <AnimatePresence>
         {isMenuOpen && (
           <>
@@ -1093,19 +1271,24 @@ const DashboardShell: React.FC<{
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] lg:hidden"
+              transition={TRANSICION}
+              className="fixed inset-0 z-40 bg-black/40 lg:hidden"
               onClick={() => setIsMenuOpen(false)}
             />
             <motion.aside
+              ref={drawerRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Menú principal"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-              className="fixed bottom-0 left-0 top-0 z-50 flex w-72 flex-col border-r border-sidebar-border bg-sidebar shadow-lg lg:hidden"
+              transition={TRANSICION}
+              className="fixed bottom-0 left-0 top-0 z-50 flex w-72 flex-col border-r border-sidebar-border bg-sidebar pt-[env(safe-area-inset-top)] shadow-float lg:hidden"
             >
-              <div className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border px-5">
+              <div className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border pl-5 pr-3">
                 <ConectiaLogo size="md" />
-                <IconButton label="Cerrar menú" onClick={() => setIsMenuOpen(false)}>
+                <IconButton ref={cerrarDrawerRef} label="Cerrar menú" onClick={() => setIsMenuOpen(false)}>
                   <X />
                 </IconButton>
               </div>
@@ -1116,138 +1299,102 @@ const DashboardShell: React.FC<{
         )}
       </AnimatePresence>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {/* Barra superior */}
-        <header className="surface-glass z-30 flex h-16 shrink-0 items-center gap-3 border-x-0 border-t-0 px-4 sm:px-6">
-          <IconButton label="Abrir menú" onClick={() => setIsMenuOpen(true)} className="lg:hidden">
+      <div ref={contenidoRef} className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Barra superior: 64px; padding igual al margen del contenido (16 / 24 / 32) */}
+        <header className="topbar-surface relative z-30 flex h-16 shrink-0 items-center gap-2 px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:px-8">
+          <IconButton label="Abrir menú" aria-expanded={isMenuOpen} onClick={() => setIsMenuOpen(true)} className="-ml-2 lg:hidden">
             <Menu />
           </IconButton>
-          <div className="lg:hidden">
-            <ConectiaLogo size="sm" />
+          <button type="button" aria-label="Ir al inicio" className="flex h-10 items-center rounded-[10px] lg:hidden" onClick={() => onNavigate('dashboard')}>
+            <ConectiaLogo size="md" showText={false} />
+          </button>
+
+          {/* Búsqueda: campo desde 768; lupa que abre el campo a ancho completo por debajo */}
+          <div ref={searchRef} className="hidden min-w-48 max-w-sm flex-1 md:block md:ml-2 lg:ml-0">
+            <div className="relative">
+              <SearchBarAnimated value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              {resultadosBusqueda}
+            </div>
           </div>
 
-          <div className="relative hidden w-full max-w-sm md:block">
-            <SearchBarAnimated value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            <Popover open={Boolean(searchTerm.trim())} className="!left-0 !right-0 max-h-72 overflow-y-auto p-1.5">
-              {searchResults.publicaciones.length === 0 && searchResults.borradores.length === 0 && (
-                <p className="px-3 py-3 text-sm text-muted-foreground">Sin resultados para “{searchTerm.trim()}”</p>
-              )}
-              {searchResults.publicaciones.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
-                  onClick={() => {
-                    onNavigate('calendar');
-                    setSearchTerm('');
-                  }}
-                >
-                  <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{p.titulo}</span>
-                    <span className="block text-xs capitalize text-muted-foreground">{p.estado}</span>
-                  </span>
-                </button>
-              ))}
-              {searchResults.borradores.map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
-                  onClick={() => {
-                    resumeBorradorAndNavigate(b, onNavigate);
-                    setSearchTerm('');
-                  }}
-                >
-                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate text-sm font-medium">{b.titulo || 'Borrador'}</span>
-                </button>
-              ))}
-            </Popover>
-          </div>
-
-          <div className="ml-auto flex items-center gap-1">
-            <IconButton label={mode === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} onClick={toggleTheme}>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span
-                  key={mode}
-                  initial={{ rotate: -90, opacity: 0, scale: 0.6 }}
-                  animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                  exit={{ rotate: 90, opacity: 0, scale: 0.6 }}
-                  transition={{ duration: 0.22 }}
-                  className="flex"
-                >
-                  {mode === 'dark' ? <Sun /> : <Moon />}
-                </motion.span>
-              </AnimatePresence>
+          <div className="ml-auto flex items-center gap-2">
+            <IconButton label="Buscar" className="md:hidden" aria-expanded={searchOpen} onClick={() => setSearchOpen(true)}>
+              <Search />
             </IconButton>
 
-            <div className="relative" ref={notifRef}>
-              <IconButton label="Notificaciones" onClick={() => setShowNotif((v) => !v)} active={showNotif}>
+            <IconButton label={mode === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} onClick={toggleTheme}>
+              {mode === 'dark' ? <Sun /> : <Moon />}
+            </IconButton>
+
+            <div className="sm:relative" ref={notifRef}>
+              <IconButton
+                label={unreadCount > 0 ? `Notificaciones (${unreadCount})` : 'Notificaciones'}
+                aria-expanded={showNotif}
+                onClick={() => setShowNotif((v) => !v)}
+                active={showNotif}
+              >
                 <Bell />
-                {unreadCount > 0 && (
-                  <span className="absolute right-2 top-2 flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-light opacity-70" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
-                  </span>
-                )}
+                {unreadCount > 0 && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand" aria-hidden />}
               </IconButton>
-              <Popover open={showNotif} className="w-80">
+              <Popover
+                open={showNotif}
+                className="fixed inset-x-4 top-[calc(4rem+env(safe-area-inset-top))] mt-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(20rem,calc(100vw-2rem))]"
+              >
                 <div className="flex items-center justify-between border-b border-border px-4 py-3">
                   <p className="text-sm font-semibold">Actividad reciente</p>
                   {unreadCount > 0 && <Badge variant="purple">{unreadCount}</Badge>}
                 </div>
-                <div className="max-h-80 overflow-y-auto p-1.5">
+                <div className="max-h-[min(448px,60dvh)] overflow-y-auto p-1.5">
                   {actividad.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted-foreground">Sin notificaciones</p>}
                   {actividad.slice(0, 8).map((a) => (
-                    <div key={a.id} className="rounded-lg px-3 py-2.5 transition-colors hover:bg-accent">
+                    <div key={a.id} className="rounded-lg px-3 py-2.5">
                       <p className="text-sm font-medium text-foreground">{a.mensaje}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
+                      <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
                     </div>
                   ))}
                 </div>
               </Popover>
             </div>
 
-            <div className="relative ml-1" ref={profileRef}>
+            <div className="relative" ref={profileRef}>
               <button
                 type="button"
                 aria-label="Menú de perfil"
+                aria-expanded={showProfile}
                 onClick={() => setShowProfile((v) => !v)}
-                className="press flex h-9 items-center gap-2 rounded-[10px] pl-1 pr-2 transition-colors hover:bg-accent"
+                className={`flex h-10 w-10 items-center justify-center rounded-[10px] transition-colors duration-150 ${
+                  showProfile ? 'bg-accent' : 'hover:bg-accent'
+                }`}
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white ring-2 ring-transparent transition-shadow hover:ring-brand/30">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
                   {initials}
                 </span>
-                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${showProfile ? 'rotate-180' : ''}`} />
               </button>
-              <Popover open={showProfile} className="w-64">
+              <Popover open={showProfile} className="absolute right-0 top-full mt-2 w-64">
                 <div className="border-b border-border px-4 py-3">
-                  <p className="truncate text-sm font-semibold">{nombre}</p>
-                  <p className="truncate text-xs text-muted-foreground">{email}</p>
+                  <p className="truncate text-sm font-semibold" title={nombre}>
+                    {nombre}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground" title={email}>
+                    {email}
+                  </p>
                 </div>
                 <div className="p-1.5">
-                  {[
-                    { icon: <Settings />, label: 'Ajustes', onClick: () => onNavigate('settings') },
-                    { icon: mode === 'dark' ? <Sun /> : <Moon />, label: mode === 'dark' ? 'Modo claro' : 'Modo oscuro', onClick: toggleTheme },
-                  ].map((op) => (
-                    <button
-                      key={op.label}
-                      type="button"
-                      onClick={() => {
-                        op.onClick();
-                        setShowProfile(false);
-                      }}
-                      className="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-foreground transition-colors hover:bg-accent [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-muted-foreground"
-                    >
-                      {op.icon}
-                      {op.label}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onNavigate('settings');
+                      setShowProfile(false);
+                    }}
+                    className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-foreground transition-colors duration-150 hover:bg-accent [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-muted-foreground"
+                  >
+                    <Settings />
+                    Ajustes
+                  </button>
                   <button
                     type="button"
                     onClick={onLogout}
-                    className="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-sm text-destructive transition-colors hover:bg-destructive-soft"
+                    className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-destructive transition-colors duration-150 hover:bg-destructive-soft"
                   >
                     <LogOut className="h-4 w-4" />
                     Cerrar sesión
@@ -1256,22 +1403,42 @@ const DashboardShell: React.FC<{
               </Popover>
             </div>
           </div>
+
+          {/* Búsqueda abierta en móvil: ocupa toda la topbar */}
+          {searchOpen && (
+            <div
+              ref={searchRef}
+              className="absolute inset-0 z-10 flex items-center gap-2 bg-card px-4 pt-[env(safe-area-inset-top)] sm:px-6 md:hidden"
+            >
+              <div className="relative min-w-0 flex-1">
+                <SearchBarAnimated autoFocus value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                {resultadosBusqueda}
+              </div>
+              <IconButton
+                label="Cerrar búsqueda"
+                onClick={() => {
+                  setSearchOpen(false);
+                  setSearchTerm('');
+                }}
+              >
+                <X />
+              </IconButton>
+            </div>
+          )}
         </header>
 
-        {/* Contenido con transición entre pantallas */}
+        {/* Contenido: la pantalla nueva entra (240ms) sin esperar a que salga la anterior,
+            que se desmonta al instante. La primera carga no anima. */}
         <main className="relative min-h-0 flex-1 overflow-hidden">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={activeScreen}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="h-full"
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          <motion.div
+            key={activeScreen}
+            initial={primeraPantalla.current ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={TRANSICION}
+            className="h-full w-full"
+          >
+            {children}
+          </motion.div>
         </main>
       </div>
     </div>
@@ -1352,14 +1519,14 @@ const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales }) =
               aria-pressed={selected}
               onClick={() => toggle(red.id)}
               title={title}
-              className={`press flex h-10 items-center gap-2 rounded-[10px] border px-3 text-left text-sm transition-all duration-200
+              className={`flex h-10 items-center gap-2 rounded-[10px] border px-3 text-left text-sm transition-colors duration-150
                 ${selected ? 'border-brand bg-brand-soft text-foreground' : 'border-border bg-card hover:border-brand/40'}
                 ${bloqueada ? 'cursor-not-allowed opacity-45' : 'cursor-pointer'}`}
             >
               {redIcono(red.id, 'w-4 h-4')}
               <span className="flex-1 truncate font-medium">{red.nombre}</span>
               <span
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors ${
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[6px] border transition-colors duration-150 ${
                   selected ? 'border-brand bg-brand' : 'border-muted-foreground/40'
                 }`}
               >
@@ -1602,6 +1769,24 @@ const NewPostScreen: React.FC = () => {
   );
 
   const handleGenerate = () => void runGenerate(topic, tone);
+  const [confirmar, dialogoConfirmacion] = useConfirm();
+  const [opcionesProgramacion, setOpcionesProgramacion] = useState(false);
+  /** La vista previa muestra la primera red seleccionada (no una fija). */
+  const redVista: RedSocial = selectedRedes[0] ?? RED_PRINCIPAL;
+
+  const generarConConfirmacion = async () => {
+    if (
+      generatedText.trim() &&
+      !(await confirmar({
+        titulo: '¿Sustituir el texto actual?',
+        mensaje: 'La IA generará un texto nuevo y reemplazará el que ya tienes.',
+        accion: 'Generar de nuevo',
+        destructiva: false,
+      }))
+    )
+      return;
+    handleGenerate();
+  };
 
   useEffect(() => {
     if (agentDraftApplied.current || !user) return;
@@ -1812,7 +1997,17 @@ const NewPostScreen: React.FC = () => {
 
   const displayName = profile?.nombre || 'Influencer';
 
-  const limpiar = () => {
+  const hayContenido = Boolean(topic.trim() || generatedText.trim() || manualUploads.length || imagenUrl);
+
+  const limpiar = async () => {
+    if (
+      !(await confirmar({
+        titulo: '¿Limpiar la publicación?',
+        mensaje: 'Se borrarán el tema, el texto generado y los archivos añadidos.',
+        accion: 'Limpiar',
+      }))
+    )
+      return;
     setTopic('');
     setGeneratedText('');
     setImagenUrl('');
@@ -1824,11 +2019,12 @@ const NewPostScreen: React.FC = () => {
   return (
     <ScreenLayout>
       <Toast message={toastMsg || '¡Publicación programada!'} type="success" show={showToast} />
+      {dialogoConfirmacion}
 
       <PageHeader title="Nueva publicación" subtitle="Crea contenido con ayuda de IA y publícalo en tus redes" />
 
       {(errorMsg || makeWarning) && (
-        <div className="shrink-0 space-y-2">
+        <div className="shrink-0 space-y-3">
           {errorMsg && <Notice tone="danger">{errorMsg}</Notice>}
           {makeWarning && (
             <Notice tone="warning">{makeWarning} Puedes vaciar la URL de Make en Ajustes si no lo usas.</Notice>
@@ -1836,7 +2032,7 @@ const NewPostScreen: React.FC = () => {
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-2">
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-2">
         {/* Formulario */}
         <Panel
           title="Contenido"
@@ -1844,34 +2040,37 @@ const NewPostScreen: React.FC = () => {
           footer={
             <div className="flex items-center gap-3">
               <Button
-                variant="liquid"
+                size="lg"
                 className="flex-1"
                 icon={isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                onClick={handleGenerate}
+                onClick={() => void generarConConfirmacion()}
                 disabled={!topic || isGenerating}
               >
                 {isGenerating ? 'Generando…' : 'Generar con IA'}
               </Button>
-              <Button variant="ghost" onClick={limpiar}>
+              <Button size="lg" variant="ghost" onClick={() => void limpiar()} disabled={!hayContenido || isGenerating}>
                 Limpiar
               </Button>
             </div>
           }
         >
-          <div className="space-y-5">
-            <div className="space-y-1.5">
-              <label htmlFor="np-tema" className="text-sm font-medium text-foreground">
-                Tema del post
-              </label>
-              <textarea
-                id="np-tema"
-                placeholder="Ej: Lanzamiento del nuevo bootcamp de desarrollo web en Bucaramanga"
-                rows={3}
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                className="field resize-none py-2.5 leading-relaxed"
-              />
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-foreground">Redes de publicación</span>
+              <RedSelector value={selectedRedes} onChange={setSelectedRedes} canales={canales} />
+              {selectedRedes.length === 0 && (
+                <Notice tone="warning">Elige al menos una red para poder publicar.</Notice>
+              )}
             </div>
+
+            <Textarea
+              id="np-tema"
+              label="Tema del post"
+              placeholder="Ej: Lanzamiento del nuevo bootcamp de desarrollo web en Bucaramanga"
+              rows={3}
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Dropdown
@@ -1885,9 +2084,9 @@ const NewPostScreen: React.FC = () => {
                   { value: 'promocional', label: 'Promocional' },
                 ]}
               />
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <span className="text-sm font-medium text-foreground">Multimedia con IA</span>
-                <div className="surface-muted space-y-2.5 px-3.5 py-2.5">
+                <div className="surface-muted px-4 py-1">
                   <Toggle
                     label="Imagen"
                     checked={generateImage}
@@ -1928,18 +2127,13 @@ const NewPostScreen: React.FC = () => {
               </Notice>
             )}
 
-            <div className="space-y-2">
-              <span className="text-sm font-medium text-foreground">Redes de publicación</span>
-              <RedSelector value={selectedRedes} onChange={setSelectedRedes} canales={canales} />
-            </div>
-
             <AnimatePresence initial={false}>
               {!generateImage && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25 }}
+                  transition={TRANSICION}
                   className="space-y-2 overflow-hidden"
                 >
                   <span className="text-sm font-medium text-foreground">Foto o archivo</span>
@@ -1955,7 +2149,10 @@ const NewPostScreen: React.FC = () => {
                       if (e.dataTransfer.files?.length) addManualFiles(Array.from(e.dataTransfer.files));
                     }}
                     onClick={() => newPostFileRef.current?.click()}
-                    className={`press flex cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition-all duration-200 ${
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && newPostFileRef.current?.click()}
+                    className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition-colors duration-150 ${
                       isDraggingMedia ? 'border-brand bg-brand-soft' : 'border-border hover:border-brand/50 hover:bg-brand-soft'
                     }`}
                   >
@@ -1975,12 +2172,13 @@ const NewPostScreen: React.FC = () => {
                     />
                   </div>
                   {manualUploads.length > 0 && (
-                    <div className="grid grid-cols-5 gap-2">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
                       {manualUploads.map((f, i) => (
                         <motion.div
                           key={i}
-                          initial={{ opacity: 0, scale: 0.85 }}
-                          animate={{ opacity: 1, scale: 1 }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={TRANSICION}
                           className="group relative aspect-square overflow-hidden rounded-[10px] border border-border bg-accent"
                         >
                           {f.preview ? (
@@ -2001,9 +2199,9 @@ const NewPostScreen: React.FC = () => {
                               e.stopPropagation();
                               removeManualFile(i);
                             }}
-                            className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+                            className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 transition-colors hover:bg-black/80"
                           >
-                            <X className="h-3 w-3 text-white" />
+                            <X className="h-4 w-4 text-white" />
                           </button>
                         </motion.div>
                       ))}
@@ -2019,12 +2217,13 @@ const NewPostScreen: React.FC = () => {
         <Panel
           title="Vista previa"
           icon={<Eye />}
-          delay={80}
-          actions={<Badge variant="purple">LinkedIn</Badge>}
+          actions={<Badge variant="purple">{redConfig(redVista)?.nombre ?? 'Vista previa'}</Badge>}
           footer={
             hasContent ? (
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="space-y-3 py-1">
                 <Segmented
+                  full
+                  ariaLabel="Momento de publicación"
                   value={scheduleMode}
                   onChange={(v) => setScheduleMode(v as 'now' | 'schedule')}
                   options={[
@@ -2035,56 +2234,67 @@ const NewPostScreen: React.FC = () => {
                 <AnimatePresence initial={false}>
                   {scheduleMode === 'schedule' && (
                     <motion.div
-                      initial={{ opacity: 0, x: -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -6 }}
-                      className="flex flex-wrap items-center gap-2"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={TRANSICION}
+                      className="space-y-3 overflow-hidden"
                     >
-                      <input
-                        type="date"
-                        aria-label="Fecha"
-                        value={scheduledDate}
-                        onChange={(e) => setScheduledDate(e.target.value)}
-                        className="field h-9 min-h-0 w-[150px] py-0"
-                      />
-                      <input
-                        type="time"
-                        aria-label="Hora"
-                        value={scheduledTime}
-                        onChange={(e) => setScheduledTime(e.target.value)}
-                        className="field h-9 min-h-0 w-[110px] py-0"
-                      />
-                      <Dropdown
-                        size="sm"
-                        className="w-[150px]"
-                        value={timezone}
-                        onChange={setTimezone}
-                        options={ZONAS_HORARIAS}
-                      />
-                      <Dropdown
-                        size="sm"
-                        className="w-[130px]"
-                        title="Repetir la misma publicación"
-                        value={repeatMode}
-                        onChange={setRepeatMode}
-                        options={[
-                          { value: 'none', label: 'Sin repetir' },
-                          { value: 'daily', label: 'Diario' },
-                          { value: 'weekly', label: 'Semanal' },
-                        ]}
-                      />
+                      <div className="grid gap-3 min-[400px]:grid-cols-[minmax(0,1fr)_120px]">
+                        <input
+                          type="date"
+                          aria-label="Fecha"
+                          value={scheduledDate}
+                          onChange={(e) => setScheduledDate(e.target.value)}
+                          className="field tabular-nums"
+                        />
+                        <input
+                          type="time"
+                          aria-label="Hora"
+                          value={scheduledTime}
+                          onChange={(e) => setScheduledTime(e.target.value)}
+                          className="field tabular-nums"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        aria-expanded={opcionesProgramacion}
+                        onClick={() => setOpcionesProgramacion((v) => !v)}
+                        className="flex h-10 w-full items-center justify-between rounded-[10px] px-1 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground"
+                      >
+                        Opciones de programación
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform duration-[240ms] ${opcionesProgramacion ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {opcionesProgramacion && (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Dropdown label="Zona horaria" value={timezone} onChange={setTimezone} options={ZONAS_HORARIAS} />
+                          <Dropdown
+                            label="Repetir"
+                            value={repeatMode}
+                            onChange={setRepeatMode}
+                            options={[
+                              { value: 'none', label: 'Sin repetir' },
+                              { value: 'daily', label: 'Diario' },
+                              { value: 'weekly', label: 'Semanal' },
+                            ]}
+                          />
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <div className="ml-auto flex items-center gap-2">
-                  <Button variant="outline" icon={<Save />} onClick={handleSaveBorrador}>
-                    Guardar
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <Button size="lg" variant="outline" icon={<Save />} onClick={handleSaveBorrador}>
+                    Guardar borrador
                   </Button>
                   <Button
-                    variant="liquid"
+                    size="lg"
                     icon={scheduleMode === 'now' ? <Send /> : <Calendar />}
                     onClick={handleSchedule}
-                    disabled={scheduleMode === 'schedule' && (!scheduledDate || !scheduledTime)}
+                    disabled={selectedRedes.length === 0 || (scheduleMode === 'schedule' && (!scheduledDate || !scheduledTime))}
+                    title={selectedRedes.length === 0 ? 'Elige al menos una red' : undefined}
                   >
                     {scheduleMode === 'now' ? 'Publicar ahora' : 'Programar'}
                   </Button>
@@ -2115,12 +2325,12 @@ const NewPostScreen: React.FC = () => {
                 <Skeleton className="h-3.5 w-full" />
                 <Skeleton className="h-3.5 w-3/4" />
               </div>
-              <Skeleton className="h-44 w-full rounded-xl" />
+              <Skeleton className="h-44 w-full !rounded-xl" />
             </div>
           )}
 
           {showPreview && (
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="space-y-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={TRANSICION} className="space-y-4">
               {videoUrl || manualUploads[0]?.type === 'video' ? (
                 <div className="overflow-hidden rounded-xl border border-border bg-black/5 dark:bg-black/30">
                   <video src={videoUrl || (previewImageUrl ?? undefined)} controls playsInline className="max-h-[420px] w-full object-contain" />
@@ -2130,7 +2340,7 @@ const NewPostScreen: React.FC = () => {
                 </div>
               ) : (
                 <SocialPostPreview
-                  network={RED_PRINCIPAL}
+                  network={redVista}
                   authorName={displayName}
                   authorInitials={initials}
                   content={generatedText || topic}
@@ -2310,6 +2520,21 @@ const ManualPostScreen: React.FC = () => {
     notify('Borrador guardado');
   };
 
+  const LIMITE = 3000;
+  const excedido = postText.length > LIMITE;
+  const redVista: RedSocial = redesDestino[0] ?? RED_PRINCIPAL;
+  const autor = profile?.nombre || user?.email || 'Tu perfil';
+  const iniciales = autor.slice(0, 2).toUpperCase();
+  const motivoBloqueo = !postText.trim()
+    ? 'Escribe el contenido para continuar.'
+    : excedido
+      ? `El texto supera ${LIMITE} caracteres.`
+      : redesDestino.length === 0
+        ? 'Elige al menos una red.'
+        : scheduleMode === 'schedule' && (!scheduledDate || !scheduledTime)
+          ? 'Indica fecha y hora.'
+          : '';
+
   const vistaPrevia =
     uploadedFiles[0]?.type === 'video' && uploadedFiles[0]?.preview ? (
       <div className="overflow-hidden rounded-xl border border-border bg-black/5 dark:bg-black/30">
@@ -2318,12 +2543,12 @@ const ManualPostScreen: React.FC = () => {
       </div>
     ) : (
       <SocialPostPreview
-        network={RED_PRINCIPAL}
-        authorName="Influencer"
-        authorInitials="CL"
+        network={redVista}
+        authorName={autor}
+        authorInitials={iniciales}
         content={postText}
         imageUrl={uploadedFiles[0]?.preview ?? null}
-        charLimit={3000}
+        charLimit={LIMITE}
       />
     );
 
@@ -2331,35 +2556,34 @@ const ManualPostScreen: React.FC = () => {
     <ScreenLayout>
       <Toast message={toastMsg} type="success" show={showToast} />
 
-      <PageHeader
-        title="Subir publicación"
-        subtitle="Crea y programa contenido manualmente, sin IA"
-        actions={
-          <Button variant="outline" icon={<Eye />} className="xl:hidden" onClick={() => setVistaPreviaAbierta(true)}>
-            Vista previa
-          </Button>
-        }
-      />
+      <PageHeader title="Subir publicación" subtitle="Crea y programa contenido manualmente, sin IA" />
 
-      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_340px]">
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_340px]">
         {/* Editor y medios */}
         <Panel
           title="Contenido del post"
           icon={<PenSquare />}
           actions={
-            <Badge variant={postText.length > 3000 ? 'danger' : 'default'} className="tabular-nums">
-              {postText.length} / 3000
-            </Badge>
+            <Button variant="outline" icon={<Eye />} className="xl:hidden" onClick={() => setVistaPreviaAbierta(true)}>
+              Vista previa
+            </Button>
           }
           bodyClassName="flex flex-col gap-4"
         >
-          <textarea
-            aria-label="Contenido de la publicación"
-            placeholder="Escribe aquí el contenido de tu publicación…"
-            value={postText}
-            onChange={(e) => setPostText(e.target.value)}
-            className="field min-h-[140px] flex-1 resize-none py-3 leading-relaxed"
-          />
+          <div className="flex flex-1 flex-col gap-1">
+            <textarea
+              aria-label="Contenido de la publicación"
+              aria-describedby="mp-contador"
+              placeholder="Escribe aquí el contenido de tu publicación…"
+              value={postText}
+              onChange={(e) => setPostText(e.target.value)}
+              className={`field min-h-40 flex-1 resize-none py-3 leading-5 ${excedido ? '!border-destructive' : ''}`}
+            />
+            <p id="mp-contador" className={`text-right text-xs tabular-nums ${excedido ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {postText.length} / {LIMITE}
+              {excedido && ' · supera el límite'}
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-1">
             {['😊', '🚀', '✅', '💡', '🎯', '🔥', '📌', '💬'].map((e) => (
               <button
@@ -2367,7 +2591,7 @@ const ManualPostScreen: React.FC = () => {
                 type="button"
                 aria-label={`Insertar ${e}`}
                 onClick={() => setPostText((p) => p + e)}
-                className="press flex h-8 w-8 items-center justify-center rounded-lg text-base transition-colors hover:bg-accent"
+                className="press flex h-10 w-10 items-center justify-center rounded-[10px] text-base transition-colors duration-150 hover:bg-accent"
               >
                 {e}
               </button>
@@ -2389,7 +2613,10 @@ const ManualPostScreen: React.FC = () => {
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`press flex cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition-all duration-200 ${
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && fileInputRef.current?.click()}
+                className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition-colors duration-150 ${
                   isDragging ? 'border-brand bg-brand-soft' : 'border-border hover:border-brand/50 hover:bg-brand-soft'
                 }`}
               >
@@ -2401,14 +2628,15 @@ const ManualPostScreen: React.FC = () => {
                 </span>
               </div>
             ) : (
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
                 <AnimatePresence>
                   {uploadedFiles.map((f, i) => (
                     <motion.div
                       key={i}
-                      initial={{ opacity: 0, scale: 0.85 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.85 }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={TRANSICION}
                       className="group relative aspect-square overflow-hidden rounded-[10px] border border-border bg-accent"
                     >
                       {f.preview ? (
@@ -2426,9 +2654,9 @@ const ManualPostScreen: React.FC = () => {
                         type="button"
                         aria-label={`Quitar ${f.name}`}
                         onClick={() => removeFile(i)}
-                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 opacity-0 transition-all group-hover:opacity-100 hover:bg-destructive"
+                        className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 transition-colors duration-150 hover:bg-destructive"
                       >
-                        <X className="h-3 w-3 text-white" />
+                        <X className="h-4 w-4 text-white" />
                       </button>
                     </motion.div>
                   ))}
@@ -2436,7 +2664,7 @@ const ManualPostScreen: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="press flex aspect-square flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-border text-muted-foreground transition-colors hover:border-brand/50 hover:bg-brand-soft hover:text-brand-strong"
+                  className="flex aspect-square flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-border text-muted-foreground transition-colors duration-150 hover:border-brand/50 hover:bg-brand-soft hover:text-brand-strong"
                 >
                   <Plus className="h-4 w-4" />
                   <span className="text-xs">Añadir</span>
@@ -2455,7 +2683,7 @@ const ManualPostScreen: React.FC = () => {
         </Panel>
 
         {/* Vista previa (pantallas anchas) */}
-        <Panel title="Vista previa" icon={<Eye />} delay={60} className="hidden xl:flex">
+        <Panel title="Vista previa" icon={<Eye />} className="hidden xl:flex">
           {vistaPrevia}
         </Panel>
 
@@ -2463,19 +2691,24 @@ const ManualPostScreen: React.FC = () => {
         <Panel
           title="Publicación"
           icon={<CalendarClock />}
-          delay={120}
           footer={
-            <div className="grid gap-2">
+            <div className="grid gap-2 py-1">
               <Button
-                variant="liquid"
+                size="lg"
                 className="w-full"
                 icon={saving ? <Loader2 className="animate-spin" /> : scheduleMode === 'now' ? <Send /> : <CalendarClock />}
                 onClick={handleSchedule}
-                disabled={saving || !postText.trim()}
+                disabled={saving || Boolean(motivoBloqueo)}
+                aria-describedby={motivoBloqueo ? 'mp-motivo' : undefined}
               >
                 {saving ? 'Guardando…' : scheduleMode === 'now' ? 'Publicar ahora' : 'Programar publicación'}
               </Button>
-              <Button variant="outline" className="w-full" icon={<Save />} onClick={guardarBorradorManual} disabled={!postText.trim()}>
+              {motivoBloqueo && (
+                <p id="mp-motivo" className="text-center text-xs text-muted-foreground">
+                  {motivoBloqueo}
+                </p>
+              )}
+              <Button size="lg" variant="outline" className="w-full" icon={<Save />} onClick={guardarBorradorManual} disabled={!postText.trim()}>
                 Guardar como borrador
               </Button>
             </div>
@@ -2490,6 +2723,7 @@ const ManualPostScreen: React.FC = () => {
             <div className="space-y-3 border-t border-border pt-5">
               <Segmented
                 full
+                ariaLabel="Momento de publicación"
                 value={scheduleMode}
                 onChange={(v) => setScheduleMode(v as 'now' | 'schedule')}
                 options={[
@@ -2500,7 +2734,7 @@ const ManualPostScreen: React.FC = () => {
 
               <AnimatePresence mode="wait" initial={false}>
                 {scheduleMode === 'now' ? (
-                  <motion.div key="ahora" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}>
+                  <motion.div key="ahora" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={TRANSICION}>
                     <Notice tone="success" icon={<Send />}>
                       <span className="font-medium">Publicación inmediata.</span> Se enviará a las redes seleccionadas al confirmar.
                     </Notice>
@@ -2508,19 +2742,20 @@ const ManualPostScreen: React.FC = () => {
                 ) : (
                   <motion.div
                     key="programar"
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={TRANSICION}
                     className="space-y-3"
                   >
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="space-y-1.5">
+                    <div className="grid gap-3 min-[400px]:grid-cols-[minmax(0,1fr)_120px]">
+                      <label className="flex flex-col gap-2">
                         <span className="text-sm font-medium text-foreground">Fecha</span>
-                        <input type="date" min={today} value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="field" />
+                        <input type="date" min={today} value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="field tabular-nums" />
                       </label>
-                      <label className="space-y-1.5">
+                      <label className="flex flex-col gap-2">
                         <span className="text-sm font-medium text-foreground">Hora</span>
-                        <input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="field" />
+                        <input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="field tabular-nums" />
                       </label>
                     </div>
                     <Dropdown label="Zona horaria" icon={<Globe />} value={timezone} onChange={setTimezone} options={ZONAS_HORARIAS} />
@@ -2578,14 +2813,20 @@ const ManualPostScreen: React.FC = () => {
 const DraftsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
   const { user } = useAuth();
   const invalidate = useInvalidateCampus();
-  const { data: drafts = [], isLoading, refetch } = useBorradores();
+  const { data: drafts = [], isLoading, error, refetch } = useBorradores();
   const [filter, setFilter] = useState('todos');
+  const [pagina, setPagina] = useState(0);
+  const [confirmar, dialogoConfirmacion] = useConfirm();
+  const POR_PAGINA = 20;
 
   const filtered = drafts.filter((d) => {
     if (filter === 'pendientes') return d.estado === 'pendiente';
     if (filter === 'programados') return d.estado === 'programado' || d.estado === 'aprobado';
     return true;
   });
+  const paginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
+  const paginaActual = Math.min(pagina, paginas - 1);
+  const visibles = filtered.slice(paginaActual * POR_PAGINA, (paginaActual + 1) * POR_PAGINA);
 
   const statusColors: Record<string, 'warning' | 'success' | 'purple' | 'default'> = {
     pendiente: 'warning',
@@ -2608,137 +2849,241 @@ const DraftsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNa
     pendientes: drafts.filter((d) => d.estado === 'pendiente').length,
     programados: drafts.filter((d) => d.estado === 'programado' || d.estado === 'aprobado').length,
   };
+  const etiquetas = { todos: 'Todos', pendientes: 'Pendientes', programados: 'Programados' } as const;
+
+  const cambiarFiltro = (f: string) => {
+    setFilter(f);
+    setPagina(0);
+  };
+
+  const titulo = (d: Borrador) => d.titulo || d.promptOriginal.slice(0, 50) || 'Borrador sin título';
+
+  const eliminar = async (d: Borrador) => {
+    if (
+      !user ||
+      !(await confirmar({
+        titulo: '¿Eliminar borrador?',
+        mensaje: `“${titulo(d)}” se eliminará de forma permanente.`,
+        accion: 'Eliminar',
+      }))
+    )
+      return;
+    await eliminarBorrador(d.id);
+    invalidate();
+    refetch();
+  };
+
+  const redes = (d: Borrador) =>
+    d.redesDestino.length === 0 ? (
+      <span className="text-xs text-muted-foreground">Sin redes</span>
+    ) : (
+      <div className="flex items-center -space-x-1.5">
+        {d.redesDestino.map((net) => (
+          <span
+            key={net}
+            title={redConfig(net as RedSocial)?.nombre ?? net}
+            className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-secondary"
+          >
+            {networkIcons[net as keyof typeof networkIcons]}
+          </span>
+        ))}
+      </div>
+    );
+
+  const acciones = (d: Borrador) => (
+    <div className="flex items-center justify-end gap-4">
+      <IconButton label={`Continuar editando: ${titulo(d)}`} onClick={() => resumeBorradorAndNavigate(d, onNavigate)}>
+        <Edit />
+      </IconButton>
+      <IconButton label={`Eliminar borrador: ${titulo(d)}`} tone="danger" onClick={() => void eliminar(d)}>
+        <Trash2 />
+      </IconButton>
+    </div>
+  );
+
+  const vacioPorFiltro = drafts.length > 0 && filtered.length === 0;
 
   return (
     <ScreenLayout>
-      <PageHeader
-        title="Borradores"
-        subtitle="Gestiona tus publicaciones guardadas y programadas"
-        actions={
+      {dialogoConfirmacion}
+      <PageHeader title="Borradores" subtitle="Gestiona tus publicaciones guardadas y programadas" />
+
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="hidden sm:block">
           <Segmented
+            ariaLabel="Filtrar borradores"
             value={filter}
-            onChange={setFilter}
+            onChange={cambiarFiltro}
             options={(['todos', 'pendientes', 'programados'] as const).map((f) => ({
               value: f,
               label: (
                 <>
-                  <span className="capitalize">{f}</span>
-                  <span className="rounded-md bg-background/70 px-1.5 text-xs tabular-nums text-muted-foreground">{conteo[f]}</span>
+                  {etiquetas[f]}
+                  <span className="text-xs tabular-nums text-muted-foreground">{conteo[f]}</span>
                 </>
               ),
             }))}
           />
-        }
-      />
+        </div>
+        <Dropdown
+          className="sm:hidden"
+          value={filter}
+          onChange={cambiarFiltro}
+          options={(['todos', 'pendientes', 'programados'] as const).map((f) => ({
+            value: f,
+            label: `${etiquetas[f]} (${conteo[f]})`,
+          }))}
+        />
+        <p className="text-sm tabular-nums text-muted-foreground">
+          {filtered.length} {filtered.length === 1 ? 'borrador' : 'borradores'}
+        </p>
+      </div>
 
-      <Panel scroll={false} className="flex-1" bodyClassName="!p-0 flex flex-col">
+      {error && (
+        <Notice tone="danger" className="shrink-0" action={<Button variant="ghost" onClick={refetch}>Reintentar</Button>}>
+          No se pudieron cargar los borradores.
+        </Notice>
+      )}
+
+      <Panel
+        scroll={false}
+        className="flex-1"
+        bodyClassName="!p-0 flex flex-col"
+        footer={
+          paginas > 1 ? (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm tabular-nums text-muted-foreground">
+                Página {paginaActual + 1} de {paginas}
+              </p>
+              <div className="flex gap-2">
+                <IconButton label="Página anterior" disabled={paginaActual === 0} onClick={() => setPagina(paginaActual - 1)}>
+                  <ChevronLeft />
+                </IconButton>
+                <IconButton label="Página siguiente" disabled={paginaActual >= paginas - 1} onClick={() => setPagina(paginaActual + 1)}>
+                  <ChevronRight />
+                </IconButton>
+              </div>
+            </div>
+          ) : undefined
+        }
+      >
         {isLoading ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-brand-strong" />
-            <p className="text-sm text-muted-foreground">Cargando borradores…</p>
+          <div aria-busy="true" aria-label="Cargando borradores">
+            <div className="hidden md:block">
+              <div className="h-11 border-b border-border" />
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex h-14 items-center gap-6 border-b border-border px-6 last:border-0">
+                  <Skeleton className="h-3.5 flex-1" />
+                  <Skeleton className="h-7 w-16 !rounded-full" />
+                  <Skeleton className="h-6 w-20" />
+                  <Skeleton className="h-3.5 w-24" />
+                  <Skeleton className="h-10 w-24 !rounded-[10px]" />
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3 p-4 md:hidden">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-32 w-full !rounded-xl" />
+              ))}
+            </div>
           </div>
         ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={<FileText />}
-            title="No hay borradores"
-            text="Aún no tienes borradores en este estado. Crea contenido y guárdalo aquí para más tarde."
-            action={
-              <Button variant="liquid" icon={<Plus />} onClick={() => onNavigate('new-post')}>
-                Crear publicación
-              </Button>
-            }
-          />
+          vacioPorFiltro ? (
+            <EmptyState
+              icon={<Filter />}
+              title="No hay borradores en este estado"
+              text="Prueba con otro filtro para ver el resto de tus borradores."
+              action={
+                <Button variant="outline" onClick={() => cambiarFiltro('todos')}>
+                  Ver todos
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={<FileText />}
+              title="Todavía no hay borradores"
+              text="Crea contenido y guárdalo como borrador para retomarlo más tarde."
+              action={
+                <Button icon={<Plus />} onClick={() => onNavigate('new-post')}>
+                  Nueva publicación
+                </Button>
+              }
+            />
+          )
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto">
-            <table className="w-full border-collapse text-left">
-              <thead className="sticky top-0 z-10 bg-card">
-                <tr className="border-b border-border">
-                  {['Título', 'Redes', 'Estado', 'Fecha', ''].map((h, i) => (
-                    <th
-                      key={i}
-                      className={`h-11 px-5 text-xs font-medium uppercase tracking-wider text-muted-foreground ${i === 4 ? 'text-right' : ''}`}
-                    >
-                      {h || <span className="sr-only">Acciones</span>}
+          <>
+            {/* Tabla (≥ 768) */}
+            <div className="hidden min-h-0 flex-1 md:block lg:overflow-auto">
+              <table className="w-full border-collapse text-left">
+                <thead className="sticky top-0 z-10 bg-card">
+                  <tr className="border-b border-border">
+                    {['Título', 'Redes', 'Estado', 'Fecha'].map((h) => (
+                      <th key={h} scope="col" className="h-11 px-6 text-xs font-semibold text-muted-foreground">
+                        {h}
+                      </th>
+                    ))}
+                    <th scope="col" className="h-11 px-6 text-right text-xs font-semibold text-muted-foreground">
+                      <span className="sr-only">Acciones</span>
                     </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {visibles.map((draft) => (
+                    <tr key={draft.id} className="transition-colors duration-150 hover:bg-accent/60">
+                      <td className="h-14 min-w-48 max-w-[420px] px-6 py-2">
+                        <button
+                          type="button"
+                          onClick={() => resumeBorradorAndNavigate(draft, onNavigate)}
+                          className="block max-w-full truncate rounded-[6px] text-left text-sm font-medium text-foreground hover:text-brand-strong"
+                          title={titulo(draft)}
+                        >
+                          {titulo(draft)}
+                        </button>
+                      </td>
+                      <td className="px-6">{redes(draft)}</td>
+                      <td className="px-6">
+                        <Badge variant={statusColors[draft.estado] ?? 'default'} className="capitalize">
+                          {draft.estado}
+                        </Badge>
+                      </td>
+                      <td className="whitespace-nowrap px-6 text-sm tabular-nums text-muted-foreground">
+                        {draft.creadoEn ? formatRelative(toDate(draft.creadoEn)) : 'Sin fecha'}
+                      </td>
+                      <td className="px-6">{acciones(draft)}</td>
+                    </tr>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtered.map((draft, i) => (
-                  <motion.tr
-                    key={draft.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25, delay: Math.min(i, 10) * 0.03 }}
-                    className="group cursor-pointer transition-colors duration-150 hover:bg-accent/70"
+                </tbody>
+              </table>
+            </div>
+
+            {/* Tarjetas (< 768) */}
+            <ul className="divide-y divide-border md:hidden">
+              {visibles.map((draft) => (
+                <li key={draft.id} className="space-y-3 px-5 py-4">
+                  <button
+                    type="button"
                     onClick={() => resumeBorradorAndNavigate(draft, onNavigate)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        resumeBorradorAndNavigate(draft, onNavigate);
-                      }
-                    }}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Continuar borrador: ${draft.titulo || draft.promptOriginal.slice(0, 50)}`}
+                    className="line-clamp-2 text-left text-sm font-medium text-foreground"
                   >
-                    <td className="h-14 max-w-[420px] px-5">
-                      <p className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-brand-strong">
-                        {draft.titulo || draft.promptOriginal.slice(0, 50)}
-                      </p>
-                    </td>
-                    <td className="px-5">
-                      <div className="flex items-center -space-x-1.5">
-                        {draft.redesDestino.map((net) => (
-                          <span
-                            key={net}
-                            className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-secondary"
-                          >
-                            {networkIcons[net as keyof typeof networkIcons]}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-5">
-                      <Badge variant={statusColors[draft.estado] ?? 'default'} className="capitalize">{draft.estado}</Badge>
-                    </td>
-                    <td className="whitespace-nowrap px-5 text-sm text-muted-foreground">{formatRelative(toDate(draft.creadoEn))}</td>
-                    <td className="px-5">
-                      <div className="flex items-center justify-end gap-1 opacity-60 transition-opacity group-hover:opacity-100">
-                        <button
-                          type="button"
-                          title="Continuar editando"
-                          aria-label="Continuar editando"
-                          className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-brand-soft hover:text-brand-strong"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            resumeBorradorAndNavigate(draft, onNavigate);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          title="Eliminar"
-                          aria-label="Eliminar borrador"
-                          className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive-soft hover:text-destructive"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (!user || !confirm('¿Eliminar borrador?')) return;
-                            await eliminarBorrador(draft.id);
-                            invalidate();
-                            refetch();
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    {titulo(draft)}
+                  </button>
+                  <div className="flex items-center gap-3">
+                    <Badge variant={statusColors[draft.estado] ?? 'default'} className="capitalize">
+                      {draft.estado}
+                    </Badge>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {draft.creadoEn ? formatRelative(toDate(draft.creadoEn)) : 'Sin fecha'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    {redes(draft)}
+                    {acciones(draft)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </Panel>
     </ScreenLayout>
@@ -2766,7 +3111,13 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
   const initials = (profile?.nombre || user?.email || 'U').slice(0, 2).toUpperCase();
   const mes = viewDate.getMonth();
   const anio = viewDate.getFullYear();
-  const { porDia, isLoading } = usePublicacionesProgramadas(mes, anio);
+  const { porDia, isLoading, error: errorCal, refetch: recargarCal } = usePublicacionesProgramadas(mes, anio);
+  const [confirmar, dialogoConfirmacion] = useConfirm();
+  const [reprogramando, setReprogramando] = useState<Publicacion | null>(null);
+  const [repFecha, setRepFecha] = useState('');
+  const [repHora, setRepHora] = useState('');
+  const diaRef = useRef<HTMLDivElement>(null);
+  const celdasRef = useRef<(HTMLButtonElement | null)[]>([]);
 
   const monthLabel = viewDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
   const daysInMonth = new Date(anio, mes + 1, 0).getDate();
@@ -2858,21 +3209,107 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
 
   const semanas = Math.ceil((firstDayOffset + daysInMonth) / 7);
   const esMesActual = anio === now.getFullYear() && mes === now.getMonth();
+  const diaFoco = selectedDay && selectedDay <= daysInMonth ? selectedDay : 1;
+
+  /** Elige un día; en < 1024 lleva el foco y el scroll al panel del día. */
+  const elegirDia = (day: number, desdeTeclado = false) => {
+    setSelectedDay(day);
+    if (!desdeTeclado && window.matchMedia('(max-width: 1023px)').matches) {
+      window.setTimeout(() => {
+        diaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        diaRef.current?.focus({ preventScroll: true });
+      }, 0);
+    }
+  };
+
+  // Roving tabindex: flechas ±1 día / ±1 semana, Inicio/Fin del mes.
+  const moverFoco = (e: React.KeyboardEvent, day: number) => {
+    const saltos: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    let destino: number | null = null;
+    if (e.key in saltos) destino = day + saltos[e.key];
+    else if (e.key === 'Home') destino = 1;
+    else if (e.key === 'End') destino = daysInMonth;
+    if (destino === null) return;
+    e.preventDefault();
+    destino = Math.min(daysInMonth, Math.max(1, destino));
+    elegirDia(destino, true);
+    celdasRef.current[destino]?.focus();
+  };
+
+  const describirDia = (posts: Publicacion[]) => {
+    if (!posts.length) return '';
+    const cuenta = (estado: string) => posts.filter((p) => p.estado === estado).length;
+    const partes = [
+      cuenta('programado') && `${cuenta('programado')} programada${cuenta('programado') > 1 ? 's' : ''}`,
+      cuenta('publicado') && `${cuenta('publicado')} publicada${cuenta('publicado') > 1 ? 's' : ''}`,
+      cuenta('fallido') && `${cuenta('fallido')} fallida${cuenta('fallido') > 1 ? 's' : ''}`,
+    ].filter(Boolean);
+    return `, ${posts.length} publicación${posts.length > 1 ? 'es' : ''}${partes.length ? `: ${partes.join(', ')}` : ''}`;
+  };
+
+  const abrirReprogramar = (post: Publicacion) => {
+    const fp = toDate(post.fechaProgramada) ?? new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setRepFecha(`${fp.getFullYear()}-${pad(fp.getMonth() + 1)}-${pad(fp.getDate())}`);
+    setRepHora(`${pad(fp.getHours())}:${pad(fp.getMinutes())}`);
+    setReprogramando(post);
+  };
+
+  const guardarReprogramacion = async () => {
+    if (!user || !reprogramando || !repFecha || !repHora) return;
+    const nueva = new Date(`${repFecha}T${repHora}`);
+    setMoving(true);
+    try {
+      await actualizarPublicacion(reprogramando.id, { fechaProgramada: nueva });
+      await registrarActividad(user.uid, {
+        tipo: 'programado',
+        mensaje: `Reprogramado al ${nueva.toLocaleDateString('es-CO')}`,
+        red: reprogramando.redesDestino[0],
+      });
+      invalidate();
+      setViewDate(new Date(nueva.getFullYear(), nueva.getMonth(), 1));
+      setSelectedDay(nueva.getDate());
+      setReprogramando(null);
+    } finally {
+      setMoving(false);
+    }
+  };
+
+  const eliminarPost = async (post: Publicacion) => {
+    if (
+      !user ||
+      !(await confirmar({
+        titulo: '¿Eliminar publicación?',
+        mensaje: `“${post.titulo || 'Publicación'}” se eliminará del calendario de forma permanente.`,
+        accion: 'Eliminar',
+      }))
+    )
+      return;
+    await eliminarPublicacion(post.id);
+    if (previewPost?.id === post.id) setPreviewPost(null);
+    invalidate();
+  };
 
   return (
     <ScreenLayout>
+      {dialogoConfirmacion}
       <PageHeader
         title="Calendario editorial"
-        subtitle="Organiza tus publicaciones. Arrastra una publicación a otro día para reprogramarla."
+        subtitle="Organiza y reprograma tus publicaciones por día."
         actions={
-          <Button variant="liquid" icon={<Plus />} onClick={() => onNavigate('new-post')}>
+          <Button icon={<Plus />} onClick={() => onNavigate('new-post')}>
             Nueva publicación
           </Button>
         }
       />
 
-      {(overdueCount > 0 || schedulerMsg) && (
-        <div className="shrink-0 space-y-2">
+      {(overdueCount > 0 || schedulerMsg || errorCal) && (
+        <div className="shrink-0 space-y-3">
+          {errorCal && (
+            <Notice tone="danger" action={<Button variant="ghost" onClick={recargarCal}>Reintentar</Button>}>
+              No se pudieron cargar las publicaciones del mes.
+            </Notice>
+          )}
           {overdueCount > 0 && (
             <Notice tone="warning" icon={<Clock />}>
               <span className="font-medium">{overdueCount} publicación(es) pasaron su hora</span> y siguen programadas. Se
@@ -2884,18 +3321,18 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* Mes */}
         <Panel
           title={<span className="inline-block first-letter:uppercase">{monthLabel}</span>}
           icon={<Calendar />}
           scroll={false}
+          className="max-[359px]:[&>div:nth-child(2)]:!p-2"
           bodyClassName="flex flex-col"
           actions={
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
-                size="sm"
                 onClick={() => {
                   setViewDate(new Date(now.getFullYear(), now.getMonth(), 1));
                   setSelectedDay(now.getDate());
@@ -2903,132 +3340,133 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
               >
                 Hoy
               </Button>
-              <button
-                type="button"
-                aria-label="Mes anterior"
-                onClick={() => setViewDate(new Date(anio, mes - 1, 1))}
-                className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                aria-label="Mes siguiente"
-                onClick={() => setViewDate(new Date(anio, mes + 1, 1))}
-                className="press flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              <IconButton label="Mes anterior" onClick={() => setViewDate(new Date(anio, mes - 1, 1))}>
+                <ChevronLeft />
+              </IconButton>
+              <IconButton label="Mes siguiente" onClick={() => setViewDate(new Date(anio, mes + 1, 1))}>
+                <ChevronRight />
+              </IconButton>
             </div>
           }
         >
-          <div className="mb-2 grid shrink-0 grid-cols-7 gap-2">
+          <div className="mb-2 grid shrink-0 grid-cols-7 gap-1 sm:gap-2" aria-hidden>
             {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
-              <div key={d} className="py-1 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <div key={d} className="py-1 text-center text-xs text-muted-foreground">
                 {d}
               </div>
             ))}
           </div>
 
-          <div
-            key={`${anio}-${mes}`}
-            className="grid min-h-[320px] flex-1 animate-fade grid-cols-7 gap-2"
-            style={{ gridTemplateRows: `repeat(${semanas}, minmax(0, 1fr))` }}
-          >
-            {Array.from({ length: firstDayOffset }).map((_, i) => (
-              <div key={`vacio-${i}`} />
-            ))}
+          {isLoading ? (
+            <div
+              aria-busy="true"
+              aria-label="Cargando calendario"
+              className="grid flex-1 grid-cols-7 gap-1 [--celda:44px] sm:gap-2 lg:[--celda:56px] lg:[@media(max-height:719px)]:[--celda:48px]"
+              style={{ gridTemplateRows: `repeat(6, minmax(var(--celda), 1fr))` }}
+            >
+              {Array.from({ length: 42 }).map((_, i) => (
+                <Skeleton key={i} className="!rounded-[10px]" />
+              ))}
+            </div>
+          ) : (
+            <div
+              key={`${anio}-${mes}`}
+              role="grid"
+              aria-label={monthLabel}
+              className="grid flex-1 animate-fade grid-cols-7 gap-1 [--celda:44px] sm:gap-2 lg:[--celda:56px] lg:[@media(max-height:719px)]:[--celda:48px]"
+              style={{ gridTemplateRows: `repeat(${semanas}, minmax(var(--celda), 1fr))` }}
+            >
+              {Array.from({ length: firstDayOffset }).map((_, i) => (
+                <div key={`vacio-${i}`} aria-hidden />
+              ))}
 
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const posts = porDia[day] || [];
-              const isSelected = selectedDay === day;
-              const esHoy = esMesActual && day === now.getDate();
-              const destino = dropTargetDay === day && draggingPostId;
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const posts = porDia[day] || [];
+                const isSelected = selectedDay === day;
+                const esHoy = esMesActual && day === now.getDate();
+                const destino = dropTargetDay === day && draggingPostId;
 
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => setSelectedDay(day)}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDropTargetDay(day);
-                  }}
-                  onDragLeave={() => setDropTargetDay((d) => (d === day ? null : d))}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (draggingPostId && user) void reprogramarEnDia(draggingPostId, day);
-                  }}
-                  aria-pressed={isSelected}
-                  aria-label={`${day} de ${monthLabel}${posts.length ? `, ${posts.length} publicación(es)` : ''}`}
-                  className={`press flex min-h-0 flex-col overflow-hidden rounded-[10px] border p-2 text-left transition-all duration-200
-                    ${isSelected ? 'border-brand bg-brand-soft shadow-[var(--glow)]' : 'border-border hover:border-brand/40 hover:bg-accent'}
-                    ${destino ? 'scale-[1.03] border-brand ring-2 ring-brand/40' : ''}`}
-                >
-                  <span
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
-                      esHoy ? 'bg-brand text-white' : isSelected ? 'text-brand-strong' : 'text-foreground'
-                    }`}
+                return (
+                  <button
+                    key={day}
+                    ref={(el) => {
+                      celdasRef.current[day] = el;
+                    }}
+                    type="button"
+                    tabIndex={day === diaFoco ? 0 : -1}
+                    onClick={() => elegirDia(day)}
+                    onKeyDown={(e) => moverFoco(e, day)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDropTargetDay(day);
+                    }}
+                    onDragLeave={() => setDropTargetDay((d) => (d === day ? null : d))}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggingPostId && user) void reprogramarEnDia(draggingPostId, day);
+                    }}
+                    aria-pressed={isSelected}
+                    aria-current={esHoy ? 'date' : undefined}
+                    aria-label={`${day} de ${monthLabel}${describirDia(posts)}`}
+                    className={`flex min-h-0 min-w-0 flex-col items-center overflow-hidden rounded-[10px] border p-1 text-left transition-colors duration-150 sm:items-start sm:p-2
+                      ${isSelected ? 'border-brand/40 bg-brand-soft' : 'border-border hover:bg-accent'}
+                      ${destino ? 'border-brand ring-2 ring-brand/40' : ''}`}
                   >
-                    {day}
-                  </span>
-                  {posts.length > 0 && (
-                    <div className="mt-auto flex w-full flex-col gap-1">
-                      {posts.slice(0, 2).map((post) => (
-                        <span
-                          key={post.id}
-                          className={`h-1.5 w-full rounded-full ${isPostOverdue(post) ? 'bg-destructive' : 'bg-brand'}`}
-                        />
-                      ))}
-                      {posts.length > 2 && (
-                        <span className="text-right text-xs leading-none text-muted-foreground">+{posts.length - 2}</span>
-                      )}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm tabular-nums ${
+                        esHoy ? 'ring-2 ring-brand font-semibold text-brand-strong' : isSelected ? 'font-semibold text-brand-strong' : 'text-foreground'
+                      }`}
+                    >
+                      {day}
+                    </span>
+                    {posts.length > 0 && (
+                      <span className="mt-auto flex items-center gap-1 pb-0.5" aria-hidden>
+                        {posts.slice(0, 3).map((post) => (
+                          <span
+                            key={post.id}
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              isPostOverdue(post) || post.estado === 'fallido'
+                                ? 'bg-destructive'
+                                : post.estado === 'publicado'
+                                  ? 'bg-success'
+                                  : 'bg-brand'
+                            }`}
+                          />
+                        ))}
+                        {posts.length > 3 && <span className="text-xs leading-none text-muted-foreground">+{posts.length - 3}</span>}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </Panel>
 
-        {/* Día seleccionado */}
-        <Panel
-          title={selectedDay ? `${selectedDay} de ${monthLabel}` : 'Selecciona un día'}
-          icon={<CalendarClock />}
-          delay={80}
-          actions={selectedPosts.length > 0 ? <Badge variant="purple">{selectedPosts.length}</Badge> : undefined}
-        >
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-brand-strong" />
-              <p className="text-sm text-muted-foreground">Cargando…</p>
-            </div>
-          ) : selectedDay && selectedPosts.length > 0 ? (
-            <div className="space-y-3">
-              <AnimatePresence>
-                {selectedPosts.map((post, i) => {
+        {/* Día seleccionado: único scroll de la pantalla desde 1024 */}
+        <div ref={diaRef} tabIndex={-1} className="flex min-h-0 scroll-mt-4 flex-col rounded-2xl outline-none">
+          <Panel
+            className="flex-1"
+            title={selectedDay ? `${selectedDay} de ${monthLabel}` : 'Selecciona un día'}
+            icon={<CalendarClock />}
+            actions={selectedPosts.length > 0 ? <Badge variant="purple">{selectedPosts.length}</Badge> : undefined}
+          >
+            {isLoading ? (
+              <div className="space-y-3" aria-busy="true" aria-label="Cargando publicaciones del día">
+                {[1, 2].map((i) => (
+                  <Skeleton key={i} className="h-44 w-full !rounded-xl" />
+                ))}
+              </div>
+            ) : selectedDay && selectedPosts.length > 0 ? (
+              <div className="space-y-3">
+                {selectedPosts.map((post) => {
                   const fp = toDate(post.fechaProgramada);
                   const overdue = isPostOverdue(post);
                   return (
-                    <motion.div
+                    <article
                       key={post.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.96 }}
-                      transition={{ duration: 0.22, delay: i * 0.04 }}
                       draggable={!moving}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        if (!dragRef.current) setPreviewPost(post);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setPreviewPost(post);
-                        }
-                      }}
                       onDragStart={() => {
                         dragRef.current = true;
                         setDraggingPostId(post.id);
@@ -3040,80 +3478,104 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
                           dragRef.current = false;
                         }, 0);
                       }}
-                      title="Clic para previsualizar · arrastra para cambiar la fecha"
-                      className={`hover-lift group cursor-pointer overflow-hidden rounded-xl border bg-card p-3.5
-                        ${draggingPostId === post.id ? 'scale-95 opacity-50 ring-2 ring-brand' : 'active:cursor-grabbing'}
+                      title="Arrastra a otro día para reprogramar"
+                      className={`overflow-hidden rounded-xl border bg-card p-4 transition-opacity duration-150
+                        ${draggingPostId === post.id ? 'opacity-50' : ''}
                         ${overdue ? 'border-destructive/30' : 'border-border'}`}
                     >
                       {post.imagenUrl && (
-                        <div className="mb-3 h-28 overflow-hidden rounded-lg">
-                          <img
-                            src={post.imagenUrl}
-                            alt=""
-                            className="pointer-events-none h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          />
+                        <div className="mb-3 h-28 overflow-hidden rounded-[10px]">
+                          <img src={post.imagenUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
                         </div>
                       )}
                       <div className="flex items-start justify-between gap-3">
-                        <p className="line-clamp-1 text-sm font-medium transition-colors group-hover:text-brand-strong">{post.titulo}</p>
-                        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                        <p className="line-clamp-1 text-sm font-medium" title={post.titulo}>
+                          {post.titulo || 'Publicación sin título'}
+                        </p>
+                        <span className="flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
                           <Clock className="h-3.5 w-3.5" />
-                          {fp ? fp.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          {fp ? fp.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : 'Sin hora'}
                         </span>
                       </div>
-                      <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{post.contenido}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{post.contenido}</p>
+                      <div className="mt-2">
+                        <Badge
+                          variant={post.estado === 'publicado' ? 'success' : post.estado === 'fallido' || overdue ? 'danger' : 'purple'}
+                          className="capitalize"
+                        >
+                          {overdue ? 'Vencida' : post.estado}
+                        </Badge>
+                      </div>
 
-                      <div className="mt-3 flex items-center gap-1.5 border-t border-border pt-3">
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
                         {overdue && (
                           <Button
                             variant="success"
-                            size="sm"
                             disabled={publishingId === post.id}
                             icon={publishingId === post.id ? <Loader2 className="animate-spin" /> : <Send />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void publicarProgramadoAhora(post);
-                            }}
+                            onClick={() => void publicarProgramadoAhora(post)}
                           >
                             Publicar
                           </Button>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={<Eye />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPreviewPost(post);
-                          }}
-                        >
+                        <Button variant="ghost" icon={<Eye />} onClick={() => setPreviewPost(post)}>
                           Ver
                         </Button>
-                        <button
-                          type="button"
-                          aria-label="Eliminar publicación"
-                          className="press ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive-soft hover:text-destructive"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (!user || !confirm('¿Eliminar publicación?')) return;
-                            await eliminarPublicacion(post.id);
-                            if (previewPost?.id === post.id) setPreviewPost(null);
-                            invalidate();
-                          }}
+                        {post.estado === 'programado' && (
+                          <Button variant="ghost" icon={<CalendarClock />} onClick={() => abrirReprogramar(post)}>
+                            Reprogramar
+                          </Button>
+                        )}
+                        <IconButton
+                          label={`Eliminar publicación: ${post.titulo || 'sin título'}`}
+                          tone="danger"
+                          className="ml-auto"
+                          onClick={() => void eliminarPost(post)}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                          <Trash2 />
+                        </IconButton>
                       </div>
-                    </motion.div>
+                    </article>
                   );
                 })}
-              </AnimatePresence>
-            </div>
-          ) : selectedDay ? (
-            <EmptyState icon={<Calendar />} title="Día libre" text="No hay publicaciones programadas para este día." />
-          ) : null}
-        </Panel>
+              </div>
+            ) : selectedDay ? (
+              <EmptyState icon={<Calendar />} title="Día libre" text="No hay publicaciones programadas para este día." />
+            ) : null}
+          </Panel>
+        </div>
       </div>
+
+      <Modal
+        isOpen={!!reprogramando}
+        onClose={() => setReprogramando(null)}
+        title="Reprogramar publicación"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setReprogramando(null)}>
+              Cancelar
+            </Button>
+            <Button
+              icon={moving ? <Loader2 className="animate-spin" /> : <CalendarClock />}
+              disabled={moving || !repFecha || !repHora}
+              onClick={() => void guardarReprogramacion()}
+            >
+              Guardar fecha
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-3 min-[400px]:grid-cols-[minmax(0,1fr)_120px]">
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-foreground">Fecha</span>
+            <input type="date" value={repFecha} onChange={(e) => setRepFecha(e.target.value)} className="field tabular-nums" />
+          </label>
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-medium text-foreground">Hora</span>
+            <input type="time" value={repHora} onChange={(e) => setRepHora(e.target.value)} className="field tabular-nums" />
+          </label>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={!!previewPost}
@@ -3130,15 +3592,17 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               {previewPost.fechaProgramada && (
-                <Badge>
+                <Badge className="tabular-nums">
                   <Clock className="h-3.5 w-3.5" />
                   {formatDateTime(toDate(previewPost.fechaProgramada))}
                 </Badge>
               )}
-              <Badge variant={previewPost.estado === 'publicado' ? 'success' : 'default'} className="capitalize">{previewPost.estado}</Badge>
+              <Badge variant={previewPost.estado === 'publicado' ? 'success' : 'default'} className="capitalize">
+                {previewPost.estado}
+              </Badge>
               {previewPost.redesDestino.map((net) => (
                 <Badge key={net} variant="purple">
-                  {net}
+                  {redConfig(net as RedSocial)?.nombre ?? net}
                 </Badge>
               ))}
             </div>
@@ -3167,6 +3631,9 @@ type AgentChatMessage = {
   accionSugerida?: string;
   temaSugerido?: string;
   tonoSugerido?: string;
+  /** Respuesta fallida: se muestra como aviso con "Reintentar". */
+  fallo?: boolean;
+  reintento?: string;
 };
 
 const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
@@ -3236,21 +3703,25 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
     'Ideas contenido semanal'
   ];
 
-  const handleSend = async () => {
-    if (!input.trim() || !user || sending) return;
-    const text = input.trim();
-    setInput('');
+  const peticion = useRef(0);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  const enviar = async (text: string, historialBase: AgentChatMessage[]) => {
+    if (!user) return;
+    const id = ++peticion.current;
     setSending(true);
     setError('');
     setLastUserPrompt(text);
-    const userMsg: AgentChatMessage = { role: 'user', text };
-    setMessages((prev) => [...prev, userMsg]);
     try {
-      const historial = messages.slice(-10).map((m) => ({
-        role: (m.role === 'user' ? 'user' : 'model') as 'user' | 'model',
-        content: m.text,
-      }));
+      const historial = historialBase
+        .filter((m) => !m.fallo)
+        .slice(-10)
+        .map((m) => ({
+          role: (m.role === 'user' ? 'user' : 'model') as 'user' | 'model',
+          content: m.text,
+        }));
       const res = await chatWithAgent(text, historial);
+      if (id !== peticion.current) return; // detenida por la persona usuaria
       const botMsg: AgentChatMessage = {
         role: 'bot',
         text: res.respuesta,
@@ -3259,17 +3730,37 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
         tonoSugerido: res.tonoSugerido,
       };
       setMessages((prev) => [...prev, botMsg]);
-      setError('');
       setBackendOk(true);
       invalidate();
     } catch (e) {
+      if (id !== peticion.current) return;
       const msg = mensajeCallable(e);
       setError(msg);
       setBackendOk(false);
-      setMessages((prev) => [...prev, { role: 'bot', text: msg }]);
+      setMessages((prev) => [...prev, { role: 'bot', text: msg, fallo: true, reintento: text }]);
     } finally {
-      setSending(false);
+      if (id === peticion.current) setSending(false);
     }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || !user || sending) return;
+    const text = input.trim();
+    setInput('');
+    if (composerRef.current) composerRef.current.style.height = '';
+    const base = messages;
+    setMessages((prev) => [...prev, { role: 'user', text }]);
+    await enviar(text, base);
+  };
+
+  const reintentar = (text: string) => {
+    setMessages((prev) => prev.filter((m) => !(m.fallo && m.reintento === text)));
+    void enviar(text, messages.filter((m) => !m.fallo));
+  };
+
+  const detener = () => {
+    peticion.current++;
+    setSending(false);
   };
 
   const finChatRef = useRef<HTMLDivElement>(null);
@@ -3280,6 +3771,25 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
   }, [messages.length, sending]);
 
   const sinConexion = backendOk === false || Boolean(error);
+  const ultimoBot = [...messages].reverse().find((m) => m.role === 'bot' && !m.fallo);
+
+  const atajos = (
+    <div className="flex flex-wrap gap-2">
+      {quickActions.map((action) => (
+        <button
+          key={action}
+          type="button"
+          onClick={() => {
+            setInput(action);
+            composerRef.current?.focus();
+          }}
+          className="flex h-10 items-center rounded-[10px] border border-border bg-card px-3 text-sm text-foreground transition-colors duration-150 hover:bg-accent"
+        >
+          {action}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <ScreenLayout>
@@ -3288,61 +3798,81 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
         subtitle="Ideas, edición y copy para tus redes, con Gemini"
         actions={
           <span
-            className={`inline-flex h-8 items-center gap-2 rounded-full border px-3 text-xs font-medium ${
+            role="status"
+            className={`inline-flex h-8 max-w-full items-center gap-2 truncate rounded-full border px-3 text-xs font-medium ${
               sinConexion ? 'border-destructive/25 bg-destructive-soft text-destructive' : 'border-brand/20 bg-brand-soft text-brand-strong'
             }`}
           >
-            <span className="relative flex h-2 w-2">
-              <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-70 ${sinConexion ? 'bg-destructive' : 'bg-brand-light'}`} />
-              <span className={`relative inline-flex h-2 w-2 rounded-full ${sinConexion ? 'bg-destructive' : 'bg-brand'}`} />
-            </span>
-            {sinConexion ? `Sin conexión IA${aiHint ? ` · ${aiHint}` : ''}` : aiHint || 'IA activa'}
+            <span className={`h-2 w-2 shrink-0 rounded-full ${sinConexion ? 'bg-destructive' : 'bg-success'}`} aria-hidden />
+            <span className="truncate">{sinConexion ? 'Sin conexión con la IA' : aiHint || 'IA activa'}</span>
           </span>
         }
       />
 
-      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
-        {/* Chat */}
-        <section className="surface flex min-h-[420px] animate-enter flex-col overflow-hidden lg:min-h-0">
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
-            <AnimatePresence initial={false}>
-              {messages.map((msg, i) => (
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        {/* Chat: altura definida por debajo de 1024 para que el composer quede siempre abajo */}
+        <section
+          aria-label="Conversación con el asistente"
+          className="surface-flat flex h-[max(420px,calc(100dvh-96px))] flex-col overflow-hidden sm:h-[max(420px,calc(100dvh-112px))] lg:h-auto lg:min-h-0"
+        >
+          <div className="shrink-0 border-b border-border p-4 lg:hidden">{atajos}</div>
+
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 lg:p-6">
+            {messages.length <= 1 && !isLoading && (
+              <p className="text-sm text-muted-foreground">
+                Prueba con «Dame 3 ideas de posts sobre nuestro bootcamp» o «Mejora este copy para LinkedIn».
+              </p>
+            )}
+            {messages.map((msg, i) =>
+              msg.fallo ? (
+                <Notice
+                  key={i}
+                  tone="danger"
+                  action={
+                    msg.reintento ? (
+                      <Button variant="ghost" onClick={() => reintentar(msg.reintento!)}>
+                        Reintentar
+                      </Button>
+                    ) : undefined
+                  }
+                >
+                  {msg.text}
+                </Notice>
+              ) : (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={TRANSICION}
                   className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
                 >
-                  <div className="flex max-w-[85%] items-end gap-2.5">
+                  <div className="flex max-w-[85%] items-end gap-2">
                     {msg.role === 'bot' && (
-                      <span className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+                      <span className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white" aria-hidden>
                         <Sparkles className="h-4 w-4" />
                       </span>
                     )}
                     <div
-                      className={`whitespace-pre-wrap rounded-2xl px-4 py-3 ${
+                      className={`min-w-0 whitespace-pre-wrap rounded-2xl px-4 py-3 [overflow-wrap:anywhere] ${
                         msg.role === 'user'
-                          ? 'rounded-br-md bg-brand text-white'
-                          : 'rounded-bl-md border border-border bg-accent text-foreground'
+                          ? 'rounded-br-[6px] bg-brand text-white'
+                          : 'rounded-bl-[6px] border border-border bg-accent text-foreground'
                       }`}
                     >
                       {msg.role === 'bot' ? (
-                        <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-a:text-brand-strong">
+                        <div className="prose prose-sm max-w-none dark:prose-invert prose-a:text-brand-strong prose-pre:overflow-x-auto">
                           <ChatMessageBody text={msg.text} />
                         </div>
                       ) : (
-                        <p className="text-sm leading-relaxed">{msg.text}</p>
+                        <p className="text-sm">{msg.text}</p>
                       )}
                     </div>
                   </div>
 
                   {msg.role === 'bot' && (msg.accionSugerida === 'generar_publicacion' || msg.accionSugerida === 'ver_calendario') && (
-                    <div className="ml-11 flex gap-2">
+                    <div className="ml-10 flex flex-wrap gap-2">
                       {msg.accionSugerida === 'generar_publicacion' && (
                         <Button
-                          variant="liquid"
-                          size="sm"
                           icon={<PenSquare />}
                           onClick={() => irAGenerarPublicacion(msg.temaSugerido || lastUserPrompt, msg.tonoSugerido || 'profesional')}
                         >
@@ -3350,95 +3880,121 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
                         </Button>
                       )}
                       {msg.accionSugerida === 'ver_calendario' && (
-                        <Button variant="outline" size="sm" icon={<Calendar />} onClick={() => onNavigate('calendar')}>
+                        <Button variant="outline" icon={<Calendar />} onClick={() => onNavigate('calendar')}>
                           Ver calendario
                         </Button>
                       )}
                     </div>
                   )}
                 </motion.div>
-              ))}
-            </AnimatePresence>
+              )
+            )}
             {sending && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-end gap-2.5">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+              <div className="flex items-end gap-2">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white" aria-hidden>
                   <Sparkles className="h-4 w-4" />
                 </span>
-                <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md border border-border bg-accent px-4 py-3.5">
-                  {[0, 150, 300].map((d) => (
-                    <span key={d} className="h-2 w-2 animate-bounce rounded-full bg-brand" style={{ animationDelay: `${d}ms` }} />
-                  ))}
+                <div className="rounded-2xl rounded-bl-[6px] border border-border bg-accent px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Escribiendo…</p>
                 </div>
-              </motion.div>
+              </div>
             )}
             <div ref={finChatRef} />
           </div>
 
-          <div className="shrink-0 border-t border-border p-4">
-            <div className="flex items-end gap-2.5">
+          {/* Anuncia solo la respuesta completa, no cada fragmento */}
+          <div className="sr-only" aria-live="polite">
+            {!sending && ultimoBot ? ultimoBot.text : ''}
+          </div>
+
+          <div className="shrink-0 border-t border-border p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
+            <div className="flex items-end gap-2">
               <textarea
+                ref={composerRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  const el = e.target;
+                  el.style.height = '';
+                  el.style.height = `${Math.min(el.scrollHeight + 2, 120)}px`;
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    handleSend();
+                    void handleSend();
                   }
                 }}
                 aria-label="Mensaje para el asistente"
+                aria-describedby="chat-ayuda"
                 placeholder="Pide ideas, optimiza copy o genera contenido…"
-                className="field max-h-[120px] min-h-11 resize-none py-2.5"
+                className="field max-h-[120px] min-h-11 resize-none py-3 leading-5"
                 rows={1}
               />
-              <button
-                type="button"
-                aria-label="Enviar mensaje"
-                onClick={handleSend}
-                disabled={!input.trim() || sending}
-                className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-brand text-white transition-all hover:bg-brand-deep hover:shadow-[var(--glow)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Send className="h-4 w-4" />
-              </button>
+              {sending ? (
+                <button
+                  type="button"
+                  onClick={detener}
+                  className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-[10px] border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-accent"
+                >
+                  <X className="h-4 w-4" />
+                  Detener
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Enviar mensaje"
+                  onClick={() => void handleSend()}
+                  disabled={!input.trim()}
+                  className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-brand text-white transition-colors duration-150 hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              )}
             </div>
-            <p className="mt-2 text-center text-xs text-muted-foreground">Enter para enviar · Shift + Enter para nueva línea</p>
+            <p id="chat-ayuda" className="mt-2 hidden text-center text-xs text-muted-foreground sm:block">
+              Enter para enviar · Shift + Enter para nueva línea
+            </p>
           </div>
         </section>
 
-        {/* Acciones rápidas */}
-        <Panel title="Acciones rápidas" icon={<Zap />} delay={80}>
+        {/* Acciones rápidas (≥ 1024) */}
+        <Panel title="Acciones rápidas" icon={<Zap />} className="hidden lg:flex">
           <Button
-            variant="liquid"
+            size="lg"
             className="w-full"
             icon={<Sparkles />}
             onClick={() => irAGenerarPublicacion(lastUserPrompt || input || 'Publicación Conect.ia')}
           >
             Generar publicación
           </Button>
-          <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground">
             Abre Nueva publicación con el tema del chat y genera el borrador automáticamente.
           </p>
 
-          <div className="mt-5 space-y-2">
-            {quickActions.map((action, i) => (
+          <div className="mt-6 space-y-2">
+            {quickActions.map((action) => (
               <button
-                key={i}
+                key={action}
                 type="button"
-                onClick={() => setInput(action)}
-                className="press group flex w-full items-center justify-between gap-3 rounded-[10px] border border-border px-3.5 py-2.5 text-left text-sm transition-all duration-200 hover:border-brand/40 hover:bg-brand-soft"
+                onClick={() => {
+                  setInput(action);
+                  composerRef.current?.focus();
+                }}
+                className="group flex h-10 w-full items-center justify-between gap-3 rounded-[10px] border border-border px-3 text-left text-sm transition-colors duration-150 hover:bg-accent"
               >
-                <span className="text-foreground">{action}</span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand-strong" />
+                <span className="truncate text-foreground">{action}</span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               </button>
             ))}
           </div>
 
-          <div className="mt-6 border-t border-border pt-5">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Sugerencias</p>
-            <ul className="space-y-2.5">
+          <div className="mt-6 border-t border-border pt-6">
+            <p className="mb-3 text-xs font-semibold text-muted-foreground">Sugerencias</p>
+            <ul className="space-y-2">
               {['Pide ideas de contenido específicas', 'Solicita optimización de copy', 'Genera hashtags relevantes', 'Analiza borradores guardados'].map(
                 (sug) => (
                   <li key={sug} className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
                     {sug}
                   </li>
                 )
@@ -3458,7 +4014,8 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
 const ChannelsScreen: React.FC = () => {
   const { user } = useAuth();
   const invalidate = useInvalidateCampus();
-  const { data: canales, isLoading } = useCanales();
+  const { data: canales, isLoading, error: errorCanales, refetch: recargarCanales } = useCanales();
+  const [confirmar, dialogoConfirmacion] = useConfirm();
   const { stats } = useDashboardStats();
   const [connectModalRed, setConnectModalRed] = useState<RedSocial | null>(null);
   const [oauthNotice, setOauthNotice] = useState<string | null>(null);
@@ -3513,11 +4070,20 @@ const ChannelsScreen: React.FC = () => {
 
   const toggleCanal = async (red: RedSocial, conectado: boolean) => {
     if (!user) return;
+    if (
+      !conectado &&
+      !(await confirmar({
+        titulo: `¿Desconectar ${redConfig(red)?.nombre ?? red}?`,
+        mensaje: 'Dejarás de poder publicar en esta red hasta que la vuelvas a conectar. Las publicaciones ya hechas no se borran.',
+        accion: 'Desconectar',
+      }))
+    )
+      return;
     await guardarCanal(user.uid, red, { conectado, cuentaNombre: conectado ? 'Manual' : null });
     invalidate();
   };
 
-  const renderCanalCard = (red: (typeof CATALOGO_REDES)[number], indice: number) => {
+  const renderCanalCard = (red: (typeof CATALOGO_REDES)[number]) => {
     const config = redConfig(red.id);
     if (!config) return null;
     const canal = canales?.[red.id];
@@ -3525,14 +4091,10 @@ const ChannelsScreen: React.FC = () => {
     const cuenta = canal?.cuentaNombre;
 
     return (
-      <div
-        key={red.id}
-        className={`surface hover-lift flex animate-enter flex-col gap-4 p-5 ${conectado ? 'border-success/35' : ''}`}
-        style={{ animationDelay: `${Math.min(indice, 8) * 45}ms` }}
-      >
-        <div className="flex items-start gap-3.5">
+      <article key={red.id} className="surface flex flex-col gap-4 p-6">
+        <div className="flex items-start gap-3">
           <span
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border bg-card"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border bg-card"
             style={{ borderColor: `${config.color}33` }}
           >
             {redIcono(red.id, 'w-5 h-5')}
@@ -3551,7 +4113,7 @@ const ChannelsScreen: React.FC = () => {
                 <Badge>Sin conectar</Badge>
               )}
             </div>
-            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
               {conectado
                 ? config.tipo === 'manual'
                   ? 'Canal manual activo.'
@@ -3560,37 +4122,37 @@ const ChannelsScreen: React.FC = () => {
             </p>
           </div>
         </div>
-        <div className="mt-auto flex flex-wrap gap-2">
+        <div className="mt-auto flex flex-wrap gap-2 pt-1">
           {config.tipo === 'proximamente' ? (
-            <Button variant="secondary" size="sm" disabled>
+            <Button variant="secondary" disabled>
               Disponible pronto
             </Button>
           ) : config.tipo === 'manual' ? (
             fiverrActivo ? (
-              <Button variant="destructive" size="sm" onClick={() => void toggleCanal(red.id, false)}>
+              <Button variant="destructive" onClick={() => void toggleCanal(red.id, false)}>
                 Desactivar
               </Button>
             ) : (
-              <Button variant="primary" size="sm" onClick={() => void toggleCanal(red.id, true)}>
+              <Button variant="primary" onClick={() => void toggleCanal(red.id, true)}>
                 Activar canal manual
               </Button>
             )
           ) : conectado ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => setConnectModalRed(red.id)}>
+              <Button variant="outline" onClick={() => setConnectModalRed(red.id)}>
                 Reconfigurar
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => void toggleCanal(red.id, false)}>
+              <Button variant="destructive" onClick={() => void toggleCanal(red.id, false)}>
                 Desconectar
               </Button>
             </>
           ) : (
-            <Button variant="primary" size="sm" onClick={() => setConnectModalRed(red.id)}>
+            <Button variant="primary" onClick={() => setConnectModalRed(red.id)}>
               Conectar {config.nombre}
             </Button>
           )}
         </div>
-      </div>
+      </article>
     );
   };
 
@@ -3602,17 +4164,18 @@ const ChannelsScreen: React.FC = () => {
 
   return (
     <ScreenLayout>
+      {dialogoConfirmacion}
       <PageHeader
         title="Canales"
         subtitle="Conecta tus redes con OAuth oficial y elige dónde publicar en cada publicación"
       />
 
       <div className="grid shrink-0 gap-4 sm:grid-cols-3">
-        {indicadores.map((m, i) => (
-          <div key={m.label} className="surface flex animate-enter items-center gap-3.5 px-5 py-4" style={{ animationDelay: `${i * 50}ms` }}>
+        {indicadores.map((m) => (
+          <div key={m.label} className="surface flex items-center gap-3 p-5">
             <IconTile tone={m.tone}>{m.icon}</IconTile>
             <div className="min-w-0">
-              <p className="text-lg font-semibold tabular-nums leading-tight text-foreground">{m.value}</p>
+              <p className="text-lg font-semibold tabular-nums text-foreground">{m.value}</p>
               <p className="truncate text-xs text-muted-foreground">{m.label}</p>
             </div>
           </div>
@@ -3625,11 +4188,18 @@ const ChannelsScreen: React.FC = () => {
         </Notice>
       )}
 
-      <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
+      {errorCanales && (
+        <Notice tone="danger" className="shrink-0" action={<Button variant="ghost" onClick={() => void recargarCanales()}>Reintentar</Button>}>
+          No se pudo cargar el estado de tus canales.
+        </Notice>
+      )}
+
+      {/* Desde 1024, el grid es el único scroll de la pantalla */}
+      <div className="lg:-mx-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-1 lg:pb-1">
         {isLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Cargando canales">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-36 w-full rounded-2xl" />
+              <Skeleton key={i} className="h-44 w-full !rounded-2xl" />
             ))}
           </div>
         ) : (
@@ -3663,7 +4233,7 @@ const ChannelsScreen: React.FC = () => {
 const SettingsScreen: React.FC = () => {
   const { user } = useAuth();
   const invalidate = useInvalidateCampus();
-  const { data: config, isLoading } = useConfiguracion();
+  const { data: config, isLoading, error: errorConfig, refetch: recargarConfig } = useConfiguracion();
   const [automationWebhook, setAutomationWebhook] = useState('');
   const [notifications, setNotifications] = useState(true);
   const [timezone, setTimezone] = useState('America/Bogota');
@@ -3680,6 +4250,27 @@ const SettingsScreen: React.FC = () => {
   }, [config]);
 
   const { mode, setTheme } = useTheme();
+
+  // Cambios pendientes respecto a lo guardado (el tema se aplica al instante y no cuenta).
+  const original = {
+    webhook: config ? getAutomationWebhookUrl(config) : '',
+    notifications: config?.notifications ?? true,
+    timezone: config?.timezone ?? 'America/Bogota',
+  };
+  const hayCambios =
+    Boolean(config) &&
+    (automationWebhook.trim() !== original.webhook.trim() ||
+      notifications !== original.notifications ||
+      timezone !== original.timezone);
+
+  useEffect(() => {
+    if (!hayCambios) return;
+    const aviso = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', aviso);
+    return () => window.removeEventListener('beforeunload', aviso);
+  }, [hayCambios]);
+
+  const webhookInvalido = automationWebhook.trim() !== '' && !/^https?:\/\/\S+$/i.test(automationWebhook.trim());
 
   const guardar = async () => {
     if (!user) return;
@@ -3709,37 +4300,63 @@ const SettingsScreen: React.FC = () => {
     <code className="rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-xs text-foreground">{t}</code>
   );
 
+  const bloqueado = saving || !user || isLoading || !hayCambios || webhookInvalido;
+  const botonGuardar = (
+    <Button
+      size="lg"
+      icon={saving ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+      disabled={bloqueado}
+      onClick={() => void guardar()}
+      className="min-w-[160px]"
+    >
+      {saving ? 'Guardando…' : saved ? 'Guardado' : 'Guardar cambios'}
+    </Button>
+  );
+
   return (
     <ScreenLayout maxWidth="max-w-[1100px]">
       <PageHeader
         title="Ajustes"
         subtitle="Integraciones y preferencias de la plataforma"
         actions={
-          <Button
-            variant="liquid"
-            icon={saving ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
-            disabled={saving || !user || isLoading}
-            onClick={() => void guardar()}
-            className="min-w-[160px]"
-          >
-            {saved ? '¡Guardado!' : 'Guardar cambios'}
-          </Button>
+          <div className="flex items-center gap-3">
+            {!hayCambios && !saving && !isLoading && (
+              <span className="hidden text-xs text-muted-foreground lg:inline">{saved ? 'Cambios guardados' : 'Sin cambios pendientes'}</span>
+            )}
+            {botonGuardar}
+          </div>
         }
       />
 
       {saveError && <Notice tone="danger" className="shrink-0">{saveError}</Notice>}
+      {errorConfig && (
+        <Notice tone="danger" className="shrink-0" action={<Button variant="ghost" onClick={() => void recargarConfig()}>Reintentar</Button>}>
+          No se pudo cargar tu configuración. Los campos quedan desactivados hasta que se cargue.
+        </Notice>
+      )}
 
-      <div className="grid min-h-0 flex-1 content-start gap-5 lg:grid-cols-2">
-        <Panel title="Automatización Make / n8n" icon={<Network />} className="lg:h-full">
+      <div className="grid min-h-0 flex-1 content-start gap-6 lg:grid-cols-2">
+        <Panel title="Automatización Make / n8n" icon={<Network />} className="lg:self-start">
           <div className="space-y-4">
-            <Input
-              label="URL del webhook"
-              icon={<Network />}
-              value={automationWebhook}
-              onChange={(e) => setAutomationWebhook(e.target.value)}
-              placeholder="https://hook.us2.make.com/xxxxxxxx"
-            />
-            <div className="surface-muted space-y-2.5 p-4 text-sm leading-relaxed text-muted-foreground">
+            {isLoading ? (
+              <div className="flex flex-col gap-2" aria-busy="true">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-11 w-full !rounded-[10px]" />
+              </div>
+            ) : (
+              <Input
+                label="URL del webhook"
+                type="url"
+                icon={<Network />}
+                value={automationWebhook}
+                disabled={Boolean(errorConfig)}
+                onChange={(e) => setAutomationWebhook(e.target.value)}
+                placeholder="https://hook.us2.make.com/xxxxxxxx"
+                error={webhookInvalido ? 'Escribe una URL completa que empiece por https://' : undefined}
+                hint="Déjalo vacío si no usas Make ni n8n."
+              />
+            )}
+            <div className="surface-muted space-y-3 p-4 text-sm text-muted-foreground">
               <p>
                 El secreto va en las variables de entorno de Vercel: {codigo('MAKE_WEBHOOK_SECRET')} (API key del Custom webhook en
                 Make). Se envía en las cabeceras {codigo('x-make-apikey')} y {codigo('X-Campus-Secret')}.
@@ -3751,16 +4368,31 @@ const SettingsScreen: React.FC = () => {
           </div>
         </Panel>
 
-        <div className="flex min-h-0 flex-col gap-5">
-          <Panel title="Preferencias" icon={<Settings />} scroll={false} delay={60}>
+        <div className="flex min-h-0 flex-col gap-6">
+          <Panel title="Preferencias" icon={<Settings />} scroll={false}>
             <div className="space-y-5">
-              <Dropdown label="Zona horaria" icon={<Globe />} value={timezone} onChange={setTimezone} options={ZONAS_HORARIAS} />
-              <div className="flex items-center justify-between gap-4">
+              {isLoading ? (
+                <div className="flex flex-col gap-2" aria-busy="true">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-11 w-full !rounded-[10px]" />
+                </div>
+              ) : (
+                <Dropdown
+                  label="Zona horaria"
+                  icon={<Globe />}
+                  value={timezone}
+                  onChange={setTimezone}
+                  options={ZONAS_HORARIAS}
+                  disabled={Boolean(errorConfig)}
+                />
+              )}
+              <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-foreground">Tema</p>
-                  <p className="text-xs text-muted-foreground">Se aplica con un fundido suave</p>
+                  <p className="text-xs text-muted-foreground">Se aplica al momento</p>
                 </div>
                 <Segmented
+                  ariaLabel="Tema"
                   value={mode}
                   onChange={(v) => setTheme(v as 'light' | 'dark')}
                   options={[
@@ -3769,8 +4401,9 @@ const SettingsScreen: React.FC = () => {
                   ]}
                 />
               </div>
-              <div className="border-t border-border pt-5">
+              <div className="border-t border-border pt-4">
                 <Toggle
+                  disabled={isLoading || Boolean(errorConfig)}
                   label="Notificaciones"
                   description="Recibir alertas en el navegador"
                   checked={notifications}
@@ -3780,22 +4413,38 @@ const SettingsScreen: React.FC = () => {
             </div>
           </Panel>
 
-          <Panel title="Secretos del servidor" icon={<Sparkles />} scroll={false} delay={120}>
-            <p className="text-sm leading-relaxed text-muted-foreground">
+          <Panel title="Secretos del servidor" icon={<Sparkles />} scroll={false}>
+            <p className="text-sm text-muted-foreground">
               Las claves de Gemini, de las redes sociales y de los webhooks se configuran como variables de entorno en Vercel.
               Nunca se guardan en el navegador.
             </p>
           </Panel>
         </div>
       </div>
+
+      {/* < 1024: el botón de la cabecera se pierde al desplazar; barra fija mientras haya cambios */}
+      <AnimatePresence>
+        {hayCambios && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={TRANSICION}
+            className="sticky bottom-0 -mx-4 mt-auto flex items-center justify-between gap-3 border-t border-border bg-card px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 sm:-mx-6 sm:px-6 lg:hidden"
+          >
+            <span className="text-sm text-muted-foreground">Tienes cambios sin guardar</span>
+            {botonGuardar}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </ScreenLayout>
   );
 };
 
 const DashboardHome: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
   const { profile } = useAuth();
-  const { stats, isLoading } = useDashboardStats();
-  const { data: actividad = [], isLoading: loadingAct } = useActividad();
+  const { stats, isLoading, error: errorStats, refetch: recargarStats } = useDashboardStats();
+  const { data: actividad = [], isLoading: loadingAct, error: errorAct, refetch: recargarAct } = useActividad();
   const primerNombre = (profile?.nombre || '').split(' ')[0];
 
   const statCards = [
@@ -3804,8 +4453,8 @@ const DashboardHome: React.FC<{ onNavigate: (screen: string) => void }> = ({ onN
     { label: 'Borradores', value: stats.borradores, icon: <FileText />, tone: 'warning' as const },
   ];
 
+  // "Nueva publicación" vive solo en la cabecera (sin acciones repetidas).
   const accesos = [
-    { id: 'new-post', icon: <Sparkles />, label: 'Nueva publicación', desc: 'Genera contenido con IA' },
     { id: 'manual-post', icon: <Upload />, label: 'Subir publicación', desc: 'Escribe y programa sin IA' },
     { id: 'calendar', icon: <Calendar />, label: 'Calendario', desc: 'Revisa lo programado' },
     { id: 'agent', icon: <MessageSquare />, label: 'Asistente IA', desc: 'Ideas y copy al instante' },
@@ -3820,39 +4469,45 @@ const DashboardHome: React.FC<{ onNavigate: (screen: string) => void }> = ({ onN
         title={primerNombre ? `Hola, ${primerNombre}` : 'Panel principal'}
         subtitle="Resumen de tu actividad en Conect.ia"
         actions={
-          <Button variant="liquid" icon={<Plus />} onClick={() => onNavigate('new-post')}>
+          <Button size="lg" icon={<Plus />} onClick={() => onNavigate('new-post')}>
             Nueva publicación
           </Button>
         }
       />
 
+      {errorStats && (
+        <Notice tone="danger" className="shrink-0" action={<Button variant="ghost" onClick={recargarStats}>Reintentar</Button>}>
+          No se pudieron cargar las estadísticas.
+        </Notice>
+      )}
+
       <div className="grid shrink-0 gap-4 sm:grid-cols-3">
-        {statCards.map((card, i) => (
-          <div
-            key={card.label}
-            className="surface hover-lift group flex animate-enter items-center justify-between gap-4 p-5"
-            style={{ animationDelay: `${i * 60}ms` }}
-          >
-            <div>
-              <p className="text-sm text-muted-foreground">{card.label}</p>
+        {statCards.map((card) => (
+          <div key={card.label} className="surface flex items-center justify-between gap-4 p-5">
+            <div className="min-w-0">
+              <p className="truncate text-sm text-muted-foreground">{card.label}</p>
               <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-                {isLoading ? <Skeleton className="mt-1 h-7 w-10" /> : <CountUp value={card.value} />}
+                {isLoading ? <Skeleton className="my-1 h-6 w-10" /> : card.value}
               </div>
             </div>
-            <IconTile tone={card.tone} className="!h-11 !w-11 transition-transform duration-300 group-hover:scale-110">
+            <IconTile tone={card.tone} size="lg">
               {card.icon}
             </IconTile>
           </div>
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <Panel title="Actividad reciente" icon={<Activity />} delay={120}>
-          {loadingAct ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <Skeleton className="h-9 w-9 rounded-[10px]" />
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <Panel title="Actividad reciente" icon={<Activity />}>
+          {errorAct ? (
+            <Notice tone="danger" action={<Button variant="ghost" onClick={recargarAct}>Reintentar</Button>}>
+              No se pudo cargar la actividad.
+            </Notice>
+          ) : loadingAct ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex min-h-14 items-center gap-3">
+                  <Skeleton className="h-9 w-9 !rounded-[10px]" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-3.5 w-2/3" />
                     <Skeleton className="h-3 w-24" />
@@ -3861,17 +4516,28 @@ const DashboardHome: React.FC<{ onNavigate: (screen: string) => void }> = ({ onN
               ))}
             </div>
           ) : actividad.length === 0 ? (
-            <EmptyState icon={<Sparkles />} title="Sin actividad aún" text="Crea tu primera publicación y verás aquí su historial." />
+            <EmptyState
+              icon={<Sparkles />}
+              title="Todavía no hay actividad"
+              text="Cuando publiques o programes contenido, verás aquí su historial."
+              action={
+                <Button variant="outline" icon={<Upload />} onClick={() => onNavigate('manual-post')}>
+                  Subir publicación
+                </Button>
+              }
+            />
           ) : (
-            <ul className="stagger -mx-2 space-y-0.5">
+            <ul className="-mx-2 space-y-1">
               {actividad.map((a) => (
-                <li key={a.id} className="flex items-center gap-3 rounded-[10px] px-2 py-2.5 transition-colors duration-150 hover:bg-accent">
+                <li key={a.id} className="flex min-h-14 items-center gap-3 rounded-[10px] px-2 py-2">
                   <IconTile tone={tonoActividad(a.tipo)}>
                     {a.tipo === 'programado' ? <Calendar /> : a.tipo === 'borrador' ? <FileText /> : a.tipo === 'error' ? <X /> : <CheckCircle2 />}
                   </IconTile>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{a.mensaje}</p>
-                    <p className="text-xs text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
+                    <p className="truncate text-sm font-medium text-foreground" title={a.mensaje}>
+                      {a.mensaje}
+                    </p>
+                    <p className="text-xs tabular-nums text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
                   </div>
                 </li>
               ))}
@@ -3879,21 +4545,21 @@ const DashboardHome: React.FC<{ onNavigate: (screen: string) => void }> = ({ onN
           )}
         </Panel>
 
-        <Panel title="Accesos rápidos" icon={<Zap />} delay={180}>
-          <div className="space-y-2">
+        <Panel title="Accesos rápidos" icon={<Zap />} scroll={false} className="self-start">
+          <div className="-mx-2 space-y-1">
             {accesos.map((a) => (
               <button
                 key={a.id}
                 type="button"
                 onClick={() => onNavigate(a.id)}
-                className="press group flex w-full items-center gap-3 rounded-xl border border-border p-3 text-left transition-all duration-200 hover:border-brand/40 hover:bg-brand-soft"
+                className="group flex min-h-14 w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-colors duration-150 hover:bg-accent"
               >
                 <IconTile>{a.icon}</IconTile>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium text-foreground">{a.label}</span>
                   <span className="block truncate text-xs text-muted-foreground">{a.desc}</span>
                 </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand-strong" />
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
               </button>
             ))}
           </div>

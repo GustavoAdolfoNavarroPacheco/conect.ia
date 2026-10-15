@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
+import { MotionConfig } from 'motion/react';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TermsPage } from './pages/TermsPage';
 import AppRoot from './AppRoot';
@@ -11,12 +12,15 @@ export default function AppRoutes() {
   useSmoothScroll();
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/privacidad" element={<PrivacyPolicyPage />} />
-        <Route path="/terminos" element={<TermsPage />} />
-        <Route path="/*" element={<AppRoot />} />
-      </Routes>
-    </BrowserRouter>
+    // Respeta "reducir movimiento" también en las animaciones de motion/react (drawer, transiciones, layoutId).
+    <MotionConfig reducedMotion="user">
+      <BrowserRouter>
+        <Routes>
+          <Route path="/privacidad" element={<PrivacyPolicyPage />} />
+          <Route path="/terminos" element={<TermsPage />} />
+          <Route path="/*" element={<AppRoot />} />
+        </Routes>
+      </BrowserRouter>
+    </MotionConfig>
   );
 }

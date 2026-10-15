@@ -28,7 +28,7 @@ export function ConectiaLogo({ size = 'md', showText = true, className = '', tex
       <span
         role="img"
         aria-label="Campuslands"
-        className={`${iconSize[size]} block bg-brand transition-transform duration-300 ease-out group-hover/logo:-rotate-6 group-hover/logo:scale-105`}
+        className={`${iconSize[size]} block bg-brand`}
         style={{
           WebkitMask: `url(${ICONO}) center / contain no-repeat`,
           mask: `url(${ICONO}) center / contain no-repeat`,

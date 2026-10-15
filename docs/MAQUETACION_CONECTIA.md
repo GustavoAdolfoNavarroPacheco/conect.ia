@@ -409,3 +409,31 @@ Esta versión incorpora las correcciones de dos revisiones independientes: una c
 - Eliminado el glow en el hover del botón primario y el doble señalizado en el hover de Card.
 - Duraciones reducidas a dos: 150ms y 240ms.
 - Añadidos estados por pantalla (sección 5.10), accesibilidad de popovers, calendario y chat, y áreas seguras.
+
+---
+
+## 11. Implementación (rama `preview`)
+
+Implementada sobre `Frontend/src/styles/theme.css`, `Frontend/src/app/App.tsx`, `AuthGate.tsx`, `components/Dropdown.tsx`, `components/ConectiaLogo.tsx`, `AppRoutes.tsx` e `index.html`.
+
+### Verificación realizada
+
+- `tsc` y `vite build` sin errores.
+- Auditoría automática de las 8 pantallas en 320, 360, 390, 639, 640, 767, 768, 1023, 1024×640, 1279, 1280×720 y 1440 px: sin scroll horizontal, sin controles interactivos de menos de 40px de alto y, desde 1024, sin scroll de pantalla completa.
+- Drawer: `role="dialog"`, foco inicial en "Cerrar menú", contenido de detrás `inert`, Escape cierra y el foco vuelve al botón de menú.
+- Dropdown: se pinta en un portal, mide lo mismo que el disparador y se abre hacia arriba cuando no cabe debajo.
+- **No verificado:** las animaciones a simple vista (el navegador de pruebas tenía el reloj de animación detenido), el modo claro y los estados con datos reales (la revisión se hizo sin backend, con estados de error y vacíos).
+
+### Desviaciones de la especificación
+
+1. **Transición entre pantallas (§3.5):** sin animación de salida. Con `mode="popLayout"` las pantallas salientes no se desmontaban y se acumulaban en `main`. Ahora la nueva entra en 240ms y la anterior se desmonta al instante, lo que cumple "sin esperar".
+2. **Accesos rápidos de Inicio (§5.1):** filas de 56px en lugar de 40px, porque llevan una línea de descripción.
+3. **Quitar miniatura (§2.3):** botón de 32px dentro de miniaturas de 72px; uno de 40px taparía media imagen.
+4. **Ajustes, salir con cambios (§5.8):** solo el aviso nativo del navegador (`beforeunload`). La navegación interna entre pantallas aún no pide confirmación.
+5. **Campos de secreto (§5.8):** no aplica; la interfaz no tiene campos de secreto (van como variables de entorno en Vercel).
+6. **Toast (§4):** posición, rol y animación según la especificación. La duración la sigue fijando cada pantalla; no hay pausa al hover ni cierre manual.
+7. **Asistente, "Detener" (§5.6):** descarta la respuesta en curso; la petición al servidor no se cancela.
+8. **Estados globales (§5.10):** sesión caducada y sin conexión, sin implementar.
+9. **`ScreenLayout` desde 1024:** altura mínima de 560px; por debajo de esa altura la pantalla desplaza en lugar de recortar contenido.
+10. **Button `size="sm"`:** se conserva por compatibilidad, pero mide 40px.
+11. **Fuera de alcance afectado:** la landing y las páginas legales no se tocaron, pero heredan la base de 16px y los nuevos tokens.

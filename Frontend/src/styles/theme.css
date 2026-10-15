@@ -4,12 +4,14 @@
    Conect.ia · Sistema de diseño (tema Campuslands)
    - Fuente única: Poppins
    - Marca: azul Campuslands #0076B7 / #57BBFF
-   - Escala tipográfica corta: 12 · 14 · 15 · 18 · 24 (display solo en landing)
+   - Base 16px: la rejilla de 4px de Tailwind es exacta
+   - Escala tipográfica corta: 12/16 · 14/20 · 16/24 · 18/24 · 24/32 (display solo en landing)
    - Espaciado en múltiplos de 4px; radios y sombras con tokens
+   - Especificación: docs/MAQUETACION_CONECTIA.md
    ========================================================================== */
 
 :root {
-  --font-size: 15px;
+  --font-size: 16px;
   --font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   /* Marca Campuslands */
@@ -55,16 +57,17 @@
 
   /* Elevación */
   --elev-xs: 0 1px 2px rgba(14, 22, 33, 0.05);
-  --elev-sm: 0 1px 2px rgba(14, 22, 33, 0.04), 0 2px 8px rgba(14, 22, 33, 0.04);
-  --elev-md: 0 4px 12px rgba(14, 22, 33, 0.06), 0 12px 32px -12px rgba(14, 22, 33, 0.12);
-  --elev-lg: 0 20px 48px -16px rgba(14, 22, 33, 0.22);
+  --elev-sm: 0 1px 2px rgba(14, 22, 33, 0.04), 0 2px 8px rgba(14, 22, 33, 0.05);
+  --elev-md: 0 4px 16px rgba(14, 22, 33, 0.08);
+  --elev-float: 0 12px 32px rgba(14, 22, 33, 0.12);
+  --elev-lg: var(--elev-float);
 
   /* Movimiento */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-fast: 150ms;
-  --dur: 240ms;
-  --dur-slow: 420ms;
+  --dur-fast: 150ms; /* microinteracciones: pulsación, color, hover */
+  --dur: 240ms; /* todo lo que entra o sale */
+  --dur-slow: 240ms; /* alias histórico: una sola duración de entrada */
 
   --radius: 0.75rem;
 
@@ -128,8 +131,8 @@ html.dark,
 
   --elev-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
   --elev-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25);
-  --elev-md: 0 6px 16px rgba(0, 0, 0, 0.35), 0 14px 36px -14px rgba(0, 0, 0, 0.6);
-  --elev-lg: 0 24px 56px -18px rgba(0, 0, 0, 0.75);
+  --elev-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --elev-float: 0 12px 32px rgba(0, 0, 0, 0.6);
 
   --sidebar: #141414;
   --sidebar-foreground: #f1f3f6;
@@ -143,17 +146,17 @@ html.dark,
 @theme inline {
   --font-sans: var(--font-family);
 
-  /* Escala tipográfica reducida (las clases mayores colapsan a los mismos tamaños) */
+  /* Escala tipográfica reducida: interlineados múltiplos de 4 (las clases mayores colapsan) */
   --text-xs: 0.75rem;
-  --text-xs--line-height: 1.1rem;
+  --text-xs--line-height: 1rem;
   --text-sm: 0.875rem;
-  --text-sm--line-height: 1.35rem;
-  --text-base: 0.9375rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
   --text-base--line-height: 1.5rem;
   --text-lg: 1.125rem;
-  --text-lg--line-height: 1.6rem;
+  --text-lg--line-height: 1.5rem;
   --text-xl: 1.125rem;
-  --text-xl--line-height: 1.6rem;
+  --text-xl--line-height: 1.5rem;
   --text-2xl: 1.5rem;
   --text-2xl--line-height: 2rem;
   --text-3xl: 1.5rem;
@@ -214,9 +217,10 @@ html.dark,
   --shadow-xs: var(--elev-xs);
   --shadow-sm: var(--elev-sm);
   --shadow-md: var(--elev-md);
-  --shadow-lg: var(--elev-lg);
-  --shadow-xl: var(--elev-lg);
-  --shadow-2xl: var(--elev-lg);
+  --shadow-lg: var(--elev-float);
+  --shadow-xl: var(--elev-float);
+  --shadow-2xl: var(--elev-float);
+  --shadow-float: var(--elev-float);
 
 
   --color-sidebar: var(--sidebar);
@@ -252,6 +256,7 @@ html.dark,
     @apply bg-background text-foreground;
     font-family: var(--font-family);
     font-weight: 400;
+    line-height: 1.5;
     letter-spacing: -0.005em;
   }
 
@@ -262,39 +267,39 @@ html.dark,
   h1 {
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-semibold);
-    line-height: 1.3;
+    line-height: 2rem;
     letter-spacing: -0.02em;
   }
 
   h2 {
     font-size: var(--text-lg);
     font-weight: var(--font-weight-semibold);
-    line-height: 1.4;
+    line-height: 1.5rem;
     letter-spacing: -0.01em;
   }
 
   h3 {
     font-size: var(--text-base);
     font-weight: var(--font-weight-semibold);
-    line-height: 1.45;
+    line-height: 1.5rem;
   }
 
   h4 {
     font-size: var(--text-sm);
     font-weight: var(--font-weight-semibold);
-    line-height: 1.5;
+    line-height: 1.25rem;
   }
 
   label {
     font-size: var(--text-sm);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 1.25rem;
   }
 
   button {
     font-size: var(--text-sm);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 1.25rem;
   }
 
   input,
@@ -302,7 +307,7 @@ html.dark,
   select {
     font-size: var(--text-sm);
     font-weight: var(--font-weight-normal);
-    line-height: 1.5;
+    line-height: 1.25rem;
   }
 
   :focus-visible {
@@ -334,12 +339,31 @@ html.dark,
    Utilidades del sistema
    ========================================================================== */
 @layer components {
-  /* Superficie estándar (tarjetas y paneles) */
+  /* Superficie estándar (Card): borde + elev-sm */
   .surface {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 16px;
     box-shadow: var(--elev-sm);
+  }
+
+  /* Superficie plana (Panel): solo borde, sin elevación */
+  .surface-flat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+  }
+
+  /* Topbar: card al 94%; el desenfoque solo desde 1024 (coste de rendimiento) */
+  .topbar-surface {
+    background: color-mix(in srgb, var(--card) 94%, transparent);
+    border-bottom: 1px solid var(--border);
+  }
+  @media (min-width: 1024px) {
+    .topbar-surface {
+      background: color-mix(in srgb, var(--card) 86%, transparent);
+      backdrop-filter: blur(12px) saturate(150%);
+    }
   }
 
   .surface-muted {
@@ -354,11 +378,11 @@ html.dark,
     border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   }
 
-  /* Campos de formulario estándar (alto 40px) */
+  /* Campos de formulario estándar (alto 44px) */
   .field {
     width: 100%;
-    min-height: 2.5rem;
-    padding: 0.5rem 0.875rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
     font-size: var(--text-sm);
     color: var(--foreground);
     background: var(--input-background);
@@ -370,7 +394,7 @@ html.dark,
       background-color var(--dur) var(--ease-out);
   }
   .field::placeholder {
-    color: color-mix(in srgb, var(--muted-foreground) 80%, transparent);
+    color: var(--muted-foreground);
   }
   .field:hover {
     border-color: color-mix(in srgb, var(--brand) 35%, var(--input));
@@ -404,17 +428,12 @@ html.dark,
     box-shadow: var(--glow);
   }
 
-  /* Hover: elevación suave */
+  /* Hover de Card interactiva: solo elevación (una única señal) */
   .hover-lift {
-    transition:
-      transform var(--dur) var(--ease-out),
-      box-shadow var(--dur) var(--ease-out),
-      border-color var(--dur) var(--ease-out);
+    transition: box-shadow var(--dur-fast) var(--ease-out);
   }
   .hover-lift:hover {
-    transform: translateY(-2px);
     box-shadow: var(--elev-md);
-    border-color: color-mix(in srgb, var(--brand) 28%, var(--border));
   }
 
   /* Click: compresión */
@@ -518,16 +537,7 @@ html.dark,
   }
 }
 
-/* Entrada escalonada de hijos: <div class="stagger"> */
-.stagger > * {
-  animation: enter var(--dur-slow) var(--ease-out) both;
-}
-.stagger > *:nth-child(2) { animation-delay: 50ms; }
-.stagger > *:nth-child(3) { animation-delay: 100ms; }
-.stagger > *:nth-child(4) { animation-delay: 150ms; }
-.stagger > *:nth-child(5) { animation-delay: 200ms; }
-.stagger > *:nth-child(6) { animation-delay: 250ms; }
-.stagger > *:nth-child(n + 7) { animation-delay: 300ms; }
+/* .stagger: sin escalonado dentro de las pantallas (la entrada la hace el contenedor) */
 
 /* Revelado al hacer scroll: data-reveal (lo activa useScrollReveal) */
 [data-reveal] {
@@ -555,16 +565,18 @@ html.dark,
   animation: ripple 600ms var(--ease-out) forwards;
 }
 
-/* Skeleton con brillo */
+/* Skeleton: pulso de opacidad (0.6 → 1 en 1.2s) */
+@keyframes skeleton-pulse {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 1;
+  }
+}
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--muted) 0%,
-    color-mix(in srgb, var(--muted) 55%, var(--card)) 50%,
-    var(--muted) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.6s linear infinite;
+  background: var(--muted);
+  animation: skeleton-pulse 1.2s var(--ease-in-out) infinite alternate;
 }
 
 /* Fundido al cambiar de tema (View Transitions; fallback con .theme-fading) */
@@ -599,6 +611,9 @@ html.theme-fading *::after {
   [data-reveal] {
     opacity: 1;
     transform: none;
+  }
+  .skeleton {
+    animation: none;
   }
 }
 

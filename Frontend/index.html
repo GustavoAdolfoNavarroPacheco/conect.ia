@@ -2,7 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>Conect.ia — Automatización de publicaciones</title>
     <meta name="theme-color" content="#0076B7" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -21,7 +21,7 @@
         if (tema === 'dark') document.documentElement.classList.add('dark');
       })();
     </script>
-    <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+    <style>html, body { height: 100%; margin: 0; } #root { height: 100%; } @supports (height: 100dvh) { #root { height: 100dvh; } }</style>
   </head>
 
   <body>
