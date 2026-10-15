@@ -498,3 +498,37 @@ export async function obtenerPendienteOAuth(
 export async function borrarPendienteOAuth(state: string): Promise<void> {
   await sql()`DELETE FROM oauth_pendientes WHERE state = ${state}`;
 }
+
+// ------------------------------------------------------------------ cuentas con correo y contraseña
+
+/** true si ya existe cualquier cuenta con ese correo (con contraseña o de Google). */
+export async function existeCorreo(email: string): Promise<boolean> {
+  const rows = await sql()`SELECT 1 FROM usuarios WHERE lower(email) = lower(${email}) LIMIT 1`;
+  return rows.length > 0;
+}
+
+/** Cuenta con contraseña para iniciar sesión por correo. Las cuentas de Google no tienen contraseña. */
+export async function buscarCuentaCorreo(
+  email: string
+): Promise<{ uid: string; email: string; nombre: string; passwordHash: string } | null> {
+  const rows = await sql()`
+    SELECT uid, email, nombre, password_hash FROM usuarios
+    WHERE lower(email) = lower(${email}) AND password_hash IS NOT NULL
+    LIMIT 1`;
+  const r = rows[0];
+  if (!r) return null;
+  return { uid: r.uid, email: r.email, nombre: r.nombre, passwordHash: r.password_hash };
+}
+
+/** Crea la cuenta con contraseña y, después, su motor de datos (canales, configuración, actividad). */
+export async function crearCuentaCorreo(
+  uid: string,
+  email: string,
+  nombre: string,
+  passwordHash: string
+): Promise<void> {
+  await sql()`
+    INSERT INTO usuarios (uid, email, nombre, password_hash)
+    VALUES (${uid}, ${email}, ${nombre}, ${passwordHash})`;
+  await asegurarCuenta(uid, email, nombre);
+}

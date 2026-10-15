@@ -45,7 +45,7 @@ Si defines `N8N_WEBHOOK_URL` y `MAKE_WEBHOOK_URL` a la vez, el servidor usa **n8
 npm run db:migrate
 ```
 
-## 2. Inicio de sesión con Google
+## 2. Inicio de sesión (Google y correo)
 
 ### `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET`
 

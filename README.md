@@ -8,7 +8,7 @@ Automatización de publicaciones en redes sociales con IA: genera contenido con 
 |-------|------------|
 | Frontend | React + Vite (`Frontend/`) |
 | API | Funciones serverless de Vercel (`api/` y `server/`) |
-| Autenticación | Auth.js (`@auth/core`) con Google |
+| Autenticación | Auth.js (`@auth/core`): Google y correo con contraseña |
 | Base de datos | Neon (PostgreSQL), esquema en `server/db/schema.sql` |
 | Imágenes | Vercel Blob |
 | Programación | Vercel Cron (`api/cron/publicar-programadas.ts`) |

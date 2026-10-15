@@ -14,6 +14,7 @@ import { startMetaOAuth } from './integracion/startMetaOAuth';
 import { completeMetaOAuth } from './integracion/completeMetaOAuth';
 import { startTikTokOAuth } from './integracion/startTikTokOAuth';
 import { completeTikTokOAuth } from './integracion/completeTikTokOAuth';
+import { registrarCuenta } from './handlers/cuenta';
 import {
   actualizarBorradorDatos,
   actualizarPublicacionDatos,
@@ -54,6 +55,7 @@ export const CALLABLES: Record<string, Callable> = {
   startTikTokOAuth,
   completeTikTokOAuth,
   inicializarCuenta,
+  registrarCuenta,
   listarPublicaciones: listarPublicacionesDatos,
   crearPublicacion: crearPublicacionDatos,
   actualizarPublicacion: actualizarPublicacionDatos,

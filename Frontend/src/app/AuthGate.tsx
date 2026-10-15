@@ -1,16 +1,43 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { ConectiaLogo } from './components/ConectiaLogo';
 import { useAuth } from '../context/AuthContext';
 import { mensajeErrorAuth } from '../lib/authErrors';
 import App, { PublicLanding } from './App';
 
-/** Login con Google + app; invitados ven landing primero */
+/** Mensajes para los códigos de error que Auth.js añade a la URL (?error=...). */
+const MENSAJES_ERROR: Record<string, string> = {
+  CredentialsSignin: 'Correo o contraseña incorrectos.',
+  OAuthSignin: 'No se pudo iniciar sesión con Google. Intenta de nuevo.',
+  OAuthCallback: 'Google canceló o rechazó el inicio de sesión.',
+  AccessDenied: 'Acceso denegado.',
+};
+
+function errorDesdeUrl(): string {
+  const codigo = new URLSearchParams(window.location.search).get('error');
+  if (!codigo) return '';
+  return MENSAJES_ERROR[codigo] ?? 'No se pudo iniciar sesión. Intenta de nuevo.';
+}
+
+const CAMPO =
+  'w-full px-4 py-3 bg-white/50 dark:bg-accent/30 border border-white/40 dark:border-border rounded-2xl text-sm transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#06b6d4]/30 focus:border-[#06b6d4]/40 focus:bg-white dark:focus:bg-card focus:shadow-lg focus:shadow-[#06b6d4]/5 hover:bg-white/70 dark:hover:bg-accent/50 cursor-text';
+
+/** Login con correo y contraseña, con Google; invitados ven la landing primero */
 export default function AuthGate() {
-  const { user, loginGoogle, logout, initError } = useAuth();
-  const [guestView, setGuestView] = useState<'landing' | 'login'>('landing');
-  const [error, setError] = useState('');
+  const { user, loginGoogle, loginCorreo, registrarCorreo, logout, initError } = useAuth();
+  const [errorInicial] = useState(errorDesdeUrl);
+  const [guestView, setGuestView] = useState<'landing' | 'login'>(() => (errorInicial ? 'login' : 'landing'));
+  const [modo, setModo] = useState<'login' | 'registro'>('login');
+  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(errorInicial);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Quita el código de error de la barra de direcciones tras mostrarlo.
+    if (errorInicial) window.history.replaceState(null, '', '/');
+  }, [errorInicial]);
 
   if (user) {
     if (initError) {
@@ -36,6 +63,27 @@ export default function AuthGate() {
   if (guestView === 'landing') {
     return <PublicLanding onLogin={() => setGuestView('login')} />;
   }
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!email.trim() || !password) {
+      setError('Correo y contraseña son obligatorios.');
+      return;
+    }
+    if (modo === 'registro' && password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    setLoading(true);
+    try {
+      if (modo === 'login') await loginCorreo(email, password);
+      else await registrarCorreo(email, password, nombre);
+    } catch (err) {
+      setError(mensajeErrorAuth(err));
+      setLoading(false);
+    }
+  };
 
   const handleGoogle = async () => {
     setLoading(true);
@@ -70,12 +118,57 @@ export default function AuthGate() {
           <ConectiaLogo size="lg" textClassName="!text-foreground !bg-none" />
         </div>
         <p className="text-sm font-medium text-center text-muted-foreground mb-8">Automatización de redes con IA y Make</p>
-        {error && <p className="mb-4 text-sm text-red-500 font-medium text-center bg-red-50 dark:bg-red-950/30 py-2 rounded-xl border border-red-100 dark:border-red-900/50">{error}</p>}
+
+        <form onSubmit={submit} className="space-y-4">
+          {modo === 'registro' && (
+            <input
+              type="text"
+              className={CAMPO}
+              placeholder="Nombre (opcional)"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+            />
+          )}
+          <input
+            type="email"
+            required
+            className={CAMPO}
+            placeholder="Correo electrónico"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            required
+            minLength={modo === 'registro' ? 8 : undefined}
+            className={CAMPO}
+            placeholder="Contraseña"
+            autoComplete={modo === 'login' ? 'current-password' : 'new-password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          {error && <p className="text-sm text-red-500 font-medium text-center bg-red-50 dark:bg-red-950/30 py-2 rounded-xl border border-red-100 dark:border-red-900/50">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 mt-2 rounded-2xl relative overflow-hidden bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4] text-white font-semibold shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_15px_rgba(6,182,212,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_6px_20px_rgba(6,182,212,0.3)] hover:-translate-y-[1px] transition-all duration-300 disabled:opacity-60 disabled:hover:translate-y-0 cursor-pointer disabled:cursor-not-allowed"
+          >
+            {loading ? 'Cargando…' : modo === 'login' ? 'Entrar al Panel' : 'Crear mi cuenta'}
+          </button>
+        </form>
+
+        <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex-1 h-px bg-border" />
+          o
+          <span className="flex-1 h-px bg-border" />
+        </div>
+
         <button
           type="button"
           disabled={loading}
           onClick={() => void handleGoogle()}
-          className="w-full mt-2 py-3 bg-white/50 dark:bg-accent/30 border border-white/60 dark:border-border/50 rounded-2xl text-sm font-medium hover:bg-white/80 dark:hover:bg-accent/50 transition-all duration-300 disabled:opacity-50 shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+          className="w-full py-3 bg-white/50 dark:bg-accent/30 border border-white/60 dark:border-border/50 rounded-2xl text-sm font-medium hover:bg-white/80 dark:hover:bg-accent/50 transition-all duration-300 disabled:opacity-50 shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -85,6 +178,18 @@ export default function AuthGate() {
           </svg>
           {loading ? 'Redirigiendo…' : 'Continuar con Google'}
         </button>
+
+        <button
+          type="button"
+          className="w-full mt-6 text-sm font-medium text-transparent bg-clip-text bg-gradient-to-r from-[#1e3a8a] to-[#06b6d4] dark:from-[#60a5fa] dark:to-[#22d3ee] hover:opacity-80 transition-opacity cursor-pointer"
+          onClick={() => {
+            setModo(modo === 'login' ? 'registro' : 'login');
+            setError('');
+          }}
+        >
+          {modo === 'login' ? '¿No tienes cuenta? Crear una' : 'Ya tengo cuenta, iniciar sesión'}
+        </button>
+
         <p className="mt-8 text-center text-xs text-muted-foreground/80 font-medium">
           <a href="/privacidad" className="hover:text-[#06b6d4] transition-colors cursor-pointer">
             Política de privacidad

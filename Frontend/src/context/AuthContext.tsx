@@ -1,8 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { inicializarCuentaUsuario, type Usuario } from '../lib/db';
+import { callFn } from '../lib/api';
 import { mensajeErrorAuth } from '../lib/authErrors';
 
-/** Usuario de la sesión de Auth.js (cuenta de Google). `uid` es el `sub` de Google. */
+/** Usuario de la sesión de Auth.js. `uid` es el identificador de la cuenta (Google o correo). */
 export type AppUser = {
   uid: string;
   email: string;
@@ -16,6 +17,8 @@ type AuthState = {
   loading: boolean;
   initError: string | null;
   loginGoogle: () => Promise<void>;
+  loginCorreo: (email: string, password: string) => Promise<void>;
+  registrarCorreo: (email: string, password: string, nombre: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -94,13 +97,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     enviarFormularioAuth('/api/auth/signin/google', { csrfToken, callbackUrl: '/' });
   }, []);
 
+  const loginCorreo = useCallback(async (email: string, password: string) => {
+    const csrfToken = await obtenerCsrf();
+    enviarFormularioAuth('/api/auth/callback/credentials', {
+      csrfToken,
+      email: email.trim(),
+      password,
+      callbackUrl: '/',
+    });
+  }, []);
+
+  const registrarCorreo = useCallback(
+    async (email: string, password: string, nombre: string) => {
+      await callFn('registrarCuenta', { email: email.trim(), password, nombre: nombre.trim() });
+      await loginCorreo(email, password);
+    },
+    [loginCorreo]
+  );
+
   const logout = useCallback(async () => {
     const csrfToken = await obtenerCsrf();
     enviarFormularioAuth('/api/auth/signout', { csrfToken, callbackUrl: '/' });
   }, []);
 
   return (
-    <Ctx.Provider value={{ user, profile, loading, initError, loginGoogle, logout }}>
+    <Ctx.Provider
+      value={{ user, profile, loading, initError, loginGoogle, loginCorreo, registrarCorreo, logout }}
+    >
       {children}
     </Ctx.Provider>
   );
