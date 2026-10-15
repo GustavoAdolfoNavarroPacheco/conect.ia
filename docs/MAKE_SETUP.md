@@ -89,7 +89,7 @@ Mismo contrato que el webhook `campus-post-form` del JSON n8n:
   "action": "verify_channel",
   "provider": "make",
   "red": "linkedin",
-  "integrationId": "stivenmartinezvillamizar",
+  "integrationId": "gustavoadolfonavarropacheco",
   "profileUrl": "https://linkedin.com/in/...",
   "uid": "google-user-id"
 }

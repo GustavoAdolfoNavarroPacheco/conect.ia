@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { ConectiaLogo } from '../components/ConectiaLogo';
 
-const CONTACT_EMAIL = 'stivenmartinezvillamizar@gmail.com';
+const CONTACT_EMAIL = 'adolfonavarro0212@gmail.com';
 const LAST_UPDATED = '18 de agosto de 2026';
 
 /**
