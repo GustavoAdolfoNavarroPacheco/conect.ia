@@ -1754,8 +1754,7 @@ const NewPostScreen: React.FC = () => {
               platforms,
               body: [gen.contenido, tags].filter(Boolean).join('\n\n'),
               image_url: generatedVideoUrl || (gen.imagenUrl ?? null),
-            },
-            webhook
+            }
           );
         } catch {
           // n8n opcional; la IA ya generó el texto en Conect.ia
@@ -1919,8 +1918,7 @@ const NewPostScreen: React.FC = () => {
               body: postBody,
               image_url: finalImageUrl,
               post_id: postId,
-            },
-            webhookNow
+            }
           );
           await actualizarPublicacion(postId, { estado: 'publicado' });
           setToastMsg(
@@ -1958,8 +1956,7 @@ const NewPostScreen: React.FC = () => {
                 image_url: finalImageUrl,
                 post_id: postId,
                 scheduled_at: iso,
-              },
-              webhook
+              }
             );
           } catch (makeErr) {
             setMakeWarning(
@@ -2470,8 +2467,7 @@ const ManualPostScreen: React.FC = () => {
               body: postText,
               image_url: imagenUrl,
               post_id: postId,
-            },
-            webhookNow
+            }
           );
           await actualizarPublicacion(postId, { estado: 'publicado' });
           notify(`Publicado vía Make en ${redes.join(', ')}`);
@@ -4357,7 +4353,8 @@ const SettingsScreen: React.FC = () => {
             <div className="surface-muted space-y-3 p-4 text-sm text-muted-foreground">
               <p>
                 El secreto va en las variables de entorno de Vercel: {codigo('MAKE_WEBHOOK_SECRET')} (API key del Custom webhook en
-                Make). Se envía en las cabeceras {codigo('x-make-apikey')} y {codigo('X-Campus-Secret')}.
+                Make). Solo viaja a la URL configurada en Vercel, en las cabeceras {codigo('x-make-apikey')} y {codigo('X-Campus-Secret')}.
+                La URL que pegas aquí no recibe el secreto y debe empezar por https://.
               </p>
               <p>
                 Guía: {codigo('Flujo_Automatizacion/POSTMAN_MAKE.md')} · n8n local: {codigo('docker compose up -d')}

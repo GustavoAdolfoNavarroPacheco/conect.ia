@@ -3,10 +3,7 @@ import { logger } from '../platform/logger';
 import { obtenerTokens } from '../db/repo';
 import type { AutomationPostPayload, AutomationPostResponse } from './automationTypes';
 import { crearBorradorEnBaseDatos, registrarEjecucion } from './n8nPersistence';
-import {
-  resolveAutomationWebhookSecret,
-  resolveAutomationWebhookUrl,
-} from './automationWebhook';
+import { resolverWebhookAutomatizacion } from './automationWebhook';
 import { buildAutomationWebhookHeaders } from './automationWebhookHeaders';
 
 export const triggerMakeWorkflow = onCall(
@@ -16,15 +13,18 @@ export const triggerMakeWorkflow = onCall(
       throw new HttpsError('unauthenticated', 'Debes iniciar sesión');
     }
 
-    const payload = request.data as AutomationPostPayload & { webhookUrl?: string };
+    // La URL del webhook nunca la decide el navegador: se descarta cualquier `webhookUrl` recibido.
+    const datos = { ...(request.data as AutomationPostPayload) } as AutomationPostPayload & { webhookUrl?: unknown };
+    delete datos.webhookUrl;
+    const payload = datos as AutomationPostPayload;
     if (!payload?.topic?.trim() && !payload?.body?.trim()) {
       throw new HttpsError('invalid-argument', 'topic o body es obligatorio');
     }
 
     const uid = request.auth.uid;
-    const url = await resolveAutomationWebhookUrl(uid, payload.webhookUrl);
+    const webhook = await resolverWebhookAutomatizacion(uid);
 
-    if (!url) {
+    if (!webhook) {
       throw new HttpsError(
         'failed-precondition',
         'Webhook no configurado. Añade MAKE_WEBHOOK_URL en variables de entorno de Vercel o la URL del escenario Make en Ajustes.'
@@ -41,7 +41,6 @@ export const triggerMakeWorkflow = onCall(
     const executionId = skipBorrador
       ? `notify-${Date.now()}`
       : await registrarEjecucion(uid, payload, borradorId);
-    const secret = resolveAutomationWebhookSecret();
 
     const tokens = await obtenerTokens(uid);
     const li = tokens.linkedin as
@@ -57,13 +56,14 @@ export const triggerMakeWorkflow = onCall(
     };
 
     try {
-      const res = await fetch(url, {
+      const res = await fetch(webhook.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...buildAutomationWebhookHeaders(secret),
+          ...buildAutomationWebhookHeaders(webhook.secreto),
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(45_000),
       });
 
       const text = await res.text();
@@ -84,7 +84,7 @@ export const triggerMakeWorkflow = onCall(
         );
       }
 
-      logger.info('Make scenario OK', { uid, borradorId, executionId, action });
+      logger.info('Make scenario OK', { uid, borradorId, executionId, action, origen: webhook.origen });
       return { ...data, executionId, borradorId: borradorId || undefined };
     } catch (err) {
       logger.error('Make scenario error', err);

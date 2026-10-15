@@ -1,10 +1,7 @@
 import { onCall, HttpsError } from '../platform/callable';
 import { logger } from '../platform/logger';
 import { guardarCanal, obtenerTokens } from '../db/repo';
-import {
-  resolveAutomationWebhookSecret,
-  resolveAutomationWebhookUrl,
-} from './automationWebhook';
+import { resolverWebhookAutomatizacion } from './automationWebhook';
 import { buildAutomationWebhookHeaders } from './automationWebhookHeaders';
 
 type VerifyRequest = {
@@ -60,17 +57,16 @@ export const verifyChannelConnection = onCall(
       }
     }
 
-    const webhook = await resolveAutomationWebhookUrl(uid);
-    const secret = resolveAutomationWebhookSecret();
+    const webhook = await resolverWebhookAutomatizacion(uid);
     let verificadoPor = 'campus-local';
 
     if (webhook) {
       try {
-        const res = await fetch(webhook, {
+        const res = await fetch(webhook.url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...buildAutomationWebhookHeaders(secret),
+            ...buildAutomationWebhookHeaders(webhook.secreto),
           },
           body: JSON.stringify({
             action: 'verify_channel',

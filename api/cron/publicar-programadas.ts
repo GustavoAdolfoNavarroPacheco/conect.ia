@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { findDueScheduledPosts, publishPostById } from '../../server/posts/publishPostNow';
+import { marcarEnviosInterrumpidos } from '../../server/db/repo';
 import { logger } from '../../server/platform/logger';
 
 /**
@@ -13,7 +14,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const vencidas = await findDueScheduledPosts();
+  // Lotes pequeños y con presupuesto de tiempo: la función tiene 60 s. Un disparador externo
+  // cada 5 minutos recoge lo que quede (el cron de Vercel en Hobby es diario).
+  const inicio = Date.now();
+  const interrumpidas = await marcarEnviosInterrumpidos();
+  if (interrumpidas > 0) logger.warn(`cron: ${interrumpidas} envío(s) interrumpido(s) marcados como fallidos`);
+  const vencidas = await findDueScheduledPosts(5);
   if (vencidas.length === 0) {
     res.status(200).json({ processed: 0, results: [] });
     return;
@@ -23,6 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const results: Array<{ postId: string; success: boolean; error?: string }> = [];
   for (const { id, creadoPor } of vencidas) {
+    if (Date.now() - inicio > 40_000) break;
     try {
       await publishPostById(id, creadoPor);
       results.push({ postId: id, success: true });

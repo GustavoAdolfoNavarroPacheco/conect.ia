@@ -1,14 +1,13 @@
 import { callFn } from '../lib/api';
 import type { AutomationPostPayload, AutomationPostResponse } from '../lib/db/types';
 
-/** Llama a la función del servidor que dispara el webhook de Make/n8n (secretos solo en servidor). */
+/** Dispara el webhook de Make/n8n. El servidor decide la URL y el secreto: el navegador no los envía. */
 export async function ejecutarFlujoPublicacion(
-  payload: AutomationPostPayload,
-  webhookUrl?: string
+  payload: AutomationPostPayload
 ): Promise<AutomationPostResponse & { executionId?: string; borradorId?: string }> {
   return callFn<AutomationPostResponse & { executionId?: string; borradorId?: string }>(
     'triggerMakeWorkflow',
-    { ...payload, webhookUrl }
+    payload
   );
 }
 

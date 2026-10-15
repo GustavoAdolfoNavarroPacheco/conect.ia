@@ -149,7 +149,7 @@ export async function actualizarPublicacion(
   return rows.length > 0;
 }
 
-/** Estado tras publicar o fallar: guarda resultados por red y limpia la fecha programada. */
+/** Estado tras publicar o fallar: guarda resultados por red. Conserva la fecha programada. */
 export async function marcarPublicacion(
   id: string,
   estado: string,
@@ -159,7 +159,49 @@ export async function marcarPublicacion(
     UPDATE publicaciones SET
       estado = ${estado},
       resultados = ${JSON.stringify(resultados)}::jsonb,
-      fecha_programada = NULL,
+      publicado_en = CASE WHEN ${estado} = 'publicado' THEN now() ELSE publicado_en END,
+      actualizado_en = now()
+    WHERE id = ${id}`;
+}
+
+/**
+ * Reclamo atómico antes de enviar: solo una ejecución consigue pasar la publicación a 'en_proceso'.
+ * Si otra ya la tiene (cron, pestaña abierta, reintento), devuelve false y no se envía de nuevo.
+ */
+export async function reclamarPublicacion(id: string): Promise<boolean> {
+  const rows = await sql()`
+    UPDATE publicaciones SET
+      estado = 'en_proceso',
+      intentos = intentos + 1,
+      actualizado_en = now()
+    WHERE id = ${id}
+      AND estado IN ('pendiente', 'programado', 'fallido')
+      AND intentos < 5
+    RETURNING id`;
+  return rows.length > 0;
+}
+
+/**
+ * Publicaciones 'en_proceso' sin actividad durante 15 minutos: la función se cortó a mitad de envío.
+ * No se reenvían solas (la red pudo recibirlas): pasan a 'fallido' con un aviso para revisarlas.
+ */
+export async function marcarEnviosInterrumpidos(): Promise<number> {
+  const rows = await sql()`
+    UPDATE publicaciones SET
+      estado = 'fallido',
+      ultimo_error = 'Envío interrumpido. Revisa la red antes de reintentar para no duplicar la publicación.',
+      actualizado_en = now()
+    WHERE estado = 'en_proceso' AND actualizado_en < now() - interval '15 minutes'
+    RETURNING id`;
+  return rows.length;
+}
+
+/** Registra el motivo de un fallo y deja la publicación en 'fallido' (con su fecha, para reintentar). */
+export async function registrarFalloPublicacion(id: string, error: string): Promise<void> {
+  await sql()`
+    UPDATE publicaciones SET
+      estado = 'fallido',
+      ultimo_error = ${error.slice(0, 500)},
       actualizado_en = now()
     WHERE id = ${id}`;
 }
@@ -183,11 +225,19 @@ export async function listarPublicaciones(uid: string, estado?: string): Promise
   return rows.map(mapPublicacion);
 }
 
-export async function publicacionesVencidas(limite = 20): Promise<Array<{ id: string; creadoPor: string }>> {
+/**
+ * Programadas cuya hora ya llegó. Con `uid`, solo las de esa cuenta.
+ * El filtro va en SQL para que el límite no se consuma con las publicaciones de otros usuarios.
+ */
+export async function publicacionesVencidas(
+  limite = 20,
+  uid?: string
+): Promise<Array<{ id: string; creadoPor: string }>> {
   const rows = await sql()`
     SELECT id, creado_por FROM publicaciones
     WHERE estado = 'programado' AND fecha_programada <= now()
-    ORDER BY fecha_programada ASC
+      AND (${uid ?? null}::text IS NULL OR creado_por = ${uid ?? null}::text)
+    ORDER BY fecha_programada ASC NULLS FIRST
     LIMIT ${limite}`;
   return rows.map((r) => ({ id: r.id as string, creadoPor: r.creado_por as string }));
 }

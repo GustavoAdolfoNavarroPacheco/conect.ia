@@ -5,16 +5,23 @@ import {
   obtenerPublicacion,
   obtenerTokens,
   publicacionesVencidas,
+  registrarFalloPublicacion,
+  reclamarPublicacion,
 } from '../db/repo';
 import type { RedSocial, ResultadoRed } from '../types';
 import { publishToInstagram } from '../social/instagram';
 import { publishToFacebook } from '../social/facebook';
 import { publishToLinkedIn } from '../social/linkedin';
 import { publishToTikTok } from '../social/tiktok';
-import { resolveAutomationWebhookUrl, resolveAutomationWebhookSecret } from '../integracion/automationWebhook';
+import { resolverWebhookAutomatizacion } from '../integracion/automationWebhook';
 import { buildAutomationWebhookHeaders } from '../integracion/automationWebhookHeaders';
 import type { AutomationPostPayload } from '../integracion/automationTypes';
 
+/**
+ * Envía una publicación a sus redes. Es idempotente: reclama la publicación antes de enviar,
+ * así que dos ejecuciones simultáneas (cron, pestaña abierta, reintento) no la envían dos veces.
+ * Cualquier fallo queda registrado en la publicación con su motivo.
+ */
 export async function publishPostById(postId: string, userId: string): Promise<void> {
   const post = await obtenerPublicacion(postId);
 
@@ -26,11 +33,37 @@ export async function publishPostById(postId: string, userId: string): Promise<v
     throw new Error('No autorizado para publicar esta publicación');
   }
 
+  if (post.estado === 'publicado') return; // ya enviada: no se repite
+
+  const reclamada = await reclamarPublicacion(postId);
+  if (!reclamada) {
+    throw new Error('La publicación ya se está enviando, ya se publicó o llegó al máximo de intentos.');
+  }
+
+  try {
+    await enviarPublicacion(post, userId);
+  } catch (err) {
+    // Un corte por tiempo puede ocurrir después de que el escenario ya publicó: se avisa para no duplicar.
+    const cortado = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+    const mensaje = cortado
+      ? 'El escenario no respondió a tiempo. Puede que ya se haya publicado: revísalo en Make antes de reintentar.'
+      : err instanceof Error
+        ? err.message
+        : 'Error desconocido';
+    logger.error('Publicación fallida', { postId, mensaje });
+    await registrarFalloPublicacion(postId, mensaje);
+    throw err;
+  }
+}
+
+type PublicacionEnvio = NonNullable<Awaited<ReturnType<typeof obtenerPublicacion>>>;
+
+async function enviarPublicacion(post: PublicacionEnvio, userId: string): Promise<void> {
+  const postId = post.id;
   const tokens = await obtenerTokens(userId);
 
-  const webhookUrl = await resolveAutomationWebhookUrl(userId);
-  if (webhookUrl) {
-    const secret = resolveAutomationWebhookSecret();
+  const webhook = await resolverWebhookAutomatizacion(userId);
+  if (webhook) {
     const li = tokens.linkedin as { memberUrn?: string; displayName?: string } | undefined;
 
     const payload: AutomationPostPayload = {
@@ -50,19 +83,30 @@ export async function publishPostById(postId: string, userId: string): Promise<v
       linkedin_display_name: li?.displayName,
     };
 
-    const res = await fetch(webhookUrl, {
+    const res = await fetch(webhook.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...buildAutomationWebhookHeaders(secret),
+        ...buildAutomationWebhookHeaders(webhook.secreto),
       },
       body: JSON.stringify(payload),
+      // La función tiene 60 s: si el escenario tarda más, se corta y queda registrado como fallo.
+      signal: AbortSignal.timeout(45_000),
     });
 
     const text = await res.text();
-    if (!res.ok) {
-      await marcarPublicacion(postId, 'fallido', { webhook: { success: false, error: text.slice(0, 200) } });
-      throw new Error(`Make Webhook falló: ${res.status} ${text.slice(0, 100)}`);
+    let confirmado = true;
+    try {
+      const json = JSON.parse(text) as { success?: boolean; error?: string };
+      if (json.success === false) confirmado = false;
+    } catch {
+      // Respuesta no JSON: si HTTP fue 2xx, se considera enviada.
+    }
+
+    if (!res.ok || !confirmado) {
+      const detalle = text.slice(0, 200);
+      await marcarPublicacion(postId, 'fallido', { webhook: { success: false, error: detalle } });
+      throw new Error(`Make Webhook falló: ${res.status} ${detalle.slice(0, 100)}`);
     }
 
     await marcarPublicacion(postId, 'publicado', { webhook: { success: true } });
@@ -172,6 +216,10 @@ export async function publishPostById(postId: string, userId: string): Promise<v
   }
 }
 
-export async function findDueScheduledPosts(): Promise<Array<{ id: string; creadoPor: string }>> {
-  return publicacionesVencidas(20);
+/** Programadas vencidas. Con `uid`, solo las de esa cuenta; `limite` acota cada ejecución. */
+export async function findDueScheduledPosts(
+  limite = 20,
+  uid?: string
+): Promise<Array<{ id: string; creadoPor: string }>> {
+  return publicacionesVencidas(limite, uid);
 }

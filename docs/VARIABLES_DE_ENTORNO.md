@@ -88,7 +88,7 @@ La generación de video necesita el plan Pro de Vercel (ver [DEPLOY_VERCEL.md](D
 
 ### `CRON_SECRET`
 
-Genera un valor con el comando de arriba. Vercel lo envía automáticamente en la cabecera `Authorization: Bearer` a `/api/cron/publicar-programadas`; si no coincide, la función rechaza la petición.
+Genera un valor con el comando de arriba. Vercel lo envía automáticamente en la cabecera `Authorization: Bearer` a `/api/cron/publicar-programadas`; si no coincide, la función rechaza la petición. El cron diario de Vercel (plan Hobby) no basta para publicar a tiempo: añade un disparador externo cada 5 minutos con ese mismo valor en `Authorization: Bearer` (ver [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md#5-límites-del-plan)).
 
 ## 6. Redes sociales
 
@@ -130,7 +130,7 @@ Define solo una de las dos. Detalles de los escenarios en [MAKE_SETUP.md](MAKE_S
 1. En [make.com](https://make.com), abre tu escenario y añade el módulo **Webhooks → Custom webhook**.
 2. Pulsa **Copiar dirección** y pega la URL (formato `https://hook.eu1.make.com/…`).
 
-Opcional: `MAKE_WEBHOOK_SECRET` con un texto largo. El servidor lo envía en las cabeceras `X-Campus-Secret` y `x-make-apikey`; filtra por esa cabecera dentro de Make.
+Opcional: `MAKE_WEBHOOK_SECRET` con un texto largo. El servidor lo envía en las cabeceras `X-Campus-Secret` y `x-make-apikey`, solo a la URL de esta variable de Vercel. Nunca se envía a la URL que guardas en Ajustes. Filtra por esa cabecera dentro de Make. Si el secreto estuvo en una URL que no controlas, rótalo en Make y en Vercel.
 
 ### `N8N_WEBHOOK_URL`
 

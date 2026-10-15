@@ -126,5 +126,8 @@ CREATE TABLE IF NOT EXISTS oauth_pendientes (
 
 -- Inicio de sesión con correo y contraseña (hash PBKDF2 en password_hash; NULL en cuentas de Google).
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE publicaciones ADD COLUMN IF NOT EXISTS intentos INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE publicaciones ADD COLUMN IF NOT EXISTS ultimo_error TEXT;
+ALTER TABLE publicaciones ADD COLUMN IF NOT EXISTS publicado_en TIMESTAMPTZ;
 DROP INDEX IF EXISTS usuarios_correo_unico_idx;
 CREATE UNIQUE INDEX IF NOT EXISTS usuarios_correo_password_idx ON usuarios (lower(email)) WHERE password_hash IS NOT NULL;

@@ -9,8 +9,8 @@ export const processDueScheduledPosts = onCall({ region: 'us-central1' }, async 
   }
 
   const uid = request.auth.uid;
-  const due = await findDueScheduledPosts();
-  const mine = due.filter((p) => p.creadoPor === uid);
+  // El filtro por cuenta va en SQL: el límite no se consume con publicaciones de otros usuarios.
+  const mine = await findDueScheduledPosts(10, uid);
 
   if (mine.length === 0) {
     return { processed: 0, results: [] as { postId: string; success: boolean; error?: string }[] };

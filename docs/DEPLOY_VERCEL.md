@@ -46,7 +46,7 @@ Las URLs de LinkedIn, Meta y TikTok también deben coincidir con `Frontend/.env.
 
 ## 5. Límites del plan
 
-- **Plan Hobby** (configuración actual): las funciones tienen 60 s de máximo y el cron solo puede correr una vez al día. `vercel.json` usa `0 9 * * *`, así que las publicaciones programadas se revisan solo a las 9:00. Para revisarlas cada minuto necesitas el plan Pro y cambiar el cron a `* * * * *`; en Hobby ese valor impide desplegar.
+- **Plan Hobby** (configuración actual): las funciones tienen 60 s de máximo y el cron solo puede correr una vez al día. `vercel.json` usa `0 9 * * *`, así que por sí solo las publicaciones programadas se revisan solo a las 9:00. Para publicar a tiempo, configura un disparador externo cada 5 minutos (por ejemplo cron-job.org) que haga `GET` a `https://TU-DOMINIO/api/cron/publicar-programadas` con la cabecera `Authorization: Bearer <valor de CRON_SECRET>`. Cada ejecución publica como máximo 5 publicaciones. Con el plan Pro puedes cambiar el cron de `vercel.json` a `* * * * *`; en Hobby ese valor impide desplegar.
 - **Generación de video** (Pollinations) puede tardar hasta 240 s: necesita el plan Pro y subir `maxDuration` a 300 en `vercel.json`.
 - **Subida de imágenes** va directa a Vercel Blob (no pasa por la función), así que no tiene el límite de 4,5 MB del cuerpo de las funciones.
 
