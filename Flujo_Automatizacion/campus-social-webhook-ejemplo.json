@@ -1,0 +1,52 @@
+{
+  "notify_published": {
+    "topic": "Prueba CampusSocial",
+    "tone": "profesional",
+    "include_image": false,
+    "telegram_notify": false,
+    "schedule_now": true,
+    "campus_published": true,
+    "platforms": ["linkedin"],
+    "action": "notify_published",
+    "provider": "make",
+    "title": "Publicado desde CampusSocial",
+    "body": "Texto de prueba. LinkedIn ya fue publicado por OAuth en la app.",
+    "hashtags": ["#CampusLands"],
+    "post_id": "test-post-id"
+  },
+  "notify_scheduled": {
+    "topic": "Programado CampusSocial",
+    "tone": "profesional",
+    "include_image": false,
+    "telegram_notify": false,
+    "schedule_now": false,
+    "campus_published": false,
+    "platforms": ["linkedin"],
+    "action": "notify_scheduled",
+    "provider": "make",
+    "title": "Post programado",
+    "body": "Se publicará con Vercel Cron a la hora indicada.",
+    "scheduled_at": "2026-05-20T15:00:00.000Z",
+    "post_id": "test-scheduled-id"
+  },
+  "verify_channel": {
+    "action": "verify_channel",
+    "provider": "make",
+    "red": "linkedin",
+    "integrationId": "urn:li:person:XXXX",
+    "profileUrl": "https://www.linkedin.com/in/tu-perfil",
+    "uid": "google-uid-ejemplo"
+  },
+  "publish_via_make_legacy": {
+    "topic": "Solo si publicas desde Make HTTP",
+    "tone": "profesional",
+    "include_image": false,
+    "telegram_notify": false,
+    "schedule_now": true,
+    "campus_published": false,
+    "platforms": ["linkedin"],
+    "action": "publish",
+    "provider": "make",
+    "body": "Texto publicado por Make (requiere token/URN en HTTP o módulo LinkedIn conectado)."
+  }
+}

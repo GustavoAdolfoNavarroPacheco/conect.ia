@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install && npm install --prefix Frontend",
+  "buildCommand": "npm run build --prefix Frontend",
+  "outputDirectory": "Frontend/dist",
+  "functions": {
+    "api/fn/*.ts": { "maxDuration": 60 },
+    "api/cron/publicar-programadas.ts": { "maxDuration": 60 }
+  },
+  "crons": [
+    { "path": "/api/cron/publicar-programadas", "schedule": "0 9 * * *" }
+  ],
+  "rewrites": [
+    { "source": "/((?!api/|.*\\.txt$).*)", "destination": "/index.html" }
+  ]
+}

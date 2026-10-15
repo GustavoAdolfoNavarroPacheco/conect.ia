@@ -1,0 +1,23 @@
+{
+  "name": "conect-ia-api",
+  "private": true,
+  "description": "Funciones serverless (Vercel) de Conect.ia: API, Auth.js, Neon y publicación en redes",
+  "scripts": {
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@auth/core": "0.41.3",
+    "@google/generative-ai": "0.24.1",
+    "@neondatabase/serverless": "1.2.0",
+    "@vercel/blob": "2.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@vercel/node": "24.0.1",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

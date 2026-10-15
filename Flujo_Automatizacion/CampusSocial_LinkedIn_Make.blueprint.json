@@ -1,0 +1,457 @@
+{
+  "name": "CampusSocial | LinkedIn + Notificaciones",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "maxResults": 1,
+        "json": true
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": { "x": 0, "y": 0 },
+        "restore": {
+          "parameters": {
+            "hook": { "label": "CONFIGURAR: Create webhook + API key = MAKE_WEBHOOK_SECRET" }
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "module": "builtin:BasicRouter",
+      "version": 1,
+      "parameters": {},
+      "mapper": null,
+      "metadata": { "designer": { "x": 420, "y": 0 } },
+      "routes": [
+        {
+          "filter": {
+            "name": "1_verificar_canal",
+            "conditions": [
+              [
+                {
+                  "a": "{{1.action}}",
+                  "b": "verify_channel",
+                  "o": "text:equal"
+                }
+              ]
+            ]
+          },
+          "flow": [
+            {
+              "id": 3,
+              "module": "gateway:WebhookRespond",
+              "version": 1,
+              "parameters": {},
+              "mapper": {
+                "statusCode": 200,
+                "body": "{\"success\":true,\"cuentaNombre\":\"{{1.integrationId}}\",\"verificadoPor\":\"make\",\"red\":\"{{1.red}}\"}",
+                "headers": {
+                  "Content-Type": "application/json"
+                }
+              },
+              "metadata": { "designer": { "x": 840, "y": -360 } }
+            }
+          ]
+        },
+        {
+          "filter": {
+            "name": "2_flujo_publicacion",
+            "conditions": []
+          },
+          "flow": [
+            {
+              "id": 4,
+              "module": "util:SetVariables",
+              "version": 1,
+              "parameters": {},
+              "mapper": {
+                "scope": "roundtrip",
+                "variables": [
+                  { "name": "postTitle", "value": "{{ifempty(1.title; 1.topic)}}" },
+                  { "name": "postText", "value": "{{ifempty(1.body; 1.topic)}}" },
+                  { "name": "imageUrl", "value": "{{1.image_url}}" },
+                  { "name": "hashtagsLine", "value": "{{join(1.hashtags; \" \")}}" },
+                  { "name": "postId", "value": "{{1.post_id}}" },
+                  { "name": "memberUrn", "value": "{{ifempty(1.linkedin_member_urn; var.linkedinAuthorUrn)}}" },
+                  { "name": "displayName", "value": "{{1.linkedin_display_name}}" },
+                  { "name": "scheduledAt", "value": "{{1.scheduled_at}}" },
+                  { "name": "actionType", "value": "{{1.action}}" }
+                ]
+              },
+              "metadata": { "designer": { "x": 840, "y": 0 } }
+            },
+            {
+              "id": 5,
+              "module": "builtin:BasicRouter",
+              "version": 1,
+              "parameters": {},
+              "mapper": null,
+              "metadata": { "designer": { "x": 1260, "y": 0 } },
+              "routes": [
+                {
+                  "filter": {
+                    "name": "A_campus_ya_publico",
+                    "conditions": [
+                      [
+                        {
+                          "a": "{{1.campus_published}}",
+                          "b": true,
+                          "o": "boolean:equal"
+                        }
+                      ]
+                    ]
+                  },
+                  "flow": [
+                    {
+                      "id": 6,
+                      "module": "builtin:BasicRouter",
+                      "version": 1,
+                      "parameters": {},
+                      "mapper": null,
+                      "metadata": { "designer": { "x": 1680, "y": -280 } },
+                      "routes": [
+                        {
+                          "filter": {
+                            "name": "A1_telegram_si",
+                            "conditions": [
+                              [
+                                {
+                                  "a": "{{1.telegram_notify}}",
+                                  "b": true,
+                                  "o": "boolean:equal"
+                                }
+                              ]
+                            ]
+                          },
+                          "flow": [
+                            {
+                              "id": 7,
+                              "module": "telegram:SendReplyMessage",
+                              "version": 1,
+                              "parameters": {},
+                              "mapper": {
+                                "chatId": "{{var.telegramChatId}}",
+                                "text": "✅ CampusSocial publicó en LinkedIn\n\n📌 {{4.postTitle}}\n\n{{4.postText}}\n\n{{4.hashtagsLine}}\n\n👤 {{4.displayName}}\n🆔 {{4.postId}}"
+                              },
+                              "metadata": {
+                                "designer": { "x": 2100, "y": -400 },
+                                "restore": {
+                                  "parameters": {
+                                    "connection": { "label": "CONFIGURAR: conectar bot Telegram" }
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "id": 8,
+                              "module": "gateway:WebhookRespond",
+                              "version": 1,
+                              "parameters": {},
+                              "mapper": {
+                                "statusCode": 200,
+                                "body": "{\"success\":true,\"linkedin_status\":\"published_via_campus\",\"platforms_published\":[\"linkedin\"],\"title\":\"{{4.postTitle}}\",\"body\":\"{{4.postText}}\",\"campus_published\":true,\"member_urn\":\"{{4.memberUrn}}\",\"telegram_sent\":true}",
+                                "headers": {
+                  "Content-Type": "application/json"
+                }
+                              },
+                              "metadata": { "designer": { "x": 2520, "y": -400 } }
+                            }
+                          ]
+                        },
+                        {
+                          "filter": {
+                            "name": "A2_sin_telegram",
+                            "conditions": []
+                          },
+                          "flow": [
+                            {
+                              "id": 9,
+                              "module": "gateway:WebhookRespond",
+                              "version": 1,
+                              "parameters": {},
+                              "mapper": {
+                                "statusCode": 200,
+                                "body": "{\"success\":true,\"linkedin_status\":\"published_via_campus\",\"platforms_published\":[\"linkedin\"],\"title\":\"{{4.postTitle}}\",\"body\":\"{{4.postText}}\",\"campus_published\":true,\"member_urn\":\"{{4.memberUrn}}\",\"telegram_sent\":false}",
+                                "headers": {
+                  "Content-Type": "application/json"
+                }
+                              },
+                              "metadata": { "designer": { "x": 2100, "y": -240 } }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "filter": {
+                    "name": "B_programado_campus",
+                    "conditions": [
+                      [
+                        {
+                          "a": "{{1.action}}",
+                          "b": "notify_scheduled",
+                          "o": "text:equal"
+                        }
+                      ]
+                    ]
+                  },
+                  "flow": [
+                    {
+                      "id": 10,
+                      "module": "builtin:BasicRouter",
+                      "version": 1,
+                      "parameters": {},
+                      "mapper": null,
+                      "metadata": { "designer": { "x": 1680, "y": -80 } },
+                      "routes": [
+                        {
+                          "filter": {
+                            "name": "B1_telegram_programado",
+                            "conditions": [
+                              [
+                                {
+                                  "a": "{{1.telegram_notify}}",
+                                  "b": true,
+                                  "o": "boolean:equal"
+                                }
+                              ]
+                            ]
+                          },
+                          "flow": [
+                            {
+                              "id": 11,
+                              "module": "telegram:SendReplyMessage",
+                              "version": 1,
+                              "parameters": {},
+                              "mapper": {
+                                "chatId": "{{var.telegramChatId}}",
+                                "text": "📅 CampusSocial — publicación programada\n\n📌 {{4.postTitle}}\n\n{{4.postText}}\n\n🕐 {{4.scheduledAt}}\n🆔 {{4.postId}}"
+                              },
+                              "metadata": { "designer": { "x": 2100, "y": -160 } }
+                            },
+                            {
+                              "id": 12,
+                              "module": "gateway:WebhookRespond",
+                              "version": 1,
+                              "parameters": {},
+                              "mapper": {
+                                "statusCode": 200,
+                                "body": "{\"success\":true,\"linkedin_status\":\"scheduled_in_campus\",\"platforms_published\":[],\"scheduled_at\":\"{{4.scheduledAt}}\",\"post_id\":\"{{4.postId}}\",\"telegram_sent\":true}",
+                                "headers": {
+                  "Content-Type": "application/json"
+                }
+                              },
+                              "metadata": { "designer": { "x": 2520, "y": -160 } }
+                            }
+                          ]
+                        },
+                        {
+                          "filter": {
+                            "name": "B2_respuesta_programado",
+                            "conditions": []
+                          },
+                          "flow": [
+                            {
+                              "id": 13,
+                              "module": "gateway:WebhookRespond",
+                              "version": 1,
+                              "parameters": {},
+                              "mapper": {
+                                "statusCode": 200,
+                                "body": "{\"success\":true,\"linkedin_status\":\"scheduled_in_campus\",\"platforms_published\":[],\"scheduled_at\":\"{{4.scheduledAt}}\",\"post_id\":\"{{4.postId}}\",\"telegram_sent\":false}",
+                                "headers": {
+                  "Content-Type": "application/json"
+                }
+                              },
+                              "metadata": { "designer": { "x": 2100, "y": -40 } }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "filter": {
+                    "name": "C_publicar_desde_make_opcional",
+                    "conditions": [
+                      [
+                        {
+                          "a": "{{1.schedule_now}}",
+                          "b": true,
+                          "o": "boolean:equal"
+                        },
+                        {
+                          "a": "{{1.campus_published}}",
+                          "b": false,
+                          "o": "boolean:equal"
+                        }
+                      ]
+                    ]
+                  },
+                  "flow": [
+                    {
+                      "id": 14,
+                      "module": "builtin:BasicRouter",
+                      "version": 1,
+                      "parameters": {},
+                      "mapper": null,
+                      "metadata": { "designer": { "x": 1680, "y": 120 } },
+                      "routes": [
+                        {
+                          "filter": {
+                            "name": "C1_con_imagen",
+                            "conditions": [
+                              [
+                                {
+                                  "a": "{{1.include_image}}",
+                                  "b": true,
+                                  "o": "boolean:equal"
+                                },
+                                {
+                                  "a": "{{4.imageUrl}}",
+                                  "b": "",
+                                  "o": "text:notequal"
+                                }
+                              ]
+                            ]
+                          },
+                          "flow": [
+                            {
+                              "id": 15,
+                              "module": "http:ActionSendData",
+                              "version": 3,
+                              "parameters": { "handleErrors": true },
+                              "mapper": {
+                                "url": "https://api.linkedin.com/v2/ugcPosts",
+                                "method": "post",
+                                "headers": [
+                                  {
+                                    "name": "Authorization",
+                                    "value": "Bearer {{var.linkedinAccessToken}}"
+                                  },
+                                  { "name": "Content-Type", "value": "application/json" },
+                                  { "name": "X-Restli-Protocol-Version", "value": "2.0.0" }
+                                ],
+                                "qs": [],
+                                "bodyType": "raw",
+                                "parseResponse": true,
+                                "contentType": "application/json",
+                                "body": "{\n  \"author\": \"{{4.memberUrn}}\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": { \"text\": \"{{4.postText}}\" },\n      \"shareMediaCategory\": \"IMAGE\",\n      \"media\": [{ \"status\": \"READY\", \"originalUrl\": \"{{4.imageUrl}}\" }]\n    }\n  },\n  \"visibility\": { \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\" }\n}"
+                              },
+                              "metadata": {
+                                "designer": { "x": 2100, "y": 80 },
+                                "restore": {
+                                  "parameters": {
+                                    "note": "OPCIONAL: solo si publicas desde Make. CampusSocial usa OAuth."
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "filter": {
+                            "name": "C2_solo_texto",
+                            "conditions": []
+                          },
+                          "flow": [
+                            {
+                              "id": 16,
+                              "module": "http:ActionSendData",
+                              "version": 3,
+                              "parameters": { "handleErrors": true },
+                              "mapper": {
+                                "url": "https://api.linkedin.com/v2/ugcPosts",
+                                "method": "post",
+                                "headers": [
+                                  {
+                                    "name": "Authorization",
+                                    "value": "Bearer {{var.linkedinAccessToken}}"
+                                  },
+                                  { "name": "Content-Type", "value": "application/json" },
+                                  { "name": "X-Restli-Protocol-Version", "value": "2.0.0" }
+                                ],
+                                "qs": [],
+                                "bodyType": "raw",
+                                "parseResponse": true,
+                                "contentType": "application/json",
+                                "body": "{\n  \"author\": \"{{4.memberUrn}}\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": { \"text\": \"{{4.postText}}\" },\n      \"shareMediaCategory\": \"NONE\"\n    }\n  },\n  \"visibility\": { \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\" }\n}"
+                              },
+                              "metadata": { "designer": { "x": 2100, "y": 200 } }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": 17,
+                      "module": "gateway:WebhookRespond",
+                      "version": 1,
+                      "parameters": {},
+                      "mapper": {
+                        "statusCode": 200,
+                        "body": "{\"success\":true,\"linkedin_status\":\"published_via_make\",\"platforms_published\":[\"linkedin\"],\"title\":\"{{4.postTitle}}\",\"body\":\"{{4.postText}}\"}",
+                        "headers": {
+                  "Content-Type": "application/json"
+                }
+                      },
+                      "metadata": { "designer": { "x": 2520, "y": 140 } }
+                    }
+                  ]
+                },
+                {
+                  "filter": {
+                    "name": "D_borrador_o_generado",
+                    "conditions": []
+                  },
+                  "flow": [
+                    {
+                      "id": 18,
+                      "module": "gateway:WebhookRespond",
+                      "version": 1,
+                      "parameters": {},
+                      "mapper": {
+                        "statusCode": 200,
+                        "body": "{\"success\":true,\"linkedin_status\":\"draft\",\"platforms_published\":[],\"title\":\"{{4.postTitle}}\",\"body\":\"{{4.postText}}\",\"image_generated\":{{1.include_image}}}",
+                        "headers": {
+                  "Content-Type": "application/json"
+                }
+                      },
+                      "metadata": { "designer": { "x": 1680, "y": 320 } }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "notes": "CampusSocial: importar → crear webhook → variables del escenario → ON. Ver CONFIGURAR_BLUEPRINT_MAKE.md"
+  }
+}

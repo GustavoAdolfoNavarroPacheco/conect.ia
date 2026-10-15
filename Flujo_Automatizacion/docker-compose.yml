@@ -1,0 +1,27 @@
+# n8n Community Edition — local y gratuito
+# Uso: docker compose up -d
+# UI: http://localhost:5678
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: campussocial-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - TZ=America/Bogota
+      - GENERIC_TIMEZONE=America/Bogota
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      # URL que n8n muestra al crear webhooks (misma máquina que CampusSocial)
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+      # Carpeta del proyecto para importar el JSON desde el contenedor (opcional)
+      - ./:/import:ro
+
+volumes:
+  n8n_data:

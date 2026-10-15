@@ -1,0 +1,8 @@
+# Use this workspace to collaborate
+workspace:
+  id: 1a66f249-1dc6-4430-8d2c-734714975fc5
+
+localResources:
+  docs:
+    - ..\Frontend\guidelines\Guidelines.md
+.md

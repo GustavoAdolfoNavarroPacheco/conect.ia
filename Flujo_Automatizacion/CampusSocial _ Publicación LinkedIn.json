@@ -1,0 +1,1064 @@
+{
+  "name": "CampusSocial | Publicación LinkedIn",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "campus-post-form",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5634d361-4d8d-4fe5-a5f5-f720f6895f0a",
+      "name": "Campus Post Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        240,
+        480
+      ],
+      "webhookId": "4dfc6a15-dc93-46a3-aca3-dedc06d07d48"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Eres copywriter de Campus Lands (Colombia). Escribe un post para redes sociales en español, tono {{ $json.body.tone }}, tema {{ $json.body.topic }}. Adapta el contenido para múltiples plataformas (LinkedIn, Twitter, Facebook, Instagram). Incluye gancho, 3 párrafos cortos, CTA y 5 hashtags. Máximo 2800 caracteres para LinkedIn, versiones cortas para Twitter/Instagram.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Eres un experto copywriter de Campus Lands, especializado en contenido educativo y tecnológico para redes sociales en español."
+        }
+      },
+      "id": "c0821254-72de-48cf-9cce-23b0d906e999",
+      "name": "Agente Publicación Campus",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        464,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "id": "9d8bcc6d-9ad8-483a-ba00-d26695323fad",
+      "name": "Gemini Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": {
+          "title": "Título del post",
+          "body": "Contenido del post con gancho, 3 párrafos y CTA",
+          "hashtags": [
+            "#CampusLands",
+            "#Educación",
+            "#Tech"
+          ],
+          "image_idea": "Descripción de la imagen sugerida"
+        }
+      },
+      "id": "b600f7cf-6c0c-4c74-8fe6-0f7e3975715c",
+      "name": "Post Structure Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        608,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Basándote en este contenido: {{ $(\"Agente Publicación Campus\").item.json.output.body }}\n\nY esta idea de imagen: {{ $(\"Agente Publicación Campus\").item.json.output.image_idea }}\n\nCrea un prompt detallado para DALL-E que genere una imagen profesional para Campus Lands. La imagen debe ser moderna, profesional, sin texto visible, y representar el tema educativo/tecnológico. Formato 1024x1024.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Eres un experto en crear prompts para DALL-E que generan imágenes profesionales para redes sociales corporativas."
+        }
+      },
+      "id": "29a1546e-34dd-4da3-9998-e8842d462ed5",
+      "name": "Agente Prompt Imágenes",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        880,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "42c172f1-93ea-4c95-8067-b6fdca04a992",
+      "name": "GPT Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        816,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Campus Post Form Webhook').item.json.body.topic }}",
+        "contextWindowLength": 3
+      },
+      "id": "2608cc81-e2d7-4878-b469-a55eae6d92a1",
+      "name": "Image Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        944,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": {
+          "dalle_prompt": "Descripción visual profesional para DALL-E, sin texto en imagen"
+        }
+      },
+      "id": "835a108c-fa1a-4d82-906d-b64aba41e72d",
+      "name": "Image Prompt Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1072,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Campus Post Form Webhook').item.json.body.include_image }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dc43ea3f-7667-42a8-ac49-764b7c1aa33d",
+      "name": "Check Include Image",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1280,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"model\": \"dall-e-3\", \"prompt\": $(\"Agente Prompt Imágenes\").item.json.output.dalle_prompt, \"n\": 1, \"size\": \"1024x1024\", \"quality\": \"standard\" } }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "38204a4a-124b-44b0-9b1c-9fbd1cbec650",
+      "name": "Generate DALL-E Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1504,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.data[0].url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "image_data"
+            }
+          }
+        }
+      },
+      "id": "d75c94e5-47ed-41ad-9d21-8927b1072c33",
+      "name": "Download Image Binary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1728,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Campus Post Form Webhook').item.json.body.telegram_notify }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "62604886-2462-4cbc-a59e-99c296e15bb8",
+      "name": "Check Telegram Notify",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1952,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "<__PLACEHOLDER_VALUE__Your Telegram Chat ID (e.g., -1001234567890)__>",
+        "text": "=📝 Campus Lands - Borrador LinkedIn\n\n{{ $(\"Agente Publicación Campus\").item.json.output.title }}\n\n{{ $(\"Agente Publicación Campus\").item.json.output.body }}\n\n{{ $(\"Agente Publicación Campus\").item.json.output.hashtags.join(\" \") }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "f0b50760-2d0f-4bba-a55f-40dd573dfb7a",
+      "name": "Telegram Preview Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2176,
+        336
+      ],
+      "webhookId": "2f3f8968-26ca-4fc3-a900-1c0269efef8c"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Campus Post Form Webhook').item.json.body.include_image }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9d0cd459-5934-4b0a-828c-7b3233f9f9ad",
+      "name": "Check Image Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2400,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "<__PLACEHOLDER_VALUE__Your Telegram Chat ID (e.g., -1001234567890)__>",
+        "binaryData": true,
+        "binaryPropertyName": "image_data",
+        "additionalFields": {
+          "caption": "=🖼️ Imagen generada para el post"
+        }
+      },
+      "id": "64c73b86-ca82-40f0-ab83-fba14d039699",
+      "name": "Telegram Preview Photo",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2624,
+        208
+      ],
+      "webhookId": "640ac4fa-3508-457e-af78-a6372d8b7dc4"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "minutes"
+      },
+      "id": "e6cd6e75-1a78-468c-9be1-0e696d12f08e",
+      "name": "Wait for Review",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2848,
+        336
+      ],
+      "webhookId": "8d568834-9a47-4d7c-8c0c-0a1bed71269d"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "5d511e41-5256-41c5-8c9f-070c2d355265",
+      "name": "Merge Text + Image",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3072,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Campus Post Form Webhook').item.json.body.schedule_now }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "63f6ff4b-3f15-4cfd-a8bf-844201ed97a9",
+      "name": "Check Schedule Now",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3296,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.POSTIZ_API_BASE_URL }}/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"content\": $(\"Agente Publicación Campus\").item.json.output.body + \"\\n\\n\" + $(\"Agente Publicación Campus\").item.json.output.hashtags.join(\" \"), \"channel\": $json.platform, \"publishDate\": $now.toISO(), \"media\": $(\"Merge Text + Image\").item.json.image_data ? [$(\"Merge Text + Image\").item.json.image_data] : [] } }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "9098507c-154b-4252-b417-8ba7bda565f5",
+      "name": "Publish to Postiz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4192,
+        448
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "2",
+              "name": "title",
+              "value": "={{ $(\"Agente Publicación Campus\").item.json.output.title }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "body",
+              "value": "={{ $(\"Agente Publicación Campus\").item.json.output.body }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "hashtags",
+              "value": "={{ $(\"Agente Publicación Campus\").item.json.output.hashtags }}",
+              "type": "array"
+            },
+            {
+              "id": "5",
+              "name": "image_generated",
+              "value": "={{ $(\"Campus Post Form Webhook\").item.json.body.include_image }}",
+              "type": "boolean"
+            },
+            {
+              "id": "6",
+              "name": "platforms_published",
+              "value": "={{ $json.platform || [] }}",
+              "type": "array"
+            },
+            {
+              "id": "7",
+              "name": "post_ids",
+              "value": "={{ $json.post_id || [] }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1d9fcea4-00e3-44c9-86cb-eb588b9b2c4f",
+      "name": "Prepare Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4416,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "2",
+              "name": "title",
+              "value": "={{ $(\"Agente Publicación Campus\").item.json.output.title }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "body",
+              "value": "={{ $(\"Agente Publicación Campus\").item.json.output.body }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "hashtags",
+              "value": "={{ $(\"Agente Publicación Campus\").item.json.output.hashtags }}",
+              "type": "array"
+            },
+            {
+              "id": "5",
+              "name": "image_generated",
+              "value": "={{ $('Campus Post Form Webhook').item.json.body.include_image }}",
+              "type": "boolean"
+            },
+            {
+              "id": "6",
+              "name": "linkedin_status",
+              "value": "draft",
+              "type": "string"
+            },
+            {
+              "id": "7",
+              "name": "preview_url",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ba788d8c-a4d1-4a6c-b16b-f86e7dc3f3c2",
+      "name": "Prepare Draft Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4416,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "2",
+              "name": "error",
+              "value": "Error en la publicación",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "platform",
+              "value": "={{ $json.platform || \"unknown\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d24820d1-5852-4caa-b322-fdb3774b4075",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4416,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "64a9707a-f284-4b23-96fe-804dca7a1f09",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        4640,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## CampusSocial | Publicación Multi-Plataforma\n\n**Multi-agente con generación de imagen**\n\nWebhook POST: /campus-post-form\nHeader: X-Campus-Secret\n\nPlataformas: LinkedIn, Twitter, Facebook, Instagram",
+        "height": 240,
+        "width": 350,
+        "color": 2
+      },
+      "id": "4a8c109a-2b14-4ea4-94c0-3b328ec107f4",
+      "name": "Sticky Note 783c03c8",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        144,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Agentes IA\n\n1. **Agente Publicación**: Genera texto del post\n2. **Agente Prompt**: Crea prompt para DALL-E",
+        "height": 120,
+        "width": 500,
+        "color": 4
+      },
+      "id": "5c368273-025c-4502-ba09-28def6cf5692",
+      "name": "Sticky Note 1a950174",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        640,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Merge\n\nCombina texto del agente + imagen binaria antes de publicar",
+        "height": 100,
+        "width": 300,
+        "color": 5
+      },
+      "id": "51259e09-cdd9-4862-9f82-9b3e1e155d13",
+      "name": "Sticky Note e270f211",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3440,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Ejemplo desde CampusSocial UI\n\n```javascript\nfetch(\"https://n8n.campus.com/webhook/campus-post-form\", {\n  method: \"POST\",\n  headers: {\n    \"Content-Type\": \"application/json\",\n    \"X-Campus-Secret\": process.env.WEBHOOK_SECRET\n  },\n  body: JSON.stringify({\n    topic: \"Inteligencia Artificial en educación\",\n    tone: \"profesional\",\n    include_image: true,\n    telegram_notify: true,\n    schedule_now: false,\n    platforms: [\"linkedin\", \"twitter\", \"facebook\", \"instagram\"]\n  })\n});\n```",
+        "height": 340,
+        "width": 650,
+        "color": 3
+      },
+      "id": "fbbb481b-d148-48bf-9a40-d5b984211023",
+      "name": "Sticky Note edbc1197",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        144,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "platforms",
+              "value": "={{ $(\"Campus Post Form Webhook\").item.json.body.platforms || [\"linkedin\"] }}",
+              "type": "array"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "27a90539-7310-490d-96cb-253648f91734",
+      "name": "Prepare Platforms List",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3520,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const platforms = $input.item.json.platforms || [\"linkedin\"];\nreturn platforms.map(platform => ({ platform, ...($input.item.json) }));"
+      },
+      "id": "b91892fb-7c65-4f54-9f7d-fa6b70e7723d",
+      "name": "Expand Platforms",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3744,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "f379c784-e4d6-477d-981c-7f8ce9703d02",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        4192,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "a5ca098d-0ed0-4479-871b-da579fbb97c2",
+      "name": "Split Platforms",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        3968,
+        336
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Campus Post Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Agente Publicación Campus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Publicación Campus": {
+      "main": [
+        [
+          {
+            "node": "Agente Prompt Imágenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Publicación Campus",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Structure Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agente Publicación Campus",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Prompt Imágenes": {
+      "main": [
+        [
+          {
+            "node": "Check Include Image",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Text + Image",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "GPT Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Prompt Imágenes",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Agente Prompt Imágenes",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Image Prompt Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Agente Prompt Imágenes",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Include Image": {
+      "main": [
+        [
+          {
+            "node": "Generate DALL-E Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Telegram Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate DALL-E Image": {
+      "main": [
+        [
+          {
+            "node": "Download Image Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image Binary": {
+      "main": [
+        [
+          {
+            "node": "Check Telegram Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Telegram Notify": {
+      "main": [
+        [
+          {
+            "node": "Telegram Preview Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait for Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Preview Message": {
+      "main": [
+        [
+          {
+            "node": "Check Image Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Image Exists": {
+      "main": [
+        [
+          {
+            "node": "Telegram Preview Photo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait for Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Preview Photo": {
+      "main": [
+        [
+          {
+            "node": "Wait for Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Review": {
+      "main": [
+        [
+          {
+            "node": "Merge Text + Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Text + Image": {
+      "main": [
+        [
+          {
+            "node": "Check Schedule Now",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Schedule Now": {
+      "main": [
+        [
+          {
+            "node": "Prepare Platforms List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Draft Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish to Postiz": {
+      "main": [
+        [
+          {
+            "node": "Split Platforms",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Success Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Draft Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Platforms List": {
+      "main": [
+        [
+          {
+            "node": "Expand Platforms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Platforms": {
+      "main": [
+        [
+          {
+            "node": "Split Platforms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Prepare Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Platforms": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Publish to Postiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "22d620a2-d3fb-46a9-adc5-a1389bc5c177",
+  "meta": {
+    "instanceId": "51a8de7fd91fdd614366cc8dbde3124b88a00cbf927159a879800ec7b801d21b"
+  },
+  "id": "zhfGSyZ4UQ9atidI",
+  "tags": []
+}

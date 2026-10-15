@@ -1,0 +1,67 @@
+{
+  "info": {
+    "name": "CampusSocial → Make",
+    "description": "Pruebas del webhook Make para publicación LinkedIn",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "make_webhook_url",
+      "value": "https://hook.us2.make.com/g351w484xphhl67h38fzwmaqhbggvr6m"
+    },
+    {
+      "key": "make_webhook_secret",
+      "value": "PEGA_AQUI_TU_API_KEY_DEL_WEBHOOK"
+    }
+  ],
+  "item": [
+    {
+      "name": "Publish LinkedIn (schedule_now)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-make-apikey", "value": "{{make_webhook_secret}}" },
+          { "key": "X-Campus-Secret", "value": "{{make_webhook_secret}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"topic\": \"Prueba CampusSocial\",\n  \"tone\": \"profesional\",\n  \"include_image\": false,\n  \"telegram_notify\": false,\n  \"schedule_now\": true,\n  \"platforms\": [\"linkedin\"],\n  \"action\": \"publish\",\n  \"provider\": \"make\",\n  \"title\": \"Prueba Postman\",\n  \"body\": \"Texto de prueba desde Postman.\",\n  \"hashtags\": [\"#CampusLands\"]\n}"
+        },
+        "url": "{{make_webhook_url}}"
+      }
+    },
+    {
+      "name": "Draft only (schedule_now false)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-make-apikey", "value": "{{make_webhook_secret}}" },
+          { "key": "X-Campus-Secret", "value": "{{make_webhook_secret}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"topic\": \"Borrador\",\n  \"tone\": \"profesional\",\n  \"include_image\": false,\n  \"telegram_notify\": false,\n  \"schedule_now\": false,\n  \"platforms\": [\"linkedin\"],\n  \"action\": \"publish\",\n  \"provider\": \"make\",\n  \"body\": \"Solo borrador, no publica en LinkedIn.\"\n}"
+        },
+        "url": "{{make_webhook_url}}"
+      }
+    },
+    {
+      "name": "Verify channel",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-make-apikey", "value": "{{make_webhook_secret}}" },
+          { "key": "X-Campus-Secret", "value": "{{make_webhook_secret}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"verify_channel\",\n  \"provider\": \"make\",\n  \"red\": \"linkedin\",\n  \"integrationId\": \"mi-cuenta-linkedin\",\n  \"uid\": \"test-uid\"\n}"
+        },
+        "url": "{{make_webhook_url}}"
+      }
+    }
+  ]
+}
