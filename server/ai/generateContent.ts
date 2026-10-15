@@ -14,6 +14,9 @@ const RED_HINTS: Record<string, string> = {
   youtube: 'Título llamativo y descripción con palabras clave SEO.',
 };
 
+const INSTRUCCION_IMAGEN = `  ,
+  "promptImagen": "Descripción en INGLÉS de UNA escena concreta que ilustre el tema del post: qué se ve, quién aparece si aplica, lugar, luz, paleta de colores y encuadre. 1-2 frases. Sin texto, letras ni logotipos dentro de la imagen."`;
+
 export const generateContent = onCall(
   { region: 'us-central1' },
   async (request): Promise<GenerateContentResponse> => {
@@ -41,8 +44,12 @@ Responde ÚNICAMENTE con JSON válido (sin markdown ni texto extra):
 {
   "contenido": "texto del post con párrafos separados por \\n\\n",
   "hashtags": ["tag1", "tag2"],
-  "variaciones": ["versión alternativa breve"]
+  "variaciones": ["versión alternativa breve"]${generarImagen ? INSTRUCCION_IMAGEN : ''}
 }`;
+
+    // La función tiene 60 s: la imagen usa lo que queda tras el texto, dejando margen para responder.
+    const inicio = Date.now();
+    const PRESUPUESTO_TOTAL_MS = 52_000;
 
     try {
       const { text, provider } = await generateAiText(userPrompt);
@@ -54,24 +61,22 @@ Responde ÚNICAMENTE con JSON válido (sin markdown ni texto extra):
 
       if (generarImagen) {
         const keys = getAiKeys();
-        if (keys.gemini) {
-          const img = await generateGeminiImage(keys.gemini, `${prompt} — red ${red}`);
-          if (img) {
-            imagenUrl = img.publicUrl ?? img.dataUrl;
+        if (!keys.gemini) {
+          imagenNota = 'Configura GEMINI_API_KEY para generar imágenes con IA.';
+        } else {
+          // El prompt lo escribe la IA a partir del tema; si no lo devolvió, se usa el tema tal cual.
+          const promptImagen = parsed.promptImagen?.trim() || `${prompt} — tema para una publicación en ${red}`;
+          const presupuesto = PRESUPUESTO_TOTAL_MS - (Date.now() - inicio);
+          const resultado = await generateGeminiImage(keys.gemini, promptImagen, red, presupuesto);
+          if (resultado.ok) {
+            imagenUrl = resultado.image.publicUrl ?? resultado.image.dataUrl;
             imagenGenerada = true;
-            if (img.model === 'pollinations-fallback') {
-              imagenNota =
-                'Imagen de respaldo Pollinations (cuota Google agotada). Para IA nativa: facturación en AI Studio + gemini-2.5-flash-image.';
-            } else if (img.model === 'picsum-fallback') {
-              imagenNota =
-                'Imagen stock de respaldo (Picsum). Para IA generada: clave AIzaSy en GEMINI_API_KEY y facturación en AI Studio.';
+            if (resultado.image.model === 'pollinations') {
+              imagenNota = 'Imagen generada con Pollinations (respaldo activado en IMAGE_FALLBACK).';
             }
           } else {
-            imagenNota =
-              'No se pudo generar imagen. Activa IMAGE_FALLBACK=pollinations en variables de entorno de Vercel o facturación en AI Studio (gemini-2.5-flash-image).';
+            imagenNota = resultado.motivo;
           }
-        } else {
-          imagenNota = 'Configura GEMINI_API_KEY para imágenes con IA.';
         }
       }
 

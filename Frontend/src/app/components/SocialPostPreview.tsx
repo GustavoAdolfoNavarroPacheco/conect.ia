@@ -34,7 +34,7 @@ function EngagementBar({ network }: { network: RedSocial }) {
           </span>
           <span>18 comentarios · 32 compartidos</span>
         </div>
-        <div className="flex border-t border-[#e0e0e0] text-[#666666] text-xs font-semibold">
+        <div className="grid grid-cols-4 border-t border-[#e0e0e0] text-[#666666] text-xs font-semibold">
           {[
             { Icon: ThumbsUp, label: 'Recomendar' },
             { Icon: MessageCircle, label: 'Comentar' },
@@ -44,10 +44,10 @@ function EngagementBar({ network }: { network: RedSocial }) {
             <button
               key={label}
               type="button"
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 hover:bg-[#f3f2ef] transition-colors"
+              className="flex min-w-0 flex-col items-center justify-center gap-1 px-0 py-2.5 text-xs font-semibold transition-colors hover:bg-[#f3f2ef]"
             >
-              <Icon className="w-4 h-4" />
-              {label}
+              <Icon className="h-[18px] w-[18px] shrink-0" />
+              <span className="w-full whitespace-nowrap text-center leading-tight">{label}</span>
             </button>
           ))}
         </div>

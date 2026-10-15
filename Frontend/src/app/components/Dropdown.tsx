@@ -142,6 +142,10 @@ export function Dropdown({
         elegir(activo);
         break;
       case 'Escape':
+        // Cierra solo la lista: no debe propagarse a un Modal que la contenga.
+        e.stopPropagation();
+        setOpen(false);
+        break;
       case 'Tab':
         setOpen(false);
         break;

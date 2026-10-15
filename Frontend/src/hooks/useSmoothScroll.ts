@@ -4,19 +4,28 @@ import Lenis from 'lenis';
 /**
  * Scroll suave con inercia en toda la app:
  *  - la página (landing, login, legales) y los enlaces ancla (#funciones…);
- *  - cada panel con scroll interno (`overflow-y-auto` / `overflow-auto`), también los
- *    que aparecen después (cambios de pantalla, modales, menús).
+ *  - cada contenedor desplazable, también los que solo lo son en algunos anchos
+ *    (`overflow-y-auto` o `lg:overflow-y-auto`) y los que aparecen después.
  * Un solo bucle de animación para todas las instancias. Se desactiva con
  * "reducir movimiento"; `data-lenis-prevent` excluye un elemento.
+ *
+ * `allowNestedScroll` (raíz e instancias) deja que la rueda desplace los elementos anidados
+ * que puedan desplazarse, como textareas, listas y chats; si no, el contenedor padre los bloquea.
  */
-const SELECTOR = '.overflow-y-auto, .overflow-auto, [data-smooth]';
+const SELECTOR = [
+  '.overflow-y-auto',
+  '.overflow-auto',
+  '[class*="overflow-y-auto"]',
+  '[class*="overflow-auto"]',
+  '[data-smooth]',
+].join(', ');
 
 export function useSmoothScroll() {
   useEffect(() => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
 
     const instancias = new Map<HTMLElement, Lenis>();
-    const raiz = new Lenis({ anchors: true, lerp: 0.1, smoothWheel: true });
+    const raiz = new Lenis({ anchors: true, lerp: 0.1, smoothWheel: true, allowNestedScroll: true });
 
     let raf = 0;
     const bucle = (t: number) => {
@@ -36,13 +45,21 @@ export function useSmoothScroll() {
       if (instancias.has(el) || !esDesplazable(el)) return;
       instancias.set(
         el,
-        new Lenis({ wrapper: el, content: el, lerp: 0.1, smoothWheel: true, eventsTarget: el })
+        new Lenis({
+          wrapper: el,
+          content: el,
+          lerp: 0.1,
+          smoothWheel: true,
+          eventsTarget: el,
+          allowNestedScroll: true,
+        })
       );
     };
 
+    /** Libera instancias de elementos eliminados o que ya no son desplazables (p. ej. al cambiar de ancho). */
     const limpiar = () => {
       instancias.forEach((lenis, el) => {
-        if (!el.isConnected) {
+        if (!el.isConnected || !esDesplazable(el)) {
           lenis.destroy();
           instancias.delete(el);
         }
@@ -56,21 +73,42 @@ export function useSmoothScroll() {
 
     escanear(document);
 
-    let pendiente = 0;
+    // Nodos añadidos pendientes: se acumulan entre lotes para no perder ninguno.
+    const pendientesMO = new Set<HTMLElement>();
+    let timerMO = 0;
     const mo = new MutationObserver((mutations) => {
-      window.clearTimeout(pendiente);
-      pendiente = window.setTimeout(() => {
+      for (const m of mutations) {
+        m.addedNodes.forEach((n) => {
+          if (n instanceof HTMLElement) pendientesMO.add(n);
+        });
+      }
+      window.clearTimeout(timerMO);
+      timerMO = window.setTimeout(() => {
         limpiar();
-        for (const m of mutations) {
-          m.addedNodes.forEach((n) => n instanceof HTMLElement && escanear(n));
-        }
+        pendientesMO.forEach((n) => {
+          if (n.isConnected) escanear(n);
+        });
+        pendientesMO.clear();
       }, 50);
     });
     mo.observe(document.body, { childList: true, subtree: true });
 
+    // Los contenedores con `lg:overflow-y-auto` cambian al cruzar el breakpoint sin cambiar el DOM.
+    let timerResize = 0;
+    const alRedimensionar = () => {
+      window.clearTimeout(timerResize);
+      timerResize = window.setTimeout(() => {
+        limpiar();
+        escanear(document);
+      }, 150);
+    };
+    window.addEventListener('resize', alRedimensionar);
+
     return () => {
       mo.disconnect();
-      window.clearTimeout(pendiente);
+      window.removeEventListener('resize', alRedimensionar);
+      window.clearTimeout(timerMO);
+      window.clearTimeout(timerResize);
       cancelAnimationFrame(raf);
       raiz.destroy();
       instancias.forEach((l) => l.destroy());

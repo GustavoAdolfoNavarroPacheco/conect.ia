@@ -12,9 +12,11 @@ export function parsePostJson(text: string): GenerateContentResponse {
     };
   }
   const parsed = JSON.parse(match[0]) as Partial<GenerateContentResponse>;
+  const promptImagen = typeof parsed.promptImagen === 'string' ? parsed.promptImagen.trim() : '';
   return {
     contenido: String(parsed.contenido ?? cleaned).trim(),
     hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags.map(String) : [],
     variaciones: Array.isArray(parsed.variaciones) ? parsed.variaciones.map(String) : [],
+    ...(promptImagen ? { promptImagen } : {}),
   };
 }

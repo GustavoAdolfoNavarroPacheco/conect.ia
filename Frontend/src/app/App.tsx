@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Sparkles, Calendar, FileText, Settings,
   Home, PenSquare, MessageSquare, Share2,
@@ -381,10 +382,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
   // Compatibilidad: los usos antiguos pasan "max-w-xl" sin prefijo.
   const ancho = maxWidthClass.startsWith('max-w') ? `sm:${maxWidthClass}` : maxWidthClass;
 
-  return (
+  // En portal: la rueda sobre el fondo no debe mover el contenido de detrás (p. ej. en móvil).
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4" data-lenis-prevent>
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -421,7 +423,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
@@ -522,7 +525,7 @@ const ScreenLayout: React.FC<{ children: React.ReactNode; maxWidth?: string; cla
   className = '',
 }) => (
   <div className="h-full w-full overflow-y-auto">
-    <div className={`mx-auto flex w-full ${maxWidth} flex-col gap-6 p-4 sm:p-6 lg:h-full lg:min-h-[560px] lg:p-8 ${className}`}>
+    <div className={`mx-auto flex w-full ${maxWidth} flex-col gap-6 p-4 sm:p-6 lg:h-full lg:p-8 ${className}`}>
       {children}
     </div>
   </div>
@@ -1046,7 +1049,6 @@ const Popover: React.FC<{ open: boolean; children: React.ReactNode; className?: 
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -6 }}
         transition={TRANSICION}
-        data-lenis-prevent
         className={`z-50 overflow-hidden rounded-xl border border-border bg-popover shadow-float ${className}`}
       >
         {children}
@@ -2032,7 +2034,7 @@ const NewPostScreen: React.FC = () => {
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-2">
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)]">
         {/* Formulario */}
         <Panel
           title="Contenido"
@@ -2558,7 +2560,7 @@ const ManualPostScreen: React.FC = () => {
 
       <PageHeader title="Subir publicación" subtitle="Crea y programa contenido manualmente, sin IA" />
 
-      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_340px]">
+      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_340px]">
         {/* Editor y medios */}
         <Panel
           title="Contenido del post"
@@ -2714,7 +2716,7 @@ const ManualPostScreen: React.FC = () => {
             </div>
           }
         >
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div className="space-y-2">
               <span className="text-sm font-medium text-foreground">Redes de publicación</span>
               <RedSelector value={redesDestino} onChange={setRedesDestino} canales={canales} />
@@ -2791,10 +2793,6 @@ const ManualPostScreen: React.FC = () => {
               </AnimatePresence>
             </div>
 
-            <p className="flex items-center gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
-              <Activity className="h-3.5 w-3.5 shrink-0" />
-              Flujo: Conect.ia <ChevronRight className="h-3 w-3" /> n8n / Make <ChevronRight className="h-3 w-3" /> red social
-            </p>
           </div>
         </Panel>
       </div>

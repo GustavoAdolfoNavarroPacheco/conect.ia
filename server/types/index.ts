@@ -50,4 +50,6 @@ export interface GenerateContentResponse {
   imagenGenerada?: boolean;
   imagenUrl?: string;
   imagenNota?: string;
+  /** Prompt en inglés que escribe la IA para la imagen (no se envía al frontend). */
+  promptImagen?: string;
 }
