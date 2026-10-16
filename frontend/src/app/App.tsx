@@ -2146,6 +2146,42 @@ const NewPostScreen: React.FC<{ onNavigate?: (screen: string) => void }> = ({ on
               onChange={(e) => setTopic(e.target.value)}
             />
 
+            <AnimatePresence initial={false}>
+              {!topic.trim() && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={TRANSICION}
+                  className="-mt-2 overflow-hidden"
+                >
+                  <div
+                    role="group"
+                    aria-label="Ideas rápidas de tema"
+                    className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  >
+                    {[
+                      ['Nueva cohorte', 'Lanzamiento de una nueva cohorte del bootcamp'],
+                      ['Testimonio', 'Testimonio de una persona egresada del bootcamp'],
+                      ['Consejo tech', 'Consejo rápido de programación para principiantes'],
+                      ['Evento', 'Invitación a un evento o charla gratuita'],
+                    ].map(([corto, idea]) => (
+                      <button
+                        key={corto}
+                        type="button"
+                        title={idea}
+                        onClick={() => setTopic(idea)}
+                        className="press flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-xs font-normal text-foreground transition-colors duration-150 hover:border-brand/40 hover:bg-accent"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-brand-strong" />
+                        {corto}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <Dropdown
                 label="Tono de voz"
