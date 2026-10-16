@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { ejecutarFlujoPublicacion, getAutomationWebhookUrl } from '../services/make';
 import {
+  type AccionBorrador,
   chatWithAgent,
   cuotaIAHoy,
   type CuotaIAHoy,
@@ -42,13 +43,14 @@ import {
   guardarCanal,
 } from '../lib/db';
 import { guardarConfiguracion } from '../lib/db/configuracion';
-import type { RedSocial, Borrador, Publicacion } from '../lib/db/types';
+import type { RedSocial, Borrador, Publicacion, EstadoBorrador } from '../lib/db/types';
 import { ConectiaLogo } from './components/ConectiaLogo';
 import {
   useBorradores,
   useActividadLeida,
   useActualizarMetricas,
   useCanales,
+  useMoverBorrador,
   useResumenAnalitica,
   useConfiguracion,
   useDashboardStats,
@@ -1248,6 +1250,7 @@ const DashboardShell: React.FC<{
     { id: 'borradores', texto: 'Ir a Borradores', ejecutar: () => onNavigate('drafts') },
     { id: 'calendario', texto: 'Ir a Calendario', ejecutar: () => onNavigate('calendar') },
     { id: 'analitica', texto: 'Ir a Analítica', ejecutar: () => onNavigate('analytics') },
+    { id: 'aprobaciones', texto: 'Ir a Aprobaciones', ejecutar: () => onNavigate('approvals') },
     { id: 'asistente', texto: 'Ir a Asistente IA', ejecutar: () => onNavigate('agent') },
     { id: 'canales', texto: 'Ir a Canales', ejecutar: () => onNavigate('channels') },
     { id: 'ajustes', texto: 'Ir a Ajustes', ejecutar: () => onNavigate('settings') },
@@ -1306,6 +1309,7 @@ const DashboardShell: React.FC<{
         { id: 'new-post', icon: <PenSquare />, label: 'Nueva publicación' },
         { id: 'manual-post', icon: <Upload />, label: 'Subir publicación' },
         { id: 'drafts', icon: <FileText />, label: 'Borradores' },
+        { id: 'approvals', icon: <CheckCircle2 />, label: 'Aprobaciones' },
         { id: 'calendar', icon: <Calendar />, label: 'Calendario' },
         { id: 'analytics', icon: <BarChart3 />, label: 'Analítica' },
       ],
@@ -3206,6 +3210,7 @@ const DraftsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNa
 
   const statusColors: Record<string, 'warning' | 'success' | 'purple' | 'default'> = {
     pendiente: 'warning',
+    en_revision: 'default',
     aprobado: 'success',
     programado: 'purple',
     rechazado: 'default',
@@ -5321,6 +5326,245 @@ const ChannelsScreen: React.FC = () => {
 };
 
 // ============================================================================
+// PANTALLA: APROBACIONES (flujo de borradores: enviar, aprobar, pedir cambios, programar)
+// ============================================================================
+
+const COLUMNAS_APROBACION: { clave: EstadoBorrador; nombre: string; ayuda: string }[] = [
+  { clave: 'pendiente', nombre: 'Borrador', ayuda: 'Sin enviar a revisión' },
+  { clave: 'en_revision', nombre: 'En revisión', ayuda: 'Esperando a un administrador' },
+  { clave: 'aprobado', nombre: 'Aprobado', ayuda: 'Listo para programar' },
+  { clave: 'programado', nombre: 'Programado', ayuda: 'Se publicará a la hora elegida' },
+];
+
+const AprobacionesScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
+  const { profile } = useAuth();
+  const { data: borradores = [], isLoading, error, refetch } = useBorradores();
+  const mover = useMoverBorrador();
+  const esAdministrador = profile?.rol === 'admin';
+  const [aviso, setAviso] = useState('');
+  const [pidiendoCambios, setPidiendoCambios] = useState<Borrador | null>(null);
+  const [comentario, setComentario] = useState('');
+  const [programando, setProgramando] = useState<Borrador | null>(null);
+  const [fechaLocal, setFechaLocal] = useState('');
+
+  const ejecutar = (input: { id: string; accion: AccionBorrador; comentario?: string; fechaHora?: string }, alTerminar?: () => void) => {
+    setAviso('');
+    mover.mutate(input, {
+      onSuccess: () => alTerminar?.(),
+      onError: (e) => setAviso(mensajeCallable(e)),
+    });
+  };
+
+  const fechaValida = fechaLocal !== '' && !Number.isNaN(new Date(fechaLocal).getTime());
+
+  const acciones = (b: Borrador) => {
+    const ocupado = mover.isPending;
+    if (b.estado === 'pendiente') {
+      return (
+        <Button variant="outline" disabled={ocupado} onClick={() => ejecutar({ id: b.id, accion: 'enviar' })}>
+          Enviar a revisión
+        </Button>
+      );
+    }
+    if (b.estado === 'en_revision') {
+      const aviso = esAdministrador ? undefined : 'Solo un administrador aprueba o pide cambios';
+      return (
+        <>
+          <Button disabled={!esAdministrador || ocupado} title={aviso} onClick={() => ejecutar({ id: b.id, accion: 'aprobar' })}>
+            Aprobar
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!esAdministrador || ocupado}
+            title={aviso}
+            onClick={() => {
+              setComentario('');
+              setPidiendoCambios(b);
+            }}
+          >
+            Pedir cambios
+          </Button>
+        </>
+      );
+    }
+    if (b.estado === 'aprobado') {
+      return (
+        <Button
+          disabled={ocupado}
+          onClick={() => {
+            setFechaLocal('');
+            setProgramando(b);
+          }}
+        >
+          Programar
+        </Button>
+      );
+    }
+    return (
+      <Button variant="ghost" onClick={() => onNavigate('calendar')}>
+        Ver calendario
+      </Button>
+    );
+  };
+
+  const tarjeta = (b: Borrador) => {
+    const redes = (b.redesDestino ?? []).map((r) => redConfig(r)?.nombre ?? r).join(', ');
+    return (
+      <li key={b.id} className="surface space-y-3 p-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-foreground" title={b.titulo}>
+            {b.titulo || 'Sin título'}
+          </p>
+          <p className="truncate text-xs text-muted-foreground">{redes || 'Sin redes'}</p>
+        </div>
+        {b.estado === 'pendiente' && b.revisionComentario && (
+          <div className="rounded-lg bg-warning-soft p-3 text-xs text-foreground">
+            <span className="font-semibold text-warning">Cambios pedidos: </span>
+            {b.revisionComentario}
+          </div>
+        )}
+        {b.estado === 'programado' && b.programadoPara && (
+          <p className="text-xs text-muted-foreground">
+            Se publicará el{' '}
+            {new Date(b.programadoPara).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">{acciones(b)}</div>
+      </li>
+    );
+  };
+
+  return (
+    <ScreenLayout>
+      <PageHeader title="Aprobaciones" subtitle="Revisa los borradores antes de programarlos" />
+
+      {!esAdministrador && (
+        <Notice tone="info" className="shrink-0">
+          Puedes enviar borradores a revisión. Aprobar y pedir cambios lo hace el administrador de la cuenta.
+        </Notice>
+      )}
+      {aviso && <Notice tone="danger" className="shrink-0">{aviso}</Notice>}
+      {error && (
+        <Notice tone="danger" className="shrink-0" action={<Button variant="ghost" onClick={() => void refetch()}>Reintentar</Button>}>
+          No se pudieron cargar los borradores.
+        </Notice>
+      )}
+
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-busy="true">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-48 w-full" />
+          ))}
+        </div>
+      ) : borradores.length === 0 ? (
+        <EmptyState
+          icon={<CheckCircle2 />}
+          title="No hay borradores"
+          text="Crea uno con el asistente y aparecerá aquí para revisarlo."
+          action={
+            <Button variant="outline" icon={<PenSquare />} onClick={() => onNavigate('new-post')}>
+              Nueva publicación
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {COLUMNAS_APROBACION.map((col) => {
+            const lista = borradores.filter((b) => b.estado === col.clave);
+            return (
+              <section key={col.clave} aria-labelledby={`col-${col.clave}`} className="flex min-h-0 flex-col gap-3 rounded-[14px] bg-accent/50 p-3">
+                <header className="flex items-start justify-between gap-2 px-1">
+                  <div className="min-w-0">
+                    <h2 id={`col-${col.clave}`} className="text-sm font-semibold text-foreground">
+                      {col.nombre}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">{col.ayuda}</p>
+                  </div>
+                  <Badge>{lista.length}</Badge>
+                </header>
+                {lista.length === 0 ? (
+                  <p className="px-1 py-6 text-center text-xs text-muted-foreground">Nada aquí.</p>
+                ) : (
+                  <ul className="space-y-3">{lista.map(tarjeta)}</ul>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Invitar revisores por correo llegará con el envío de correos. Por ahora, la revisión la hace el administrador de la cuenta.
+      </p>
+
+      <Modal
+        isOpen={pidiendoCambios !== null}
+        onClose={() => setPidiendoCambios(null)}
+        title="Pedir cambios"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPidiendoCambios(null)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={comentario.trim().length < 3 || mover.isPending}
+              onClick={() =>
+                pidiendoCambios &&
+                ejecutar({ id: pidiendoCambios.id, accion: 'pedir_cambios', comentario: comentario.trim() }, () => setPidiendoCambios(null))
+              }
+            >
+              Enviar comentario
+            </Button>
+          </>
+        }
+      >
+        <Textarea
+          label="¿Qué debe cambiar?"
+          rows={4}
+          maxLength={500}
+          value={comentario}
+          onChange={(e) => setComentario(e.target.value)}
+          placeholder="Ej.: Cambia la frase final, suena a eslogan."
+        />
+      </Modal>
+
+      <Modal
+        isOpen={programando !== null}
+        onClose={() => setProgramando(null)}
+        title="Programar publicación"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setProgramando(null)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!fechaValida || mover.isPending}
+              onClick={() =>
+                programando &&
+                ejecutar(
+                  { id: programando.id, accion: 'programar', fechaHora: new Date(fechaLocal).toISOString() },
+                  () => setProgramando(null)
+                )
+              }
+            >
+              Programar
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Fecha y hora"
+          type="datetime-local"
+          value={fechaLocal}
+          onChange={(e) => setFechaLocal(e.target.value)}
+          hint="Se usa la hora de tu dispositivo. Debe ser futura."
+        />
+      </Modal>
+    </ScreenLayout>
+  );
+};
+
+// ============================================================================
 // PANTALLA: ANALÍTICA (M9 métricas, L1 panel, L5 mejor hora propia)
 // ============================================================================
 
@@ -6088,6 +6332,8 @@ export default function App({ productionMode = false }: { productionMode?: boole
         return <CalendarScreen onNavigate={navegar} inicial={calendarioInicial} />;
       case 'agent':
         return <AgentScreen onNavigate={setCurrentScreen} />;
+      case 'approvals':
+        return <AprobacionesScreen onNavigate={navegar} />;
       case 'analytics':
         return <AnaliticaScreen onNavigate={navegar} />;
       case 'channels':

@@ -199,3 +199,15 @@ export type ResumenAnalitica = {
 export async function resumenAnalitica() {
   return callFn<ResumenAnalitica>('resumenAnalitica');
 }
+
+/** Paso del flujo de aprobación. El servidor valida rol y estado; el navegador solo pide el paso. */
+export type AccionBorrador = 'enviar' | 'aprobar' | 'pedir_cambios' | 'programar';
+
+export async function moverBorrador(input: {
+  id: string;
+  accion: AccionBorrador;
+  comentario?: string;
+  fechaHora?: string;
+}) {
+  return callFn<{ estado: string; publicacionId?: string }>('moverBorrador', input);
+}

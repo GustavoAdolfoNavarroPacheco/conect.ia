@@ -10,7 +10,7 @@ import {
 } from '../lib/db';
 import { obtenerConfiguracion } from '../lib/db/configuracion';
 import type { ActividadItem, Borrador, EstadoPublicacion, Publicacion } from '../lib/db/types';
-import { actualizarMetricas, resumenAnalitica } from '../services/cloudFunctions';
+import { actualizarMetricas, moverBorrador, resumenAnalitica } from '../services/cloudFunctions';
 
 /**
  * Listas de datos desde Neon vía API. Se refrescan cada pocos segundos y tras cada escritura
@@ -146,6 +146,20 @@ export function useActualizarMetricas() {
   return useMutation({
     mutationFn: () => actualizarMetricas(),
     onSettled: () => qc.invalidateQueries({ queryKey: ['analitica', user?.uid] }),
+  });
+}
+
+/** Paso del flujo de aprobación de un borrador. Refresca borradores, publicaciones y actividad. */
+export function useMoverBorrador() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Parameters<typeof moverBorrador>[0]) => moverBorrador(input),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['borradores', user?.uid] });
+      qc.invalidateQueries({ queryKey: ['publicaciones', user?.uid] });
+      qc.invalidateQueries({ queryKey: ['actividad', user?.uid] });
+    },
   });
 }
 
