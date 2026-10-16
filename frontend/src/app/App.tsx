@@ -8,7 +8,7 @@ import {
   Clock, Trash2, Edit, Send, Plus,
   Zap, Network, BarChart3, CheckCircle2,
   ArrowRight, Play, Eye, Save, Loader2,
-  Filter, Copy, Download, Mail, LogOut, Moon, Sun,
+  Filter, Copy, Download, Mail, LogOut, Moon, Sun, ShieldCheck,
   User, ChevronLeft,
   Upload, Image, Video, FileUp, CalendarClock,
   AlarmClock, Globe, ChevronRight, Info, Menu, Activity
@@ -23,6 +23,8 @@ import {
   estadoProgramador,
   reintentarRedes,
   type EstadoProgramador,
+  verificarCanal,
+  probarWebhook,
   generateContent as generateContentFn,
   generateVideo as generateVideoFn,
   schedulePost as schedulePostFn,
@@ -4709,6 +4711,58 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
 // PANTALLA 7: CANALES CONECTADOS
 // ============================================================================
 
+/** Fecha legible de caducidad de un token. */
+function fechaCorta(iso: string | null | undefined): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+type EstadoPrueba = { estado: 'idle' | 'probando' | 'ok' | 'error'; mensaje: string };
+
+/** Campo de escenario (Make o n8n) con su estado y el botón Probar conexión (Q23). */
+const CampoWebhook: React.FC<{
+  etiqueta: string;
+  placeholder: string;
+  valor: string;
+  onChange: (v: string) => void;
+  prueba: EstadoPrueba;
+  onProbar: () => void;
+}> = ({ etiqueta, placeholder, valor, onChange, prueba, onProbar }) => {
+  const sinUrl = valor.trim() === '';
+  const chip: { texto: string; variante: 'default' | 'success' | 'warning' | 'danger' } = sinUrl
+    ? { texto: 'No configurado', variante: 'default' }
+    : prueba.estado === 'ok'
+      ? { texto: 'Configurado', variante: 'success' }
+      : prueba.estado === 'error'
+        ? { texto: 'Error', variante: 'danger' }
+        : prueba.estado === 'probando'
+          ? { texto: 'Probando…', variante: 'default' }
+          : { texto: 'Sin probar', variante: 'warning' };
+  return (
+    <div className="space-y-2">
+      <Input
+        label={etiqueta}
+        type="url"
+        value={valor}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete="off"
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={chip.variante}>{chip.texto}</Badge>
+        <Button variant="outline" disabled={sinUrl || prueba.estado === 'probando'} onClick={onProbar}>
+          Probar conexión
+        </Button>
+        {prueba.mensaje && (
+          <span className="text-xs text-muted-foreground" role="status">
+            {prueba.mensaje}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const ChannelsScreen: React.FC = () => {
   const { user } = useAuth();
   const invalidate = useInvalidateCampus();
@@ -4717,6 +4771,66 @@ const ChannelsScreen: React.FC = () => {
   const { stats } = useDashboardStats();
   const [connectModalRed, setConnectModalRed] = useState<RedSocial | null>(null);
   const [oauthNotice, setOauthNotice] = useState<string | null>(null);
+  const { data: configuracion } = useConfiguracion();
+  const [verificandoRed, setVerificandoRed] = useState<string | null>(null);
+  const [mensajesRed, setMensajesRed] = useState<Record<string, string>>({});
+  const [fiverrNombre, setFiverrNombre] = useState('');
+  const [urlMake, setUrlMake] = useState('');
+  const [urlN8n, setUrlN8n] = useState('');
+  const [pruebas, setPruebas] = useState<{ make: EstadoPrueba; n8n: EstadoPrueba }>({
+    make: { estado: 'idle', mensaje: '' },
+    n8n: { estado: 'idle', mensaje: '' },
+  });
+  const [guardandoAuto, setGuardandoAuto] = useState(false);
+  const [mensajeAuto, setMensajeAuto] = useState('');
+
+  useEffect(() => {
+    setUrlMake(configuracion?.makeWebhookUrl ?? '');
+    setUrlN8n(configuracion?.n8nWebhookUrl ?? '');
+  }, [configuracion?.makeWebhookUrl, configuracion?.n8nWebhookUrl]);
+
+  /** Verifica la cuenta contra la API de la red (U7): solo un token rechazado la marca como caducada. */
+  const verificarRed = async (red: 'linkedin' | 'facebook' | 'instagram' | 'tiktok') => {
+    setVerificandoRed(red);
+    try {
+      const r = await verificarCanal(red);
+      setMensajesRed((prev) => ({ ...prev, [red]: r.mensaje }));
+      invalidate();
+    } catch (e) {
+      setMensajesRed((prev) => ({ ...prev, [red]: mensajeCallable(e) }));
+    } finally {
+      setVerificandoRed(null);
+    }
+  };
+
+  const probar = async (clave: 'make' | 'n8n', url: string) => {
+    setPruebas((p) => ({ ...p, [clave]: { estado: 'probando', mensaje: '' } }));
+    try {
+      const r = await probarWebhook(url);
+      setPruebas((p) => ({ ...p, [clave]: { estado: r.ok ? 'ok' : 'error', mensaje: r.mensaje } }));
+    } catch (e) {
+      setPruebas((p) => ({ ...p, [clave]: { estado: 'error', mensaje: mensajeCallable(e) } }));
+    }
+  };
+
+  const urlValida = (u: string) => u.trim() === '' || /^https:\/\/\S+$/i.test(u.trim());
+  const automatizacionValida = urlValida(urlMake) && urlValida(urlN8n);
+
+  /** Make y n8n se guardan por separado (Q23). Cambiar la URL invalida la prueba anterior. */
+  const guardarAutomatizacion = async () => {
+    if (!user || !automatizacionValida) return;
+    setGuardandoAuto(true);
+    setMensajeAuto('');
+    try {
+      await guardarConfiguracion(user.uid, { makeWebhookUrl: urlMake.trim(), n8nWebhookUrl: urlN8n.trim() });
+      setPruebas({ make: { estado: 'idle', mensaje: '' }, n8n: { estado: 'idle', mensaje: '' } });
+      setMensajeAuto('Guardado. Los escenarios se usan al publicar.');
+    } catch (e) {
+      setMensajeAuto(mensajeCallable(e));
+    } finally {
+      setGuardandoAuto(false);
+    }
+  };
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -4777,7 +4891,10 @@ const ChannelsScreen: React.FC = () => {
       }))
     )
       return;
-    await guardarCanal(user.uid, red, { conectado, cuentaNombre: conectado ? 'Manual' : null });
+    await guardarCanal(user.uid, red, {
+      conectado,
+      cuentaNombre: conectado ? (red === 'fiverr' && fiverrNombre.trim() ? fiverrNombre.trim() : 'Manual') : null,
+    });
     invalidate();
   };
 
@@ -4802,6 +4919,10 @@ const ChannelsScreen: React.FC = () => {
               <h3 className="truncate text-sm font-semibold text-foreground">{config.nombre}</h3>
               {config.tipo === 'proximamente' ? (
                 <Badge>Próximamente</Badge>
+              ) : canal?.motivo === 'token_rechazado' || canal?.estadoToken === 'caducado' ? (
+                <Badge variant="danger">Caducado</Badge>
+              ) : conectado && canal?.estadoToken === 'por_caducar' ? (
+                <Badge variant="warning">Vence pronto</Badge>
               ) : conectado ? (
                 <Badge variant="success">
                   <CheckCircle2 className="h-3 w-3" />
@@ -4818,6 +4939,31 @@ const ChannelsScreen: React.FC = () => {
                   : `Cuenta: ${cuenta ?? 'conectada'}`
                 : config.descripcion}
             </p>
+            {config.tipo === 'oauth' && conectado && canal?.expiraEn && (
+              <p className={`mt-1 text-xs ${canal.estadoToken === 'por_caducar' ? 'text-warning' : 'text-muted-foreground'}`}>
+                {canal.estadoToken === 'por_caducar'
+                  ? `Vence en ${canal.diasParaCaducar ?? 0} día(s). Reconéctala antes de que caduque.`
+                  : `El acceso vence el ${fechaCorta(canal.expiraEn)}.`}
+              </p>
+            )}
+            {config.tipo === 'oauth' && !conectado && canal?.motivo === 'token_rechazado' && (
+              <p className="mt-1 text-xs text-destructive">La red rechazó el acceso. Reconecta la cuenta para volver a publicar.</p>
+            )}
+            {config.tipo === 'manual' && !conectado && (
+              <Input
+                label="Nombre de tu cuenta"
+                value={fiverrNombre}
+                onChange={(e) => setFiverrNombre(e.target.value)}
+                placeholder="Tu usuario en Fiverr"
+                autoComplete="off"
+                className="mt-2"
+              />
+            )}
+            {mensajesRed[red.id] && (
+              <p className="mt-1 text-xs text-muted-foreground" role="status">
+                {mensajesRed[red.id]}
+              </p>
+            )}
           </div>
         </div>
         <div className="mt-auto flex flex-wrap gap-2 pt-1">
@@ -4837,6 +4983,14 @@ const ChannelsScreen: React.FC = () => {
             )
           ) : conectado ? (
             <>
+              <Button
+                variant="outline"
+                disabled={verificandoRed === red.id}
+                icon={verificandoRed === red.id ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+                onClick={() => void verificarRed(red.id as 'linkedin' | 'facebook' | 'instagram' | 'tiktok')}
+              >
+                Verificar
+              </Button>
               <Button variant="outline" onClick={() => setConnectModalRed(red.id)}>
                 Reconfigurar
               </Button>
@@ -4903,6 +5057,60 @@ const ChannelsScreen: React.FC = () => {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{CATALOGO_REDES.map(renderCanalCard)}</div>
         )}
+
+        <section className="mt-6 grid gap-4 lg:grid-cols-2" aria-label="Automatización y secretos">
+          <Panel title="Automatización" icon={<Network />}>
+            <div className="space-y-5">
+              <CampoWebhook
+                etiqueta="Escenario de Make"
+                placeholder="https://hook.us2.make.com/…"
+                valor={urlMake}
+                onChange={(v) => {
+                  setUrlMake(v);
+                  setPruebas((p) => ({ ...p, make: { estado: 'idle', mensaje: '' } }));
+                }}
+                prueba={pruebas.make}
+                onProbar={() => void probar('make', urlMake)}
+              />
+              <CampoWebhook
+                etiqueta="Flujo de n8n"
+                placeholder="https://tu-n8n.ejemplo.com/webhook/…"
+                valor={urlN8n}
+                onChange={(v) => {
+                  setUrlN8n(v);
+                  setPruebas((p) => ({ ...p, n8n: { estado: 'idle', mensaje: '' } }));
+                }}
+                prueba={pruebas.n8n}
+                onProbar={() => void probar('n8n', urlN8n)}
+              />
+              {!automatizacionValida && (
+                <p className="text-xs text-destructive">Las URLs deben empezar por https://.</p>
+              )}
+              <div className="flex flex-wrap items-center gap-3">
+                <Button disabled={!automatizacionValida || guardandoAuto} onClick={() => void guardarAutomatizacion()}>
+                  {guardandoAuto ? 'Guardando…' : 'Guardar'}
+                </Button>
+                {mensajeAuto && (
+                  <span className="text-xs text-muted-foreground" role="status">
+                    {mensajeAuto}
+                  </span>
+                )}
+              </div>
+            </div>
+          </Panel>
+
+          <Panel title="Dónde vive el secreto" icon={<ShieldCheck />}>
+            <p className="text-sm text-muted-foreground">
+              La clave que autoriza a los escenarios se guarda como variable del servidor (
+              <span className="font-medium text-foreground">MAKE_WEBHOOK_SECRET</span> o{' '}
+              <span className="font-medium text-foreground">N8N_WEBHOOK_SECRET</span>). El navegador no la conoce ni la envía.
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              El servidor solo envía esa clave a la URL de la variable de Vercel. Las URLs que escribes aquí se llaman sin
+              clave: no puedes ver ni cambiar el secreto desde la app.
+            </p>
+          </Panel>
+        </section>
       </div>
 
       <ConnectChannelModal
@@ -4928,11 +5136,10 @@ const ChannelsScreen: React.FC = () => {
 // PANTALLA 8: AJUSTES
 // ============================================================================
 
-const SettingsScreen: React.FC = () => {
+const SettingsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
   const { user } = useAuth();
   const invalidate = useInvalidateCampus();
   const { data: config, isLoading, error: errorConfig, refetch: recargarConfig } = useConfiguracion();
-  const [automationWebhook, setAutomationWebhook] = useState('');
   const [notifications, setNotifications] = useState(true);
   const [timezone, setTimezone] = useState('America/Bogota');
   const [saving, setSaving] = useState(false);
@@ -4941,7 +5148,6 @@ const SettingsScreen: React.FC = () => {
 
   useEffect(() => {
     if (config) {
-      setAutomationWebhook(getAutomationWebhookUrl(config));
       setNotifications(config.notifications ?? true);
       setTimezone(config.timezone ?? 'America/Bogota');
     }
@@ -4951,15 +5157,11 @@ const SettingsScreen: React.FC = () => {
 
   // Cambios pendientes respecto a lo guardado (el tema se aplica al instante y no cuenta).
   const original = {
-    webhook: config ? getAutomationWebhookUrl(config) : '',
     notifications: config?.notifications ?? true,
     timezone: config?.timezone ?? 'America/Bogota',
   };
   const hayCambios =
-    Boolean(config) &&
-    (automationWebhook.trim() !== original.webhook.trim() ||
-      notifications !== original.notifications ||
-      timezone !== original.timezone);
+    Boolean(config) && (notifications !== original.notifications || timezone !== original.timezone);
 
   useEffect(() => {
     if (!hayCambios) return;
@@ -4967,8 +5169,6 @@ const SettingsScreen: React.FC = () => {
     window.addEventListener('beforeunload', aviso);
     return () => window.removeEventListener('beforeunload', aviso);
   }, [hayCambios]);
-
-  const webhookInvalido = automationWebhook.trim() !== '' && !/^https?:\/\/\S+$/i.test(automationWebhook.trim());
 
   const guardar = async () => {
     if (!user) return;
@@ -4978,12 +5178,7 @@ const SettingsScreen: React.FC = () => {
       if (notifications && typeof Notification !== 'undefined' && Notification.permission === 'default') {
         await Notification.requestPermission();
       }
-      await guardarConfiguracion(user.uid, {
-        n8nWebhookUrl: automationWebhook.trim(),
-        makeWebhookUrl: automationWebhook.trim(),
-        notifications,
-        timezone,
-      });
+      await guardarConfiguracion(user.uid, { notifications, timezone });
       invalidate();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -4998,7 +5193,7 @@ const SettingsScreen: React.FC = () => {
     <code className="rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-xs text-foreground">{t}</code>
   );
 
-  const bloqueado = saving || !user || isLoading || !hayCambios || webhookInvalido;
+  const bloqueado = saving || !user || isLoading || !hayCambios;
   const botonGuardar = (
     <Button
       size="lg"
@@ -5036,29 +5231,18 @@ const SettingsScreen: React.FC = () => {
       <div className="grid min-h-0 flex-1 content-start gap-6 lg:grid-cols-2">
         <Panel title="Automatización Make / n8n" icon={<Network />} className="lg:self-start">
           <div className="space-y-4">
-            {isLoading ? (
-              <div className="flex flex-col gap-2" aria-busy="true">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-11 w-full !rounded-[10px]" />
-              </div>
-            ) : (
-              <Input
-                label="URL del webhook"
-                type="url"
-                icon={<Network />}
-                value={automationWebhook}
-                disabled={Boolean(errorConfig)}
-                onChange={(e) => setAutomationWebhook(e.target.value)}
-                placeholder="https://hook.us2.make.com/xxxxxxxx"
-                error={webhookInvalido ? 'Escribe una URL completa que empiece por https://' : undefined}
-                hint="Déjalo vacío si no usas Make ni n8n."
-              />
-            )}
+            <p className="text-sm text-muted-foreground">
+              Make y n8n tienen cada uno su URL en <span className="font-medium text-foreground">Canales</span>, donde también
+              puedes probarla. Aquí ya no se editan, para que una no pise a la otra.
+            </p>
+            <Button variant="outline" icon={<Share2 />} onClick={() => onNavigate('channels')}>
+              Ir a Canales
+            </Button>
             <div className="surface-muted space-y-3 p-4 text-sm text-muted-foreground">
               <p>
                 El secreto va en las variables de entorno de Vercel: {codigo('MAKE_WEBHOOK_SECRET')} (API key del Custom webhook en
                 Make). Solo viaja a la URL configurada en Vercel, en las cabeceras {codigo('x-make-apikey')} y {codigo('X-Campus-Secret')}.
-                La URL que pegas aquí no recibe el secreto y debe empezar por https://.
+                La URL que guardas en Canales no recibe el secreto y debe empezar por https://.
               </p>
               <p>
                 Guía: {codigo('flujo-automatizacion/postman-make.md')} · n8n local: {codigo('docker compose up -d')}
@@ -5313,7 +5497,7 @@ export default function App({ productionMode = false }: { productionMode?: boole
       case 'channels':
         return <ChannelsScreen />;
       case 'settings':
-        return <SettingsScreen />;
+        return <SettingsScreen onNavigate={setCurrentScreen} />;
       case 'dashboard':
       default:
         return <DashboardHome onNavigate={setCurrentScreen} />;

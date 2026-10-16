@@ -39,6 +39,12 @@ export type CanalRed = {
   proveedor?: string;
   verificadoPor?: string;
   verificadoEn?: string;
+  /** Vigencia del token, calculada por el servidor: vigente, por caducar (7 días), caducado o sin token. */
+  estadoToken?: 'vigente' | 'por_caducar' | 'caducado' | 'sin_token';
+  expiraEn?: string | null;
+  diasParaCaducar?: number | null;
+  /** Motivo por el que quedó desconectado (p. ej. token rechazado por la red). */
+  motivo?: string | null;
 };
 
 export type CanalesDoc = {

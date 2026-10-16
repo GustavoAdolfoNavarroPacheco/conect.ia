@@ -14,6 +14,27 @@ const HOSTS_PERMITIDOS = [
 /** Tamaño máximo de una imagen en línea (data:). Las descargas por red tienen su propio límite. */
 const MAX_DATA_URL_BYTES = 10 * 1024 * 1024;
 
+/**
+ * Destino público por https para una llamada que escribe la persona usuaria (p. ej. probar un
+ * escenario de Make o n8n). Rechaza IP literales, localhost y nombres internos: el servidor no debe
+ * llegar a redes privadas aunque la URL lo pida.
+ */
+export function esDestinoPublicoHttps(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password) return false;
+  const host = parsed.hostname.toLowerCase();
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) {
+    return false;
+  }
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(':')) return false;
+  return host.includes('.');
+}
+
 /** Un medio es de video si su URL termina en una extensión de video o es un video generado por la app. */
 export function esVideoMedio(url: string | null | undefined): boolean {
   if (!url) return false;

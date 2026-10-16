@@ -71,6 +71,18 @@ export async function publishPostNow(postId: string) {
   return callFn<{ success: boolean; postId: string }>('publishPostNow', { postId });
 }
 
+/** Verifica la conexión de una red contra su API y actualiza su estado (botón Verificar). */
+export type VerificacionCanal = { ok: boolean; estado: string; mensaje: string };
+
+export async function verificarCanal(red: 'linkedin' | 'facebook' | 'instagram' | 'tiktok') {
+  return callFn<VerificacionCanal>('verificarCanal', { red });
+}
+
+/** Prueba un escenario de Make o n8n con la URL que escribe la persona. */
+export async function probarWebhook(url: string) {
+  return callFn<{ ok: boolean; status: number; mensaje: string }>('probarWebhook', { url });
+}
+
 /** Reintenta solo las redes que fallaron. Las que ya publicaron no se vuelven a enviar. */
 export async function reintentarRedes(postId: string) {
   return callFn<{ success: boolean; postId: string }>('reintentarRedes', { postId });
