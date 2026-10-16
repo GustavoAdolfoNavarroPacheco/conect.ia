@@ -2526,7 +2526,8 @@ const ManualPostScreen: React.FC = () => {
     }
   };
 
-  const today = new Date().toISOString().split('T')[0];
+  // Fecha de hoy en la hora local de la persona usuaria (toISOString usa UTC y bloquea el día actual de noche).
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().split('T')[0];
 
   const [vistaPreviaAbierta, setVistaPreviaAbierta] = useState(false);
 
@@ -3192,6 +3193,23 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
     }
   };
 
+  /** Publicar una vencida o reintentar una fallida se confirma con un resumen, porque sale a las redes. */
+  const confirmarPublicarPost = async (post: Publicacion) => {
+    const redes = (post.redesDestino ?? [RED_PRINCIPAL]).map((r) => redConfig(r)?.nombre ?? r).join(', ');
+    const hora = toDate(post.fechaProgramada)?.toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) ?? 'sin hora';
+    const texto = post.contenido ?? '';
+    const extracto = texto.length > 120 ? `${texto.slice(0, 120)}…` : texto;
+    if (
+      !(await confirmar({
+        titulo: post.estado === 'fallido' ? '¿Reintentar la publicación?' : '¿Publicar ahora?',
+        mensaje: `Redes: ${redes}. Programada para ${hora}. ${post.imagenUrl ? 'Con imagen.' : 'Sin imagen.'} Texto: “${extracto}”`,
+        accion: post.estado === 'fallido' ? 'Reintentar' : 'Publicar',
+      }))
+    )
+      return;
+    await publicarProgramadoAhora(post);
+  };
+
   const reprogramarEnDia = async (postId: string, targetDay: number) => {
     const post = allPostsInMonth.find((p) => p.id === postId);
     if (!post?.fechaProgramada) return;
@@ -3473,7 +3491,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
                   return (
                     <article
                       key={post.id}
-                      draggable={!moving}
+                      draggable={!moving && post.estado === 'programado'}
                       onDragStart={() => {
                         dragRef.current = true;
                         setDraggingPostId(post.id);
@@ -3485,7 +3503,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
                           dragRef.current = false;
                         }, 0);
                       }}
-                      title="Arrastra a otro día para reprogramar"
+                      title={post.estado === 'programado' ? 'Arrastra a otro día para reprogramar' : undefined}
                       className={`overflow-hidden rounded-xl border bg-card p-4 transition-opacity duration-150
                         ${draggingPostId === post.id ? 'opacity-50' : ''}
                         ${overdue ? 'border-destructive/30' : 'border-border'}`}
@@ -3513,6 +3531,13 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
                           {overdue ? 'Vencida' : post.estado}
                         </Badge>
                       </div>
+                      {post.estado === 'fallido' && (
+                        <ul className="mt-2 space-y-1 text-xs text-destructive">
+                          {Object.entries(post.resultados ?? {}).map(([red, r]) =>
+                            r && !r.success && r.error ? <li key={red}>{(redConfig(red as RedSocial)?.nombre ?? red)}: {r.error}</li> : null
+                          )}
+                        </ul>
+                      )}
 
                       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
                         {overdue && (
@@ -3520,9 +3545,19 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
                             variant="success"
                             disabled={publishingId === post.id}
                             icon={publishingId === post.id ? <Loader2 className="animate-spin" /> : <Send />}
-                            onClick={() => void publicarProgramadoAhora(post)}
+                            onClick={() => void confirmarPublicarPost(post)}
                           >
                             Publicar
+                          </Button>
+                        )}
+                        {post.estado === 'fallido' && (
+                          <Button
+                            variant="outline"
+                            disabled={publishingId === post.id}
+                            icon={publishingId === post.id ? <Loader2 className="animate-spin" /> : <Send />}
+                            onClick={() => void confirmarPublicarPost(post)}
+                          >
+                            Reintentar
                           </Button>
                         )}
                         <Button variant="ghost" icon={<Eye />} onClick={() => setPreviewPost(post)}>
