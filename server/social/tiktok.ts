@@ -1,5 +1,6 @@
 import type { ResultadoRed } from '../types';
 import { ErrorApi, esReintentableCreacion, esReintentableLectura, withRetry } from './retry';
+import { descargarConLimite } from './descarga';
 import { logger } from '../platform/logger';
 import { TIKTOK_API_BASE } from '../integracion/tiktokOAuthConfig';
 import { refreshTikTokAccessToken } from '../integracion/tiktokOAuthApi';
@@ -284,25 +285,12 @@ async function queryCreatorPrivacyOptions(accessToken: string): Promise<string[]
 
 /** Descarga el video completo y valida tamaño y tipo. Es una lectura: se puede repetir. */
 async function descargarVideo(videoUrl: string): Promise<{ buffer: Buffer; contentType: string }> {
-  const videoRes = await fetch(videoUrl, { redirect: 'follow' });
-  if (!videoRes.ok) {
-    throw new ErrorApi(
-      `TikTok no pudo descargar el video desde ${videoUrl} (${videoRes.status})`,
-      videoRes.status
-    );
-  }
-  const buffer = Buffer.from(await videoRes.arrayBuffer());
+  // Corta la descarga al superar 200 MB, sin cargar el archivo entero antes de comprobarlo.
+  const { buffer, contentType: tipo } = await descargarConLimite(videoUrl, MAX_BUFFER_BYTES, 'TikTok');
   if (!buffer.length) {
     throw new Error('TikTok: el archivo de video está vacío');
   }
-  if (buffer.length > MAX_BUFFER_BYTES) {
-    throw new Error('TikTok: el video supera el límite de 200 MB para publicar por la API');
-  }
-
-  const downloadContentType = videoRes.headers.get('content-type')?.split(';')[0] ?? '';
-  const contentType = downloadContentType.startsWith('video/')
-    ? downloadContentType
-    : contentTypeFor(videoUrl);
+  const contentType = tipo.startsWith('video/') ? tipo : contentTypeFor(videoUrl);
   return { buffer, contentType };
 }
 

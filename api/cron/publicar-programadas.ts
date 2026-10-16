@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { findDueScheduledPosts, publishPostById } from '../../server/posts/publishPostNow';
-import { marcarEnviosInterrumpidos } from '../../server/db/repo';
+import { limpiarDatosTemporales, marcarEnviosInterrumpidos } from '../../server/db/repo';
 import { logger } from '../../server/platform/logger';
 
 /**
@@ -19,9 +19,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const inicio = Date.now();
   const interrumpidas = await marcarEnviosInterrumpidos();
   if (interrumpidas > 0) logger.warn(`cron: ${interrumpidas} envío(s) interrumpido(s) marcados como fallidos`);
+  await limpiarDatosTemporales();
   const vencidas = await findDueScheduledPosts(5);
   if (vencidas.length === 0) {
-    res.status(200).json({ processed: 0, results: [] });
+    res.status(200).json({ processed: 0, fallidas: 0, results: [] });
     return;
   }
 
@@ -40,5 +41,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  res.status(200).json({ processed: results.length, results });
+  // Si alguna publicación falló, la respuesta es un error: el disparador externo lo registra.
+  // Las fallidas no se reintentan solas; la persona usuaria decide cuándo volver a enviarlas.
+  const fallidas = results.filter((r) => !r.success).length;
+  res.status(fallidas > 0 ? 500 : 200).json({ processed: results.length, fallidas, results });
 }

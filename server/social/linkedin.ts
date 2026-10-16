@@ -1,6 +1,7 @@
 import type { ResultadoRed } from '../types';
 import { logger } from '../platform/logger';
 import { ErrorApi, esReintentableCreacion, esReintentableLectura, withRetry } from './retry';
+import { descargarConLimite } from './descarga';
 
 export interface LinkedInTokens {
   accessToken?: string;
@@ -13,6 +14,8 @@ export interface LinkedInTokens {
 // documentación de versiones de LinkedIn. Se puede cambiar sin tocar código con LINKEDIN_API_VERSION.
 const LINKEDIN_API_VERSION = process.env.LINKEDIN_API_VERSION?.trim() || '202609';
 const POST_SCOPE = 'w_member_social';
+/** Tamaño máximo de imagen que se acepta subir a LinkedIn (20 MB). */
+const MAX_IMAGEN_BYTES = 20 * 1024 * 1024;
 
 function missingPostScopeMessage(): string {
   return (
@@ -225,11 +228,8 @@ async function uploadLinkedInImage(
   uploadHeaders: Record<string, string>,
   imagenUrl: string
 ): Promise<void> {
-  const imgRes = await fetch(imagenUrl);
-  if (!imgRes.ok) {
-    throw new ErrorApi(`No se pudo descargar la imagen para LinkedIn (${imgRes.status})`, imgRes.status);
-  }
-  const binary = Buffer.from(await imgRes.arrayBuffer());
+  // Se corta la descarga si la imagen supera el límite, aunque el servidor no declare su tamaño.
+  const { buffer: binary } = await descargarConLimite(imagenUrl, MAX_IMAGEN_BYTES, 'LinkedIn');
 
   const upRes = await fetch(uploadUrl, {
     method: 'POST',
@@ -238,7 +238,7 @@ async function uploadLinkedInImage(
       'Content-Type': 'application/octet-stream',
       ...uploadHeaders,
     },
-    body: binary,
+    body: new Uint8Array(binary),
   });
   const upText = await upRes.text();
   if (!upRes.ok) {
@@ -299,11 +299,8 @@ async function inicializarImagenRest(accessToken: string, author: string): Promi
 
 /** Paso 2: descarga la imagen y la sube a la URL de LinkedIn. Subir de nuevo al mismo recurso es seguro. */
 async function subirImagenRest(accessToken: string, uploadUrl: string, imagenUrl: string): Promise<void> {
-  const imgRes = await fetch(imagenUrl);
-  if (!imgRes.ok) {
-    throw new ErrorApi(`No se pudo descargar la imagen para LinkedIn (${imgRes.status})`, imgRes.status);
-  }
-  const binary = Buffer.from(await imgRes.arrayBuffer());
+  // Se corta la descarga si la imagen supera el límite, aunque el servidor no declare su tamaño.
+  const { buffer: binary } = await descargarConLimite(imagenUrl, MAX_IMAGEN_BYTES, 'LinkedIn');
 
   const upRes = await fetch(uploadUrl, {
     method: 'PUT',
@@ -311,7 +308,7 @@ async function subirImagenRest(accessToken: string, uploadUrl: string, imagenUrl
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/octet-stream',
     },
-    body: binary,
+    body: new Uint8Array(binary),
   });
   if (!upRes.ok) {
     const upText = await upRes.text();

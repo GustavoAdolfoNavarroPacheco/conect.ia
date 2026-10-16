@@ -449,6 +449,17 @@ export async function liberarBloqueo(clave: string): Promise<void> {
 }
 
 /**
+ * Borra filas temporales que ya no sirven: estados OAuth de más de 15 min, bloqueos vencidos,
+ * intentos de acceso de hace más de un día y cuotas de IA de más de 30 días.
+ */
+export async function limpiarDatosTemporales(): Promise<void> {
+  await sql()`DELETE FROM oauth_pendientes WHERE creado_en < now() - interval '15 minutes'`;
+  await sql()`DELETE FROM bloqueos WHERE hasta < now()`;
+  await sql()`DELETE FROM intentos_acceso WHERE ventana_inicio < now() - interval '1 day'`;
+  await sql()`DELETE FROM uso_ia WHERE dia < current_date - 30`;
+}
+
+/**
  * Descuenta `unidades` de la cuota diaria del usuario y del tope global de ese tipo.
  * Devuelve false, sin descontar nada, si cualquiera de los dos límites se superaría.
  */
@@ -575,9 +586,10 @@ export async function guardarMensajesChat(uid: string, mensajes: ChatRow[]): Pro
 }
 
 export async function listarMensajesChat(uid: string): Promise<Array<Record<string, unknown>>> {
-  const rows = await sql()`
+  // Se toman los 500 más recientes (no los 500 primeros) y se devuelven en orden cronológico.
+  const rows = (await sql()`
     SELECT id, role, content, accion_sugerida, tema_sugerido, tono_sugerido, creado_en
-    FROM chat_mensajes WHERE usuario_id = ${uid} ORDER BY id ASC LIMIT 500`;
+    FROM chat_mensajes WHERE usuario_id = ${uid} ORDER BY id DESC LIMIT 500`).reverse();
   return rows.map((r, i) => ({
     id: String(r.id),
     role: r.role,

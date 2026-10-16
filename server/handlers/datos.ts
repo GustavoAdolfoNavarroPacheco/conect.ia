@@ -1,6 +1,44 @@
 import { onCall, HttpsError } from '../platform/callable';
 import { obtenerTokens } from '../db/repo';
 import { enriquecerCanales } from '../integracion/estadoConexion';
+import { urlMediaPermitida } from '../integracion/urlsMedia';
+
+/** Límites de texto y de redes que acepta una publicación. */
+const MAX_TITULO = 200;
+const MAX_CONTENIDO = 10_000;
+const MAX_REDES = 12;
+
+/** Valida lo que llega del navegador antes de guardarlo. Lanza un error claro si algo no cumple. */
+function validarPublicacion(p: {
+  titulo?: unknown;
+  contenido?: unknown;
+  redesDestino?: unknown;
+  imagenUrl?: unknown;
+}): void {
+  if (typeof p.titulo === 'string' && p.titulo.length > MAX_TITULO) {
+    throw new HttpsError('invalid-argument', `El título es demasiado largo (máximo ${MAX_TITULO} caracteres).`);
+  }
+  if (typeof p.contenido === 'string' && p.contenido.length > MAX_CONTENIDO) {
+    throw new HttpsError('invalid-argument', `El texto es demasiado largo (máximo ${MAX_CONTENIDO} caracteres).`);
+  }
+  if (p.redesDestino !== undefined) {
+    const redes = p.redesDestino;
+    const valida =
+      Array.isArray(redes) &&
+      redes.length <= MAX_REDES &&
+      redes.every((r) => typeof r === 'string' && /^[a-z]{2,20}$/.test(r));
+    if (!valida) throw new HttpsError('invalid-argument', 'Lista de redes no válida.');
+  }
+  if (p.imagenUrl !== undefined && p.imagenUrl !== null && !urlMediaPermitida(String(p.imagenUrl))) {
+    throw new HttpsError(
+      'invalid-argument',
+      'El medio debe estar en el almacén de la app o venir de un generador de IA por https.'
+    );
+  }
+}
+
+/** Redes que se conectan por OAuth: su estado lo escribe el servidor, no el navegador. */
+const REDES_OAUTH = ['linkedin', 'instagram', 'facebook', 'tiktok'];
 import {
   actualizarBorrador,
   actualizarPublicacion,
@@ -64,11 +102,17 @@ export const listarPublicacionesDatos = onCall({ region: 'us-central1' }, async 
 export const crearPublicacionDatos = onCall({ region: 'us-central1' }, async (request) => {
   const uid = requireUid(request);
   const d = request.data ?? {};
+  const estado = requireString(d.estado, 'estado');
+  // El usuario solo puede crear borradores, pendientes o programadas; el envío lo fija el servidor.
+  if (!['borrador', 'pendiente', 'programado'].includes(estado)) {
+    throw new HttpsError('invalid-argument', 'Estado no permitido al crear una publicación.');
+  }
+  validarPublicacion(d);
   const id = await crearPublicacion(uid, {
     titulo: String(d.titulo ?? ''),
     contenido: String(d.contenido ?? ''),
     redesDestino: Array.isArray(d.redesDestino) ? d.redesDestino.map(String) : [],
-    estado: requireString(d.estado, 'estado'),
+    estado,
     imagenUrl: typeof d.imagenUrl === 'string' ? d.imagenUrl : null,
     fechaProgramada: optionalIso(d.fechaProgramada, 'fechaProgramada') ?? null,
   });
@@ -83,6 +127,7 @@ export const actualizarPublicacionDatos = onCall({ region: 'us-central1' }, asyn
   if (typeof p.estado === 'string' && !['borrador', 'pendiente', 'programado'].includes(p.estado)) {
     throw new HttpsError('invalid-argument', 'El estado de envío lo actualiza el servidor.');
   }
+  validarPublicacion(p);
   const ok = await actualizarPublicacion(postId, uid, {
     titulo: typeof p.titulo === 'string' ? p.titulo : undefined,
     contenido: typeof p.contenido === 'string' ? p.contenido : undefined,
@@ -165,7 +210,21 @@ export const guardarCanalDatos = onCall({ region: 'us-central1' }, async (reques
   if (!patch || typeof patch !== 'object') {
     throw new HttpsError('invalid-argument', 'patch es obligatorio');
   }
-  await guardarCanal(uid, red, patch as Record<string, unknown>);
+  const p = patch as Record<string, unknown>;
+
+  if (REDES_OAUTH.includes(red)) {
+    // Las redes OAuth solo se pueden desconectar desde el navegador. Conectarlas exige su inicio de sesión.
+    if (p.conectado === true) {
+      throw new HttpsError('permission-denied', 'Conecta esta red desde Canales con su inicio de sesión.');
+    }
+    await guardarCanal(uid, red, { conectado: false, cuentaNombre: null });
+    return { ok: true };
+  }
+
+  // Canal manual: solo se guardan estos dos campos, con límite de longitud.
+  const conectado = p.conectado === true;
+  const cuentaNombre = conectado && typeof p.cuentaNombre === 'string' ? p.cuentaNombre.trim().slice(0, 120) : null;
+  await guardarCanal(uid, red, { conectado, cuentaNombre });
   return { ok: true };
 });
 
