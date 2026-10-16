@@ -11,7 +11,8 @@ Responde en español, tono profesional y cercano. Incluye hashtags relevantes cu
 Marca: Conect.ia — publicaciones profesionales en LinkedIn, Facebook, Instagram, TikTok, Freelancer y Fiverr.
 Enfócate en ideas que mantengan las redes activas y llamen la atención del público objetivo.`;
 
-const CLAUDE_MODEL = 'claude-3-5-haiku-20241022';
+// claude-3-5-haiku-20241022 está retirado. Se puede cambiar con ANTHROPIC_MODEL sin tocar código.
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL?.trim() || 'claude-haiku-5-5';
 
 /** Modelos en orden (los 2.x están bloqueados para claves nuevas; se usan los 3.x vía Interactions API). */
 function geminiModelsToTry(): string[] {
@@ -138,15 +139,18 @@ export function getAiKeys(): { anthropic: string; gemini: string } {
   };
 }
 
+/** Orden único de proveedores: el mismo para generar texto y para el estado de salud. */
+export function ordenDeProveedores(): AiProvider[] {
+  const prefer = (process.env.AI_PROVIDER || 'auto').toLowerCase();
+  return prefer === 'anthropic' ? ['anthropic', 'gemini'] : ['gemini', 'anthropic'];
+}
+
 export function resolveAiProvider(): { provider: AiProvider; apiKey: string } {
   const keys = getAiKeys();
-  const prefer = (process.env.AI_PROVIDER || 'auto').toLowerCase();
-
-  if (prefer === 'gemini' && keys.gemini) {
-    return { provider: 'gemini', apiKey: keys.gemini };
+  for (const provider of ordenDeProveedores()) {
+    const apiKey = provider === 'anthropic' ? keys.anthropic : keys.gemini;
+    if (apiKey) return { provider, apiKey };
   }
-  if (keys.anthropic) return { provider: 'anthropic', apiKey: keys.anthropic };
-  if (keys.gemini) return { provider: 'gemini', apiKey: keys.gemini };
 
   throw new Error(
     'Configura GEMINI_API_KEY en variables de entorno de Vercel (clave de https://aistudio.google.com/apikey)'
@@ -289,14 +293,7 @@ async function callGemini(apiKey: string, userPrompt: string): Promise<string> {
 
 export async function generateAiText(userPrompt: string): Promise<{ text: string; provider: AiProvider }> {
   const keys = getAiKeys();
-  const prefer = (process.env.AI_PROVIDER || 'auto').toLowerCase();
-
-  const tryOrder: AiProvider[] =
-    prefer === 'gemini'
-      ? ['gemini', 'anthropic']
-      : prefer === 'anthropic'
-        ? ['anthropic', 'gemini']
-        : ['gemini', 'anthropic'];
+  const tryOrder = ordenDeProveedores();
 
   let lastError: Error | null = null;
 
