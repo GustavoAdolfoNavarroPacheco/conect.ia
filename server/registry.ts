@@ -10,6 +10,7 @@ import { processDueScheduledPosts } from './posts/processDueScheduledPosts';
 import { triggerMakeWorkflow } from './integracion/triggerMakeWorkflow';
 import { verifyChannelConnection } from './integracion/verifyChannelConnection';
 import { probarWebhook, verificarCanal } from './integracion/verificarCanal';
+import { actualizarMetricas, resumenAnalitica } from './analitica/analiticaCallable';
 import { startLinkedInOAuth } from './integracion/startLinkedInOAuth';
 import { completeLinkedInOAuth } from './integracion/completeLinkedInOAuth';
 import { startMetaOAuth } from './integracion/startMetaOAuth';
@@ -55,6 +56,8 @@ export const CALLABLES: Record<string, Callable> = {
   verifyChannelConnection,
   verificarCanal,
   probarWebhook,
+  actualizarMetricas,
+  resumenAnalitica,
   startLinkedInOAuth,
   completeLinkedInOAuth,
   startMetaOAuth,

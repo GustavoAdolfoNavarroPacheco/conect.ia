@@ -155,3 +155,47 @@ export type TikTokOAuthResult = {
 export async function completeTikTokOAuth(input: { code: string; state: string }) {
   return callFn<TikTokOAuthResult>('completeTikTokOAuth', input);
 }
+
+/** Analítica (M9): mide las publicaciones con las redes que tienen permiso. Una actualización cada 30 min como mínimo. */
+export type ActualizacionMetricas = {
+  actualizado: boolean;
+  motivo?: 'reciente';
+  medidas: number;
+  avisos: string[];
+  medidoEn: string | null;
+};
+
+export async function actualizarMetricas() {
+  return callFn<ActualizacionMetricas>('actualizarMetricas');
+}
+
+export type RedMedida = 'facebook' | 'instagram';
+
+/** Resumen de los últimos 30 días para la pantalla Analítica (L1, L5). */
+export type ResumenAnalitica = {
+  dias: number;
+  publicaciones: { total: number; publicadas: number; fallidas: number };
+  kpis: { alcance: number | null; interacciones: number; tasa: number | null; publicacionesMedidas: number };
+  serie: { dia: string; facebook: number | null; instagram: number | null }[];
+  interaccionesPorRed: Record<RedMedida, number | null>;
+  redesSinAnalitica: string[];
+  mejorHora: {
+    suficiente: boolean;
+    minimo: number;
+    medidas: number;
+    celdas: { dia: number; banda: number; promedio: number; muestras: number }[];
+  };
+  mejores: {
+    id: string;
+    titulo: string;
+    fecha: string | null;
+    redes: RedMedida[];
+    alcance: number | null;
+    interacciones: number;
+  }[];
+  ultimaMedicion: string | null;
+};
+
+export async function resumenAnalitica() {
+  return callFn<ResumenAnalitica>('resumenAnalitica');
+}

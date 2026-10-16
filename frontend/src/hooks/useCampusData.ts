@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import {
   listarActividad,
@@ -10,6 +10,7 @@ import {
 } from '../lib/db';
 import { obtenerConfiguracion } from '../lib/db/configuracion';
 import type { ActividadItem, Borrador, EstadoPublicacion, Publicacion } from '../lib/db/types';
+import { actualizarMetricas, resumenAnalitica } from '../services/cloudFunctions';
 
 /**
  * Listas de datos desde Neon vía API. Se refrescan cada pocos segundos y tras cada escritura
@@ -125,6 +126,27 @@ export function useActividadLeida() {
     esSinLeer: (a: ActividadItem) => sinLeer.has(a.id),
     marcarTodasLeidas: () => guardarUltimaLectura(uid, Date.now()),
   };
+}
+
+/** Resumen de Analítica de los últimos 30 días. */
+export function useResumenAnalitica() {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['analitica', user?.uid],
+    queryFn: () => resumenAnalitica(),
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+}
+
+/** Mide las publicaciones recientes y, al terminar, refresca el resumen. */
+export function useActualizarMetricas() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => actualizarMetricas(),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['analitica', user?.uid] }),
+  });
 }
 
 export function useCanales() {

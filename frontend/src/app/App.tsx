@@ -6,7 +6,7 @@ import {
   Search, Bell, Command, ChevronDown, X, Check,
   Linkedin, Facebook, Instagram, Music2, Briefcase, Store,
   Clock, Trash2, Edit, Send, Plus,
-  Zap, Network, CheckCircle2,
+  Zap, Network, BarChart3, CheckCircle2,
   ArrowRight, Play, Eye, Save, Loader2,
   Filter, Copy, Download, Mail, LogOut, Moon, Sun, ShieldCheck,
   User, ChevronLeft,
@@ -47,7 +47,9 @@ import { ConectiaLogo } from './components/ConectiaLogo';
 import {
   useBorradores,
   useActividadLeida,
+  useActualizarMetricas,
   useCanales,
+  useResumenAnalitica,
   useConfiguracion,
   useDashboardStats,
   usePublicacionesProgramadas,
@@ -1245,6 +1247,7 @@ const DashboardShell: React.FC<{
     { id: 'subir', texto: 'Subir publicación', ejecutar: () => onNavigate('manual-post') },
     { id: 'borradores', texto: 'Ir a Borradores', ejecutar: () => onNavigate('drafts') },
     { id: 'calendario', texto: 'Ir a Calendario', ejecutar: () => onNavigate('calendar') },
+    { id: 'analitica', texto: 'Ir a Analítica', ejecutar: () => onNavigate('analytics') },
     { id: 'asistente', texto: 'Ir a Asistente IA', ejecutar: () => onNavigate('agent') },
     { id: 'canales', texto: 'Ir a Canales', ejecutar: () => onNavigate('channels') },
     { id: 'ajustes', texto: 'Ir a Ajustes', ejecutar: () => onNavigate('settings') },
@@ -1304,6 +1307,7 @@ const DashboardShell: React.FC<{
         { id: 'manual-post', icon: <Upload />, label: 'Subir publicación' },
         { id: 'drafts', icon: <FileText />, label: 'Borradores' },
         { id: 'calendar', icon: <Calendar />, label: 'Calendario' },
+        { id: 'analytics', icon: <BarChart3 />, label: 'Analítica' },
       ],
     },
     {
@@ -5317,6 +5321,306 @@ const ChannelsScreen: React.FC = () => {
 };
 
 // ============================================================================
+// PANTALLA: ANALÍTICA (M9 métricas, L1 panel, L5 mejor hora propia)
+// ============================================================================
+
+const REDES_ANALITICA: Record<'facebook' | 'instagram', string> = { facebook: 'Facebook', instagram: 'Instagram' };
+const BANDAS_HORA = ['07–10', '10–13', '13–17', '17–21'];
+const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const SEIS_HORAS_MS = 6 * 60 * 60 * 1000;
+
+const numero = (n: number) => n.toLocaleString('es-CO');
+/** "2026-10-12" → "12/10" */
+const diaCorto = (iso: string) => {
+  const [, mes, dia] = iso.split('-');
+  return `${dia}/${mes}`;
+};
+
+const AnaliticaScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
+  const { data: resumen, isLoading, error, refetch } = useResumenAnalitica();
+  const actualizar = useActualizarMetricas();
+  const medicionAutomatica = useRef(false);
+
+  // Al entrar: una medición si hay publicaciones y la última tiene más de 6 horas. Una sola vez por visita.
+  useEffect(() => {
+    if (!resumen || medicionAutomatica.current) return;
+    const ultima = resumen.ultimaMedicion ? Date.parse(resumen.ultimaMedicion) : 0;
+    if (resumen.publicaciones.publicadas > 0 && Date.now() - ultima > SEIS_HORAS_MS) {
+      medicionAutomatica.current = true;
+      actualizar.mutate();
+    }
+  }, [resumen]);
+
+  const resultado = actualizar.data;
+  const k = resumen?.kpis;
+  const serie = resumen?.serie ?? [];
+  const maxSerie = Math.max(1, ...serie.map((s) => (s.facebook ?? 0) + (s.instagram ?? 0)));
+  const porRed = resumen?.interaccionesPorRed;
+  const maxRed = Math.max(1, porRed?.facebook ?? 0, porRed?.instagram ?? 0);
+  const mh = resumen?.mejorHora;
+  const maxCelda = Math.max(1, ...(mh?.celdas.map((c) => c.promedio) ?? []));
+  const sinPermiso = resumen?.redesSinAnalitica ?? [];
+  const nombresSinPermiso = sinPermiso.map((r) => (r === 'linkedin' ? 'LinkedIn' : 'TikTok')).join(' y ');
+  const sinPublicaciones = resumen?.publicaciones.total === 0;
+
+  const tarjetas = [
+    {
+      label: 'Alcance (30 días)',
+      value: k?.alcance != null ? numero(k.alcance) : '—',
+      hint: 'Facebook e Instagram',
+      icon: <Eye />,
+      tone: 'brand' as const,
+    },
+    {
+      label: 'Interacciones',
+      value: k ? numero(k.interacciones) : '—',
+      hint: 'Me gusta, comentarios y compartidos',
+      icon: <Sparkles />,
+      tone: 'success' as const,
+    },
+    {
+      label: 'Tasa de interacción',
+      value: k?.tasa != null ? `${(k.tasa * 100).toLocaleString('es-CO', { maximumFractionDigits: 1 })} %` : '—',
+      hint: 'Sobre el alcance medido',
+      icon: <BarChart3 />,
+      tone: 'warning' as const,
+    },
+    {
+      label: 'Publicaciones',
+      value: resumen ? numero(resumen.publicaciones.total) : '—',
+      hint: resumen ? `${resumen.publicaciones.publicadas} publicadas · ${resumen.publicaciones.fallidas} fallidas` : 'Últimos 30 días',
+      icon: <Send />,
+      tone: 'brand' as const,
+    },
+  ];
+
+  return (
+    <ScreenLayout>
+      <PageHeader
+        title="Analítica"
+        subtitle="Alcance e interacciones de tus publicaciones, últimos 30 días"
+        actions={
+          <Button
+            variant="outline"
+            disabled={actualizar.isPending || isLoading}
+            icon={actualizar.isPending ? <Loader2 className="animate-spin" /> : undefined}
+            onClick={() => actualizar.mutate()}
+          >
+            {actualizar.isPending ? 'Midiendo…' : 'Actualizar'}
+          </Button>
+        }
+      />
+
+      {error && (
+        <Notice tone="danger" className="shrink-0" action={<Button variant="ghost" onClick={() => void refetch()}>Reintentar</Button>}>
+          No se pudo cargar la analítica.
+        </Notice>
+      )}
+      {actualizar.isError && <Notice tone="danger" className="shrink-0">{mensajeCallable(actualizar.error)}</Notice>}
+      {resultado && !resultado.actualizado && (
+        <Notice tone="info" className="shrink-0">Ya se midió hace poco. Vuelve a intentarlo dentro de media hora.</Notice>
+      )}
+      {resultado && resultado.avisos.length > 0 && (
+        <Notice tone="warning" className="shrink-0">{resultado.avisos.slice(0, 3).join(' · ')}</Notice>
+      )}
+      {sinPermiso.length > 0 && (
+        <Notice tone="info" className="shrink-0">
+          {nombresSinPermiso} necesita permisos de analítica de cada red. Sus publicaciones no se miden todavía.
+        </Notice>
+      )}
+
+      <p className="shrink-0 text-xs text-muted-foreground">
+        {resumen?.ultimaMedicion
+          ? `Última medición: ${new Date(resumen.ultimaMedicion).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+          : 'Todavía no hay mediciones.'}
+      </p>
+
+      {sinPublicaciones ? (
+        <EmptyState
+          icon={<BarChart3 />}
+          title="Aún no hay publicaciones que medir"
+          text="Cuando publiques en Facebook o Instagram, aquí verás su alcance y sus interacciones."
+          action={
+            <Button variant="outline" icon={<PenSquare />} onClick={() => onNavigate('new-post')}>
+              Nueva publicación
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <div className="grid shrink-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {tarjetas.map((card) => (
+              <div key={card.label} className="surface flex items-center justify-between gap-4 p-5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-muted-foreground">{card.label}</p>
+                  <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+                    {isLoading ? <Skeleton className="my-1 h-6 w-16" /> : card.value}
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.hint}</p>
+                </div>
+                <IconTile tone={card.tone} size="lg">
+                  {card.icon}
+                </IconTile>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Panel title="Alcance por día" icon={<BarChart3 />} className="lg:col-span-2">
+              {isLoading ? (
+                <Skeleton className="h-44 w-full" />
+              ) : serie.length === 0 ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  Todavía no hay mediciones de alcance. Pulsa Actualizar cuando tus publicaciones de Facebook o Instagram tengan unas horas.
+                </p>
+              ) : (
+                <>
+                  <div className="flex h-44 items-end gap-1.5" role="img" aria-label={`Alcance medido en ${serie.length} días`}>
+                    {serie.map((s) => {
+                      const fb = s.facebook ?? 0;
+                      const ig = s.instagram ?? 0;
+                      const total = fb + ig;
+                      return (
+                        <div key={s.dia} className="flex h-full min-w-0 flex-1 items-end" title={`${diaCorto(s.dia)}: ${numero(total)} de alcance`}>
+                          <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-md" style={{ height: `${(total / maxSerie) * 100}%` }}>
+                            <div className="bg-brand" style={{ flexGrow: fb }} />
+                            <div className="bg-warning" style={{ flexGrow: ig }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 flex justify-between text-xs tabular-nums text-muted-foreground">
+                    <span>{diaCorto(serie[0].dia)}</span>
+                    <span>{diaCorto(serie[serie.length - 1].dia)}</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-brand" aria-hidden />
+                      Facebook
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-warning" aria-hidden />
+                      Instagram
+                    </span>
+                  </div>
+                </>
+              )}
+            </Panel>
+
+            <Panel title="Interacciones por red" icon={<Share2 />}>
+              <div className="space-y-4">
+                {(['facebook', 'instagram'] as const).map((red) => {
+                  const valor = porRed?.[red] ?? null;
+                  return (
+                    <div key={red}>
+                      <div className="mb-1.5 flex items-center justify-between text-sm">
+                        <span className="font-medium text-foreground">{REDES_ANALITICA[red]}</span>
+                        <span className="tabular-nums text-muted-foreground">{valor == null ? 'Sin datos' : numero(valor)}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-accent">
+                        <div className="h-2 rounded-full bg-brand transition-[width] duration-500" style={{ width: `${((valor ?? 0) / maxRed) * 100}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {sinPermiso.map((red) => (
+                  <div key={red} className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-foreground">{red === 'linkedin' ? 'LinkedIn' : 'TikTok'}</span>
+                    <Badge variant="warning">Requiere permiso</Badge>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">Cada publicación cuenta con su última medición.</p>
+              </div>
+            </Panel>
+
+            <Panel title="Mejor hora para tu cuenta" icon={<Clock />}>
+              {isLoading ? (
+                <Skeleton className="h-40 w-full" />
+              ) : mh?.suficiente ? (
+                <>
+                  <div className="grid grid-cols-[auto_repeat(4,minmax(0,1fr))] gap-1.5 text-xs">
+                    <span />
+                    {BANDAS_HORA.map((b) => (
+                      <span key={b} className="text-center text-muted-foreground">
+                        {b}
+                      </span>
+                    ))}
+                    {DIAS_SEMANA.map((d, dia) => (
+                      <React.Fragment key={d}>
+                        <span className="flex items-center pr-1 text-muted-foreground">{d}</span>
+                        {BANDAS_HORA.map((b, banda) => {
+                          const c = mh.celdas.find((x) => x.dia === dia && x.banda === banda);
+                          const etiqueta = c
+                            ? `${d} ${b}: media de ${c.promedio.toLocaleString('es-CO', { maximumFractionDigits: 1 })} interacciones en ${c.muestras} publicaciones`
+                            : `${d} ${b}: sin publicaciones`;
+                          const intensidad = c ? Math.max(12, Math.round((c.promedio / maxCelda) * 100)) : 0;
+                          return (
+                            <span
+                              key={b}
+                              role="img"
+                              aria-label={etiqueta}
+                              title={etiqueta}
+                              className="h-8 rounded-md"
+                              style={{
+                                background: c
+                                  ? `color-mix(in srgb, var(--brand) ${intensidad}%, var(--accent))`
+                                  : 'var(--accent)',
+                              }}
+                            />
+                          );
+                        })}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Más oscuro = más interacción en tu cuenta. Hora de Bogotá, con {mh.medidas} publicaciones medidas.
+                  </p>
+                </>
+              ) : (
+                <EmptyState
+                  icon={<Clock />}
+                  title="Aún no hay datos suficientes"
+                  text={`Necesitamos al menos ${mh?.minimo ?? 10} publicaciones medidas para mostrar tu mejor hora. Llevas ${mh?.medidas ?? 0}.`}
+                />
+              )}
+            </Panel>
+
+            <Panel title="Mejores publicaciones" icon={<Sparkles />} className="lg:col-span-2">
+              {isLoading ? (
+                <Skeleton className="h-24 w-full" />
+              ) : resumen && resumen.mejores.length > 0 ? (
+                <ul className="divide-y divide-border">
+                  {resumen.mejores.map((p) => (
+                    <li key={p.id} className="flex items-center gap-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">{p.titulo}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {p.fecha ? new Date(p.fecha).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }) : 'Sin fecha'} ·{' '}
+                          {p.redes.map((r) => REDES_ANALITICA[r]).join(', ')}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                        <p>
+                          <span className="font-semibold text-foreground">{numero(p.interacciones)}</span> interacciones
+                        </p>
+                        <p>{p.alcance != null ? `${numero(p.alcance)} de alcance` : 'Sin alcance'}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="py-6 text-center text-sm text-muted-foreground">Aún no hay publicaciones medidas.</p>
+              )}
+            </Panel>
+          </div>
+        </>
+      )}
+    </ScreenLayout>
+  );
+};
+
+// ============================================================================
 // PANTALLA 8: AJUSTES
 // ============================================================================
 
@@ -5784,6 +6088,8 @@ export default function App({ productionMode = false }: { productionMode?: boole
         return <CalendarScreen onNavigate={navegar} inicial={calendarioInicial} />;
       case 'agent':
         return <AgentScreen onNavigate={setCurrentScreen} />;
+      case 'analytics':
+        return <AnaliticaScreen onNavigate={navegar} />;
       case 'channels':
         return <ChannelsScreen />;
       case 'settings':

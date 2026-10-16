@@ -132,6 +132,19 @@ CREATE TABLE IF NOT EXISTS ciclos_programador (
   fallidas      INTEGER NOT NULL DEFAULT 0
 );
 
+-- Métricas por publicación y red (M9). Una fila por día de medición; solo Facebook e Instagram tienen permiso de analítica.
+CREATE TABLE IF NOT EXISTS metricas_publicacion (
+  publicacion_id  UUID NOT NULL REFERENCES publicaciones(id) ON DELETE CASCADE,
+  usuario_id      TEXT NOT NULL REFERENCES usuarios(uid) ON DELETE CASCADE,
+  red             TEXT NOT NULL,
+  dia             DATE NOT NULL,
+  alcance         INTEGER,
+  interacciones   INTEGER,
+  medido_en       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (publicacion_id, red, dia)
+);
+CREATE INDEX IF NOT EXISTS metricas_usuario_idx ON metricas_publicacion (usuario_id, dia DESC);
+
 -- Bloqueos cortos por clave (p. ej. renovar un token): evitan dos ejecuciones simultáneas.
 CREATE TABLE IF NOT EXISTS bloqueos (
   clave   TEXT PRIMARY KEY,
