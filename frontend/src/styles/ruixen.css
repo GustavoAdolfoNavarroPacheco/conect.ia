@@ -1,0 +1,86 @@
+/* ==========================================================================
+   Animaciones y fondos de los componentes adaptados de Ruixen UI (MIT).
+   Ver frontend/src/app/components/ruixen/README.md
+   Todo usa tokens de Conect.ia y respeta prefers-reduced-motion.
+   ========================================================================== */
+
+/* Cinta de logos: tres copias, se desplaza un tercio (un ciclo completo) */
+@keyframes ruixen-ribbon {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% / 3));
+  }
+}
+
+/* Barra de progreso del autoavance de "Funciones" */
+@keyframes ruixen-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Barrido de brillo del banner de anuncio (una sola vez) */
+@keyframes ruixen-shimmer {
+  from {
+    background-position: 140% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
+}
+
+/* Deriva lenta del halo del hero */
+@keyframes ruixen-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, -3%, 0) scale(1.06);
+  }
+}
+
+@layer components {
+  /* Rejilla de puntos con desvanecido en los bordes (fondo del hero) */
+  .ruixen-dots {
+    background-image: radial-gradient(color-mix(in srgb, var(--foreground) 18%, transparent) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 75%);
+  }
+
+  /* Halo del hero: marca sobre fondo, sin imágenes */
+  .ruixen-aurora {
+    background:
+      radial-gradient(40rem 22rem at 50% 0%, color-mix(in srgb, var(--brand) 28%, transparent), transparent 70%),
+      radial-gradient(28rem 18rem at 85% 20%, color-mix(in srgb, var(--brand-light) 22%, transparent), transparent 70%),
+      radial-gradient(26rem 16rem at 12% 30%, color-mix(in srgb, var(--brand-deep) 20%, transparent), transparent 70%);
+    animation: ruixen-drift 18s var(--ease-in-out) infinite;
+  }
+
+  /* Borde con degradado de marca (botón secundario del hero) */
+  .ruixen-gradient-border {
+    background: linear-gradient(120deg, var(--brand-light), var(--brand), var(--brand-deep));
+  }
+
+  .ruixen-ribbon-track {
+    animation: ruixen-ribbon var(--ruixen-ribbon-duration, 36s) linear infinite;
+  }
+
+  .ruixen-mask-x {
+    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ruixen-ribbon-track,
+  .ruixen-aurora {
+    animation: none !important;
+  }
+}
