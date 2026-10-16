@@ -45,6 +45,9 @@ import { guardarConfiguracion } from '../lib/db/configuracion';
 import type { RedSocial, Borrador, Publicacion } from '../lib/db/types';
 import { ConectiaLogo } from './components/ConectiaLogo';
 import { LandingPage } from './pages/landing/LandingPage';
+import { AccountMenu } from './components/ruixen/AccountMenu';
+import { NotificationInbox, type InboxItem } from './components/ruixen/NotificationInbox';
+import { ThemeToggle } from './components/ruixen/ThemeToggle';
 import {
   ESTADOS_EN_CALENDARIO,
   useBorradores,
@@ -1010,6 +1013,14 @@ const PaletaComandos: React.FC<{ abierta: boolean; onCerrar: () => void; comando
   );
 };
 
+/** Icono y tono de cada tipo de actividad en la bandeja de notificaciones. */
+function avisoDeActividad(a: { id: string; tipo: string; mensaje: string; creadoEn?: string }, leido: boolean): InboxItem {
+  const icono =
+    a.tipo === 'programado' ? <Calendar /> : a.tipo === 'borrador' ? <FileText /> : a.tipo === 'error' ? <X /> : <CheckCircle2 />;
+  const tono = a.tipo === 'publicado' ? 'success' : a.tipo === 'borrador' ? 'warning' : a.tipo === 'error' ? 'danger' : 'brand';
+  return { id: a.id, title: a.mensaje, time: formatRelative(toDate(a.creadoEn)), read: leido, icon: icono, tone: tono };
+}
+
 const DashboardShell: React.FC<{
   children: React.ReactNode;
   activeScreen: string;
@@ -1017,17 +1028,15 @@ const DashboardShell: React.FC<{
   onLogout?: () => void;
 }> = ({ children, activeScreen, onNavigate, onLogout }) => {
   const { profile, user } = useAuth();
-  const { mode, toggleTheme } = useTheme();
+  const { mode, toggleTheme, setTheme } = useTheme();
   const { actividad, cantidadSinLeer, esSinLeer, marcarTodasLeidas } = useActividadLeida();
   const { stats: resumen } = useDashboardStats();
   const [paletaAbierta, setPaletaAbierta] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const cerrarDrawerRef = useRef<HTMLButtonElement>(null);
@@ -1094,13 +1103,11 @@ const DashboardShell: React.FC<{
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       if (!notifRef.current?.contains(e.target as Node)) setShowNotif(false);
-      if (!profileRef.current?.contains(e.target as Node)) setShowProfile(false);
       if (!searchRef.current?.contains(e.target as Node)) setSearchOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setShowNotif(false);
-        setShowProfile(false);
         setIsMenuOpen(false);
         setSearchOpen(false);
       }
@@ -1322,9 +1329,7 @@ const DashboardShell: React.FC<{
               <Command />
             </IconButton>
 
-            <IconButton label={mode === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} onClick={toggleTheme}>
-              {mode === 'dark' ? <Sun /> : <Moon />}
-            </IconButton>
+            <ThemeToggle isDark={mode === 'dark'} onToggle={toggleTheme} />
 
             <div className="sm:relative" ref={notifRef}>
               <IconButton
@@ -1338,83 +1343,26 @@ const DashboardShell: React.FC<{
               </IconButton>
               <Popover
                 open={showNotif}
-                className="fixed inset-x-4 top-[calc(4rem+env(safe-area-inset-top))] mt-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(20rem,calc(100vw-2rem))]"
+                className="fixed inset-x-4 top-[calc(4rem+env(safe-area-inset-top))] mt-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(25rem,calc(100vw-2rem))]"
               >
-                <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                  <p className="text-sm font-semibold">Notificaciones</p>
-                  {cantidadSinLeer > 0 && <Badge variant="purple">{cantidadSinLeer} sin leer</Badge>}
-                </div>
-                <div className="max-h-[min(448px,60dvh)] overflow-y-auto p-1.5">
-                  {actividad.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted-foreground">Sin notificaciones</p>}
-                  {actividad.slice(0, 8).map((a) => (
-                    <div key={a.id} className="flex gap-2.5 rounded-lg px-3 py-2.5">
-                      <span
-                        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${esSinLeer(a) ? 'bg-brand' : 'bg-transparent'}`}
-                        aria-hidden
-                      />
-                      <div className="min-w-0">
-                        <p className={`text-sm ${esSinLeer(a) ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>{a.mensaje}</p>
-                        <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {cantidadSinLeer > 0 && (
-                  <div className="border-t border-border p-1.5">
-                    <Button variant="ghost" className="w-full" onClick={marcarTodasLeidas}>
-                      Marcar todas como leídas
-                    </Button>
-                  </div>
-                )}
+                <NotificationInbox
+                  items={actividad.slice(0, 30).map((a) => avisoDeActividad(a, !esSinLeer(a)))}
+                  onMarkAllRead={marcarTodasLeidas}
+                />
               </Popover>
             </div>
 
-            <div className="relative" ref={profileRef}>
-              <button
-                type="button"
-                aria-label="Menú de perfil"
-                aria-expanded={showProfile}
-                onClick={() => setShowProfile((v) => !v)}
-                className={`flex h-10 w-10 items-center justify-center rounded-[10px] transition-colors duration-150 ${
-                  showProfile ? 'bg-accent' : 'hover:bg-accent'
-                }`}
-              >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
-                  {initials}
-                </span>
-              </button>
-              <Popover open={showProfile} className="absolute right-0 top-full mt-2 w-64">
-                <div className="border-b border-border px-4 py-3">
-                  <p className="truncate text-sm font-semibold" title={nombre}>
-                    {nombre}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground" title={email}>
-                    {email}
-                  </p>
-                </div>
-                <div className="p-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onNavigate('settings');
-                      setShowProfile(false);
-                    }}
-                    className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-foreground transition-colors duration-150 hover:bg-accent [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-muted-foreground"
-                  >
-                    <Settings />
-                    Ajustes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onLogout}
-                    className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-destructive transition-colors duration-150 hover:bg-destructive-soft"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Cerrar sesión
-                  </button>
-                </div>
-              </Popover>
-            </div>
+            <AccountMenu
+              nombre={nombre}
+              email={email}
+              iniciales={initials}
+              tema={mode}
+              onTema={setTheme}
+              onAjustes={() => onNavigate('settings')}
+              onCanales={() => onNavigate('channels')}
+              onPaleta={() => setPaletaAbierta(true)}
+              onCerrarSesion={onLogout}
+            />
           </div>
 
           {/* Búsqueda abierta en móvil: ocupa toda la topbar */}

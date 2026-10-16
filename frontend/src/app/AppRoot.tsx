@@ -13,6 +13,7 @@ import { isMetaOAuthCallbackPath } from '../lib/metaOAuth';
 import { isTikTokOAuthCallbackPath } from '../lib/tiktokOAuth';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 import { ConectiaLogo } from './components/ConectiaLogo';
+import { RippleLoader } from './components/ruixen/RippleLoader';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -27,10 +28,11 @@ function AppWithAuth() {
 
   if (loading) {
     return (
-      <div className="ambient-light flex h-full flex-col items-center justify-center gap-4 bg-background" role="status">
-        <div className="animate-pulse-slow">
-          <ConectiaLogo size="lg" />
-        </div>
+      <div className="ambient-light flex h-full flex-col items-center justify-center gap-2 bg-background" role="status">
+        <RippleLoader>
+          <ConectiaLogo size="lg" showText={false} />
+        </RippleLoader>
+        <ConectiaLogo size="md" />
         <span className="text-sm text-muted-foreground">Cargando…</span>
       </div>
     );
