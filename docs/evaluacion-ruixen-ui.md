@@ -38,7 +38,7 @@ Un componente entra solo si cumple **todo** esto:
 | `notification-inbox-popover` | Adaptada | `NotificationInbox.tsx` | Avisos de la barra superior | Pestañas Todas / Sin leer, icono por tipo, contraste con tokens, sin sonido. |
 | `account-menu` | Adaptada | `AccountMenu.tsx` | Menú de la persona usuaria | Radix Dropdown con tema, buscador (Ctrl K) y cerrar sesión; sustituye al menú manual. |
 | `load-ripple` | Adaptada | `RippleLoader.tsx` | Pantalla de carga inicial | Anillos con color de marca y el logo al centro. |
-| `number-ticker` | Adaptada | `NumberTicker.tsx` | Inicio, Analítica y Canales | Formato es-CO, valor final inmediato con movimiento reducido, vuelve a animar si cambian los datos. |
+| `number-ticker` | Adaptada | `NumberTicker.tsx` | Inicio, Analítica y Canales | Formato es-CO, resorte más rápido (el original tarda más de 3 s en asentarse; este llega en ~1 s sin pasarse), valor final inmediato con movimiento reducido, vuelve a animar si cambian los datos. |
 | `animated-circular-progress-bar` | Adaptada | `ProgressRing.tsx` | Analítica (publicadas) y Asistente (cuota) | Llenado con `pathLength`, colores por tono (marca / aviso / peligro), `role="progressbar"`. |
 | `badge-morph` | Adaptada | `BadgeMorph.tsx` | Estado de cada canal | Píldora suave por tono con icono que se dibuja; estados Conectado, Vence pronto, Caducado, Sin conectar, Próximamente. |
 | `floating-input` / `password-field` | Propia inspirada | `AuthField.tsx` | Acceso y registro | Etiqueta flotante con icono, error, ayuda y botón de ver contraseña. |
@@ -112,3 +112,12 @@ Cada fila nombra los componentes revisados. "No" va acompañado del motivo concr
 - **Barra inferior móvil (`luma-bar`)**: duplicaría la navegación y quitaría espacio vertical.
 - **Reemplazo del calendario editorial**: los componentes de calendario de Ruixen son selectores, no vistas editoriales.
 - **Cifras inventadas** (clientes, estadísticas): ningún componente de "social proof" se usó con datos que la app no pueda respaldar.
+
+## 8. Verificación
+
+Se revisó en local con un servidor de datos simulados (no con el backend real) y el navegador integrado de la aplicación (Chromium):
+
+- **Revisado**: landing a 320, 375, 768 y 1238 px (claro y oscuro); acceso y registro a 320 px en oscuro, con medidor de contraseña; las nueve pantallas de la app a 1238 px en claro y a 375 px en oscuro, midiendo desbordes horizontales (ninguno); selector de fecha y hora en escritorio y móvil, claro y oscuro, dentro y fuera de un modal; chat del asistente enviando un mensaje; contadores, anillos y barras de Analítica; estados de Canales.
+- **Corregido durante la revisión**: la barra de la landing se salía 24 px a 320 px; la lista de horarios del selector se encogía en móvil; el marcador de posición del chat se partía en dos líneas en móvil; el resorte de los contadores era demasiado lento.
+- **No verificado**: backend real y redes reales (OAuth, publicación), movimiento reducido activado en el sistema, Safari y Firefox, lectores de pantalla, y el despliegue de vista previa en Vercel.
+- Comprobaciones automáticas: `tsc` del frontend, `npm run typecheck` (servidor y edge) y `npm run build` del frontend pasan.
