@@ -14,6 +14,7 @@ import {
   reclamarReintentoRedes,
 } from '../db/repo';
 import { estadoDeRed, tokenRechazado } from '../integracion/estadoConexion';
+import { esVideoMedio } from '../integracion/urlsMedia';
 import type { RedSocial, ResultadoRed } from '../types';
 import { publishToInstagram } from '../social/instagram';
 import { publishToFacebook } from '../social/facebook';
@@ -163,6 +164,15 @@ async function enviarPublicacion(
     | undefined;
 
   const tasks = redes.map(async (red) => {
+    // LinkedIn y Facebook no publican video en esta app: se corta antes de llamar a la red (Q20).
+    if (esVideoMedio(post.imagenUrl) && (red === 'linkedin' || red === 'facebook')) {
+      resultados[red] = {
+        success: false,
+        error: `${red === 'linkedin' ? 'LinkedIn' : 'Facebook'} no admite video en esta app. Quita el video o la red.`,
+      };
+      await registrarResultadoRed(postId, red, resultados[red]);
+      return;
+    }
     // Con el token caducado no se llama a la red: se pide reconectar en Canales.
     if (estadoDeRed(red, tokens).estado === 'caducado') {
       resultados[red] = {
@@ -227,7 +237,8 @@ async function enviarPublicacion(
               tiktokTokens,
               post.contenido,
               post.imagenUrl,
-              persistTiktok
+              persistTiktok,
+              { generadoIa: post.generadoIa }
             );
           } finally {
             await liberarBloqueo(claveTiktok);

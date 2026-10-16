@@ -115,6 +115,7 @@ export const crearPublicacionDatos = onCall({ region: 'us-central1' }, async (re
     estado,
     imagenUrl: typeof d.imagenUrl === 'string' ? d.imagenUrl : null,
     fechaProgramada: optionalIso(d.fechaProgramada, 'fechaProgramada') ?? null,
+    generadoIa: d.generadoIa === true,
   });
   return { id };
 });

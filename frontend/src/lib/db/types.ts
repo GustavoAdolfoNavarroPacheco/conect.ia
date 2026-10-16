@@ -67,6 +67,8 @@ export type Publicacion = {
   intentos?: number;
   ultimoError?: string | null;
   publicadoEn?: string | null;
+  /** El texto lo generó la IA (se declara a TikTok al publicar). */
+  generadoIa?: boolean;
   n8nExecutionId?: string | null;
   creadoEn?: string;
   actualizadoEn?: string;

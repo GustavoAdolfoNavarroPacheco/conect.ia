@@ -437,7 +437,14 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
  * Confirmación de acciones destructivas con Modal (sustituye a window.confirm).
  * Uso: const [confirmar, dialogo] = useConfirm(); … if (await confirmar({...})) …; render {dialogo}
  */
-type OpcionesConfirmacion = { titulo: string; mensaje: string; accion: string; destructiva?: boolean };
+type OpcionesConfirmacion = {
+  titulo: string;
+  mensaje: string;
+  accion: string;
+  destructiva?: boolean;
+  /** Resumen en filas (p. ej. redes, medio, aviso de IA, cuándo) para revisar antes de confirmar. */
+  detalles?: { etiqueta: string; valor: string }[];
+};
 function useConfirm(): [(o: OpcionesConfirmacion) => Promise<boolean>, React.ReactNode] {
   const [estado, setEstado] = useState<(OpcionesConfirmacion & { resolver: (v: boolean) => void }) | null>(null);
   const confirmar = useCallback(
@@ -469,6 +476,16 @@ function useConfirm(): [(o: OpcionesConfirmacion) => Promise<boolean>, React.Rea
       }
     >
       <p className="text-sm text-muted-foreground">{estado?.mensaje}</p>
+      {estado?.detalles && (
+        <dl className="mt-4 divide-y divide-border rounded-xl border border-border text-sm">
+          {estado.detalles.map((d) => (
+            <div key={d.etiqueta} className="flex justify-between gap-4 px-3 py-2">
+              <dt className="text-muted-foreground">{d.etiqueta}</dt>
+              <dd className="text-right font-medium text-foreground [overflow-wrap:anywhere]">{d.valor}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
     </Modal>
   );
   return [confirmar, dialogo];
@@ -1500,9 +1517,11 @@ type RedSelectorProps = {
   value: RedSocial[];
   onChange: (next: RedSocial[]) => void;
   canales?: CanalesDoc | null;
+  /** El medio adjunto es un video: se bloquean las redes que no lo admiten. */
+  medioVideo?: boolean;
 };
 
-const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales }) => {
+const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales, medioVideo = false }) => {
   const toggle = (red: RedSocial) => {
     onChange(value.includes(red) ? value.filter((r) => r !== red) : [...value, red]);
   };
@@ -1513,12 +1532,17 @@ const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales }) =
         {CATALOGO_REDES.map((red) => {
           const selected = value.includes(red.id);
           const conectada = redEstaConectada(red.id, canales);
-          const bloqueada = !red.disponible || !conectada;
-          const title = !red.disponible
-            ? `${red.nombre}: ${red.descripcion}`
+          const sinVideo = medioVideo && !red.admiteVideo;
+          const bloqueada = !red.disponible || !conectada || sinVideo;
+          // Q2: el motivo de cada red bloqueada se ve en el botón, no solo en el tooltip.
+          const motivo = !red.disponible
+            ? 'Próximamente'
             : !conectada
-              ? `Conecta ${red.nombre} en Canales para habilitarlo`
-              : undefined;
+              ? 'Conecta en Canales'
+              : sinVideo
+                ? 'No admite video'
+                : null;
+          const title = motivo ? `${red.nombre}: ${motivo}` : undefined;
           return (
             <button
               key={red.id}
@@ -1532,7 +1556,10 @@ const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales }) =
                 ${bloqueada ? 'cursor-not-allowed opacity-45' : 'cursor-pointer'}`}
             >
               {redIcono(red.id, 'w-4 h-4')}
-              <span className="flex-1 truncate font-medium">{red.nombre}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{red.nombre}</span>
+                {motivo && <span className="block text-[11px] leading-tight text-muted-foreground">{motivo}</span>}
+              </span>
               <span
                 className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[6px] border transition-colors duration-150 ${
                   selected ? 'border-brand bg-brand' : 'border-muted-foreground/40'
@@ -1554,7 +1581,7 @@ const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales }) =
   );
 };
 
-const NewPostScreen: React.FC = () => {
+const NewPostScreen: React.FC<{ onNavigate?: (screen: string) => void }> = ({ onNavigate }) => {
   const { user, profile } = useAuth();
   const { data: config } = useConfiguracion();
   const { data: canales } = useCanales();
@@ -1575,6 +1602,16 @@ const NewPostScreen: React.FC = () => {
   const [repeatMode, setRepeatMode] = useState('none');
   const [scheduleMode, setScheduleMode] = useState<'now' | 'schedule'>('schedule');
   const [generatedText, setGeneratedText] = useState('');
+  // Variaciones del texto que devuelve la IA (M19) y el texto original con sus hashtags.
+  const [variaciones, setVariaciones] = useState<string[]>([]);
+  const [variacionIdx, setVariacionIdx] = useState(-1);
+  const [textoOriginal, setTextoOriginal] = useState('');
+  const [hashtagsTexto, setHashtagsTexto] = useState('');
+  // Q21: el texto lo generó la IA y se declara a las redes que lo exigen.
+  const [generadoPorIa, setGeneradoPorIa] = useState(false);
+  const [aiDisclosure, setAiDisclosure] = useState(false);
+  // Aviso tras "Publicar ahora": cada red confirma por separado.
+  const [ultimoEnvio, setUltimoEnvio] = useState<string | null>(null);
   const [imagenNota, setImagenNota] = useState('');
   const [imagenUrl, setImagenUrl] = useState('');
   const [generarVideo, setGenerarVideo] = useState(false);
@@ -1696,7 +1733,14 @@ const NewPostScreen: React.FC = () => {
           generateImage
         );
       const tags = gen.hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ');
-      setGeneratedText([gen.contenido, tags].filter(Boolean).join('\n\n'));
+      const textoCompleto = [gen.contenido, tags].filter(Boolean).join('\n\n');
+      setGeneratedText(textoCompleto);
+      setTextoOriginal(textoCompleto);
+      setHashtagsTexto(tags);
+      setVariaciones((gen.variaciones ?? []).filter((v) => v.trim().length > 0));
+      setVariacionIdx(-1);
+      setGeneradoPorIa(true);
+      setAiDisclosure(true);
       setImagenUrl(gen.imagenUrl ?? '');
       setImagenNota(gen.imagenNota ?? '');
       setHasContent(true);
@@ -1873,16 +1917,6 @@ const NewPostScreen: React.FC = () => {
         setErrorMsg('Conecta al menos una red en Canales o configura la URL de Make en Ajustes.');
         return;
       }
-      // Publicar ahora no tiene vuelta atrás: se confirma antes de enviar.
-      const redesAhora = platformsSelected().map((r) => redConfig(r)?.nombre ?? r).join(', ') || RED_PRINCIPAL;
-      if (
-        !(await confirmar({
-          titulo: '¿Publicar ahora?',
-          mensaje: `Se enviará a ${redesAhora} en este momento. Revisa el texto y la imagen antes de continuar.`,
-          accion: 'Publicar',
-        }))
-      )
-        return;
     }
     setIsGenerating(true);
     setErrorMsg('');
@@ -1898,6 +1932,40 @@ const NewPostScreen: React.FC = () => {
           `${desconectadas.map((r) => redConfig(r)?.nombre ?? r).join(', ')} no está conectada. Conéctala en Canales o quítala de la selección.`
         );
         return;
+      }
+      // Límite de caracteres por red (M2): no se envía un texto que la red rechazará.
+      const textoActual = generatedText || topic;
+      const sobreLimite = platforms.filter((r) => {
+        const limite = redConfig(r)?.limiteCaracteres;
+        return limite != null && textoActual.length > limite;
+      });
+      if (sobreLimite.length) {
+        setErrorMsg(
+          `${sobreLimite.map((r) => redConfig(r)?.nombre ?? r).join(' y ')} supera el límite de caracteres. Acorta el texto o quita la red.`
+        );
+        return;
+      }
+      if (scheduleMode === 'now') {
+        // Publicar ahora no tiene vuelta atrás: se revisa el resumen antes de enviar.
+        const redesAhora = platforms.map((r) => redConfig(r)?.nombre ?? r).join(', ');
+        const medioTexto = videoUrl || manualUploads[0]?.type === 'video' ? 'Video' : imagenUrl || previewImageUrl ? 'Imagen' : 'Sin medio';
+        const resumenTexto = textoActual.trim();
+        if (
+          !(await confirmar({
+            titulo: 'Revisa antes de publicar',
+            mensaje: 'Se enviará ahora. Cada red confirma por separado: si una falla, las demás no se cancelan.',
+            accion: 'Publicar',
+            destructiva: false,
+            detalles: [
+              { etiqueta: 'Redes', valor: redesAhora },
+              { etiqueta: 'Medio', valor: medioTexto },
+              { etiqueta: 'Aviso de IA', valor: generadoPorIa && aiDisclosure ? 'Sí · se declara en TikTok' : 'No' },
+              { etiqueta: 'Cuándo', valor: 'Ahora' },
+              { etiqueta: 'Texto', valor: resumenTexto.length > 120 ? `${resumenTexto.slice(0, 120)}…` : resumenTexto },
+            ],
+          }))
+        )
+          return;
       }
       const finalImageUrl = await resolvePostImageUrl();
       if (imagenQuedoSinResolver(imagenUrl || previewImageUrl, finalImageUrl)) {
@@ -1926,6 +1994,7 @@ const NewPostScreen: React.FC = () => {
         redesDestino: platforms,
         estado: scheduleMode === 'now' ? 'pendiente' : 'borrador',
         imagenUrl: finalImageUrl,
+        generadoIa: generadoPorIa && aiDisclosure,
       });
 
       if (scheduleMode === 'now') {
@@ -2013,6 +2082,7 @@ const NewPostScreen: React.FC = () => {
         });
       }
       if (scheduleMode === 'now') {
+        setUltimoEnvio(platforms.map((r) => redConfig(r)?.nombre ?? r).join(', '));
         // Ya salió: se limpia el formulario para que un clic más no la envíe otra vez.
         setTopic('');
         setGeneratedText('');
@@ -2093,7 +2163,12 @@ const NewPostScreen: React.FC = () => {
           <div className="space-y-6">
             <div className="space-y-2">
               <span className="text-sm font-medium text-foreground">Redes de publicación</span>
-              <RedSelector value={selectedRedes} onChange={setSelectedRedes} canales={canales} />
+              <RedSelector
+                value={selectedRedes}
+                onChange={setSelectedRedes}
+                canales={canales}
+                medioVideo={Boolean(videoUrl) || manualUploads[0]?.type === 'video'}
+              />
               {selectedRedes.length === 0 && (
                 <Notice tone="warning">Elige al menos una red para poder publicar.</Notice>
               )}
@@ -2329,6 +2404,18 @@ const NewPostScreen: React.FC = () => {
             ) : undefined
           }
         >
+          {ultimoEnvio && !showPreview && (
+            <div className="mb-4 space-y-2">
+              <Notice tone="success">
+                Enviado a {ultimoEnvio}. Cada red confirma por separado.
+              </Notice>
+              {onNavigate && (
+                <Button variant="outline" icon={<Calendar />} onClick={() => onNavigate('calendar')}>
+                  Ver en calendario
+                </Button>
+              )}
+            </div>
+          )}
           {!showPreview && !isGenerating && (
             <EmptyState
               icon={<Eye />}
@@ -2355,6 +2442,62 @@ const NewPostScreen: React.FC = () => {
             </div>
           )}
 
+          {showPreview && !videoUrl && manualUploads[0]?.type !== 'video' && (
+            <div className="mb-4 space-y-3">
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Variaciones del texto">
+                <button
+                  type="button"
+                  aria-pressed={variacionIdx === -1}
+                  onClick={() => {
+                    setVariacionIdx(-1);
+                    setGeneratedText(textoOriginal);
+                  }}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    variacionIdx === -1 ? 'border-brand bg-brand-soft text-brand-strong' : 'border-border text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Original
+                </button>
+                {variaciones.map((v, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    aria-pressed={variacionIdx === i}
+                    onClick={() => {
+                      setVariacionIdx(i);
+                      setGeneratedText([v, hashtagsTexto].filter(Boolean).join('\n\n'));
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      variacionIdx === i ? 'border-brand bg-brand-soft text-brand-strong' : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Variante {i + 1}
+                  </button>
+                ))}
+              </div>
+              <Textarea label="Contenido" rows={6} value={generatedText} onChange={(e) => setGeneratedText(e.target.value)} />
+              <ul className="grid gap-1 text-xs" aria-label="Caracteres por red">
+                {selectedRedes.length === 0 && <li className="text-muted-foreground">Elige una red para ver su límite.</li>}
+                {selectedRedes.map((r) => {
+                  const cfg = redConfig(r);
+                  const limite = cfg?.limiteCaracteres ?? null;
+                  const sobre = limite != null && generatedText.length > limite;
+                  return (
+                    <li key={r} className={`flex justify-between ${sobre ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>
+                      <span>{cfg?.nombre ?? r}</span>
+                      <span className="tabular-nums">
+                        {generatedText.length}
+                        {limite != null ? ` / ${limite.toLocaleString('es-CO')}` : ''}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {generadoPorIa && (
+                <Checkbox label="Contenido generado con IA" checked={aiDisclosure} onChange={setAiDisclosure} />
+              )}
+            </div>
+          )}
           {showPreview && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={TRANSICION} className="space-y-4">
               {videoUrl || manualUploads[0]?.type === 'video' ? (
@@ -2466,6 +2609,16 @@ const ManualPostScreen: React.FC = () => {
         }))
       )
         return;
+    }
+    // Límite de caracteres por red (M2): no se envía un texto que la red rechazará.
+    const redesLimite = redesDestino.length ? redesDestino : [RED_PRINCIPAL];
+    const sobreLimite = redesLimite.filter((r) => {
+      const limite = redConfig(r)?.limiteCaracteres;
+      return limite != null && postText.length > limite;
+    });
+    if (sobreLimite.length) {
+      notify(`${sobreLimite.map((r) => redConfig(r)?.nombre ?? r).join(' y ')} supera el límite de caracteres. Acorta el texto o quita la red.`);
+      return;
     }
     // Las redes que necesitan medio se bloquean aquí, no después de fallar en la red.
     const redesConMedio = redesDestino.length ? redesDestino : [RED_PRINCIPAL];
@@ -2762,7 +2915,28 @@ const ManualPostScreen: React.FC = () => {
           <div className="space-y-6">
             <div className="space-y-2">
               <span className="text-sm font-medium text-foreground">Redes de publicación</span>
-              <RedSelector value={redesDestino} onChange={setRedesDestino} canales={canales} />
+              <RedSelector
+                value={redesDestino}
+                onChange={setRedesDestino}
+                canales={canales}
+                medioVideo={uploadedFiles.some((f) => f.type.startsWith('video'))}
+              />
+              <ul className="mt-3 grid gap-1 text-xs" aria-label="Caracteres por red">
+                {(redesDestino.length ? redesDestino : [RED_PRINCIPAL]).map((r) => {
+                  const cfg = redConfig(r);
+                  const limite = cfg?.limiteCaracteres ?? null;
+                  const sobre = limite != null && postText.length > limite;
+                  return (
+                    <li key={r} className={`flex justify-between ${sobre ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>
+                      <span>{cfg?.nombre ?? r}</span>
+                      <span className="tabular-nums">
+                        {postText.length}
+                        {limite != null ? ` / ${limite.toLocaleString('es-CO')}` : ''}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
 
             <div className="space-y-3 border-t border-border pt-5">
@@ -4925,7 +5099,7 @@ export default function App({ productionMode = false }: { productionMode?: boole
   const contenido = () => {
     switch (pantallaActiva) {
       case 'new-post':
-        return <NewPostScreen />;
+        return <NewPostScreen onNavigate={setCurrentScreen} />;
       case 'manual-post':
         return <ManualPostScreen />;
       case 'drafts':

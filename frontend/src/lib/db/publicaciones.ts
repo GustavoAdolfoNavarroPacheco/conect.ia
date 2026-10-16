@@ -15,6 +15,8 @@ export async function crearPublicacion(
     estado: EstadoPublicacion;
     imagenUrl?: string | null;
     fechaProgramada?: Date | null;
+    /** El texto lo generó la IA y se declara a las redes que lo exigen (Q21). */
+    generadoIa?: boolean;
   }
 ): Promise<string> {
   const { id } = await callFn<{ id: string }>('crearPublicacion', {
@@ -24,6 +26,7 @@ export async function crearPublicacion(
     estado: data.estado,
     imagenUrl: data.imagenUrl ?? null,
     fechaProgramada: data.fechaProgramada ? data.fechaProgramada.toISOString() : null,
+    generadoIa: data.generadoIa === true,
   });
   invalidarDatos();
   return id;

@@ -86,6 +86,7 @@ export type PublicacionRow = {
   intentos: number;
   ultimoError: string | null;
   publicadoEn: string | null;
+  generadoIa: boolean;
 };
 
 function mapPublicacion(r: Record<string, any>): PublicacionRow {
@@ -105,6 +106,7 @@ function mapPublicacion(r: Record<string, any>): PublicacionRow {
     intentos: Number(r.intentos ?? 0),
     ultimoError: r.ultimo_error ?? null,
     publicadoEn: iso(r.publicado_en),
+    generadoIa: r.generado_ia === true,
   };
 }
 
@@ -117,12 +119,14 @@ export async function crearPublicacion(
     estado: string;
     imagenUrl?: string | null;
     fechaProgramada?: string | null;
+    /** El texto lo generó la IA: se declara a las redes que lo exigen (Q21). */
+    generadoIa?: boolean;
   }
 ): Promise<string> {
   const rows = await sql()`
-    INSERT INTO publicaciones (titulo, contenido, imagen_url, redes_destino, estado, fecha_programada, creado_por)
+    INSERT INTO publicaciones (titulo, contenido, imagen_url, redes_destino, estado, fecha_programada, creado_por, generado_ia)
     VALUES (${data.titulo}, ${data.contenido}, ${data.imagenUrl ?? null}, ${JSON.stringify(data.redesDestino)}::jsonb,
-            ${data.estado}, ${data.fechaProgramada ?? null}::timestamptz, ${uid})
+            ${data.estado}, ${data.fechaProgramada ?? null}::timestamptz, ${uid}, ${data.generadoIa === true}::boolean)
     RETURNING id`;
   return rows[0]!.id as string;
 }

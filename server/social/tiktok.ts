@@ -104,7 +104,8 @@ async function initVideoPublish(
   title: string,
   videoSize: number,
   chunkPlan: { chunkSize: number; totalChunks: number },
-  privacyLevel: string
+  privacyLevel: string,
+  generadoIa = false
 ): Promise<{ publishId: string; uploadUrl: string }> {
   const body = {
     post_info: {
@@ -113,6 +114,8 @@ async function initVideoPublish(
       disable_duet: false,
       disable_comment: false,
       disable_stitch: false,
+      // Divulgación de contenido generado con IA (Q21), según el campo de la Content Posting API.
+      is_aigc: generadoIa,
     },
     source_info: {
       source: 'FILE_UPLOAD',
@@ -303,7 +306,8 @@ export async function publishToTikTok(
   tokens: TikTokTokens,
   contenido: string,
   videoUrl: string | null,
-  persistTokens?: (next: TikTokTokens) => Promise<void>
+  persistTokens?: (next: TikTokTokens) => Promise<void>,
+  opciones: { generadoIa?: boolean } = {}
 ): Promise<ResultadoRed> {
   let current = tokens;
   if (!current.accessToken || !current.refreshToken) {
@@ -362,7 +366,7 @@ export async function publishToTikTok(
     try {
       initResult = await conEsperaPorCuota(() =>
         withRetry(
-          () => initVideoPublish(accessToken, contenido, buffer.length, chunkPlan, privacy),
+          () => initVideoPublish(accessToken, contenido, buffer.length, chunkPlan, privacy, opciones.generadoIa === true),
           'tiktok init',
           3,
           esReintentableCreacion
