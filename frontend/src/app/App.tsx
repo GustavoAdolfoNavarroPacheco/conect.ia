@@ -775,7 +775,7 @@ function FilasAjustadas<T>({
   }, [alturaFila, max]);
 
   return (
-    <div ref={ref} className="lg:absolute lg:inset-0 lg:overflow-hidden lg:p-6">
+    <div ref={ref} className="lg:absolute lg:inset-0 lg:overflow-hidden lg:p-4">
       {items.length === 0 ? vacio : <ul className="-mx-2 space-y-1">{items.slice(0, caben).map((item) => children(item))}</ul>}
     </div>
   );
@@ -1784,7 +1784,7 @@ const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales, med
 
   return (
     <div className="@container">
-      <div className="grid grid-cols-2 gap-2 @md:grid-cols-3">
+      <div className={compacto ? 'flex flex-wrap gap-2' : 'grid grid-cols-2 gap-2 @md:grid-cols-3'}>
         {CATALOGO_REDES.map((red) => {
           const selected = value.includes(red.id);
           const conectada = redEstaConectada(red.id, canales);
@@ -1808,7 +1808,7 @@ const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales, med
               aria-pressed={selected}
               onClick={() => toggle(red.id)}
               title={title}
-              className={`flex h-10 items-center gap-2 rounded-[10px] border px-3 text-left text-sm transition-colors duration-150
+              className={`flex ${compacto ? 'h-9' : 'h-10'} items-center gap-2 rounded-[10px] border px-3 text-left text-sm transition-colors duration-150
                 ${selected ? 'border-brand bg-brand-soft text-foreground' : 'border-border bg-card hover:border-brand/40'}
                 ${bloqueada && !selected ? 'cursor-not-allowed opacity-45' : 'cursor-pointer'}
                 ${bloqueada && selected ? 'opacity-70' : ''}`}
@@ -1818,13 +1818,18 @@ const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales, med
                 <span className="block truncate font-medium">{red.nombre}</span>
                 {motivo && !compacto && <span className="block text-[11px] leading-tight text-muted-foreground">{motivo}</span>}
               </span>
-              <span
-                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[6px] border transition-colors duration-150 ${
-                  selected ? 'border-brand bg-brand' : 'border-muted-foreground/40'
-                }`}
-              >
-                {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-              </span>
+              {/* Compacto: sin casilla; la red elegida lo muestra con el borde y un check suelto. */}
+              {compacto ? (
+                selected && <Check className="h-3.5 w-3.5 shrink-0 text-brand-strong" strokeWidth={3} />
+              ) : (
+                <span
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[6px] border transition-colors duration-150 ${
+                    selected ? 'border-brand bg-brand' : 'border-muted-foreground/40'
+                  }`}
+                >
+                  {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                </span>
+              )}
             </button>
           );
         })}
@@ -3161,7 +3166,7 @@ const ManualPostScreen: React.FC = () => {
           title="Publicación"
           icon={<CalendarClock />}
           footer={
-            <div className="grid gap-2 py-1">
+            <div className="grid gap-2">
               <Button
                 size="lg"
                 className="w-full"
@@ -3183,7 +3188,7 @@ const ManualPostScreen: React.FC = () => {
             </div>
           }
         >
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="space-y-2">
               <span className="text-sm font-medium text-foreground">Redes de publicación</span>
               <RedSelector
@@ -3193,13 +3198,13 @@ const ManualPostScreen: React.FC = () => {
                 medioVideo={uploadedFiles.some((f) => f.type.startsWith('video'))}
                 compacto
               />
-              <ul className="mt-3 grid gap-1 text-xs" aria-label="Caracteres por red">
+              <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs" aria-label="Caracteres por red">
                 {(redesDestino.length ? redesDestino : [RED_PRINCIPAL]).map((r) => {
                   const cfg = redConfig(r);
                   const limite = cfg?.limiteCaracteres ?? null;
                   const sobre = limite != null && postText.length > limite;
                   return (
-                    <li key={r} className={`flex justify-between ${sobre ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>
+                    <li key={r} className={`flex gap-1.5 ${sobre ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>
                       <span>{cfg?.nombre ?? r}</span>
                       <span className="tabular-nums">
                         {postText.length}
@@ -3211,7 +3216,7 @@ const ManualPostScreen: React.FC = () => {
               </ul>
             </div>
 
-            <div className="space-y-3 border-t border-border pt-5">
+            <div className="space-y-3 border-t border-border pt-4">
               <Segmented
                 full
                 ariaLabel="Momento de publicación"
@@ -3716,13 +3721,14 @@ const ProgramadorEstado: React.FC<{ ciclo: EstadoProgramador['ultimoCiclo'] | un
 /** Categoría de una publicación en el calendario. Cada una tiene nombre además de color (Q13). */
 type CategoriaCal = 'programada' | 'vencida' | 'parcial' | 'enviando' | 'publicada' | 'fallida';
 
-const CATEGORIAS_CAL: { clave: CategoriaCal; nombre: string; punto: string }[] = [
-  { clave: 'programada', nombre: 'Programada', punto: 'bg-brand' },
-  { clave: 'vencida', nombre: 'Vencida', punto: 'bg-warning' },
-  { clave: 'parcial', nombre: 'Parcial', punto: 'bg-warning' },
-  { clave: 'enviando', nombre: 'Enviando', punto: 'bg-brand' },
-  { clave: 'publicada', nombre: 'Publicada', punto: 'bg-success' },
-  { clave: 'fallida', nombre: 'Fallida', punto: 'bg-destructive' },
+/** `punto`: color sólido (puntos y leyenda). `chip`: fondo suave con texto legible, para etiquetas dentro de las celdas. */
+const CATEGORIAS_CAL: { clave: CategoriaCal; nombre: string; punto: string; chip: string }[] = [
+  { clave: 'programada', nombre: 'Programada', punto: 'bg-brand', chip: 'bg-brand-soft text-brand-strong' },
+  { clave: 'vencida', nombre: 'Vencida', punto: 'bg-warning', chip: 'bg-warning-soft text-warning' },
+  { clave: 'parcial', nombre: 'Parcial', punto: 'bg-warning', chip: 'bg-warning-soft text-warning' },
+  { clave: 'enviando', nombre: 'Enviando', punto: 'bg-brand', chip: 'bg-brand-soft text-brand-strong' },
+  { clave: 'publicada', nombre: 'Publicada', punto: 'bg-success', chip: 'bg-success-soft text-success' },
+  { clave: 'fallida', nombre: 'Fallida', punto: 'bg-destructive', chip: 'bg-destructive-soft text-destructive' },
 ];
 
 function categoriaDeCal(post: Publicacion, vencida: boolean): CategoriaCal {
@@ -3759,6 +3765,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
   const [repFecha, setRepFecha] = useState('');
   const [repHora, setRepHora] = useState('');
   const diaRef = useRef<HTMLDivElement>(null);
+  const semanaRef = useRef<HTMLDivElement>(null);
   const celdasRef = useRef<(HTMLButtonElement | null)[]>([]);
 
   const monthLabel = viewDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
@@ -3807,6 +3814,14 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
   const lunesSemana = new Date(baseSemana.getFullYear(), baseSemana.getMonth(), baseSemana.getDate() - ((baseSemana.getDay() + 6) % 7));
   const diasSemana = Array.from({ length: 7 }, (_, i) => new Date(lunesSemana.getFullYear(), lunesSemana.getMonth(), lunesSemana.getDate() + i));
   const rangoSemana = `${diasSemana[0].toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })} – ${diasSemana[6].toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+  // La rejilla de la semana se abre ya desplazada a la primera publicación (o a la hora actual).
+  const lunesClave = lunesSemana.getTime();
+  useEffect(() => {
+    if (vista !== 'semana') return;
+    const el = semanaRef.current;
+    if (el) el.scrollTop = Number(el.dataset.scrollInicial ?? 0);
+  }, [vista, lunesClave, publicaciones.length]);
 
   const alternarFiltro = <T extends string>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, clave: T) =>
     setter((prev) => {
@@ -3862,7 +3877,8 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
 
   const filtrosCal = (
     <div className="space-y-4" aria-label="Filtros del calendario">
-      <p className="-mb-2 text-xs font-semibold text-muted-foreground">Redes</p>
+      <div className="space-y-2">
+      <p className="text-xs font-semibold text-muted-foreground">Redes</p>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por red">
         {CATALOGO_REDES.map((r) => {
           const activa = filtroRedes.has(r.id);
@@ -3881,7 +3897,9 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
           );
         })}
       </div>
-      <p className="-mb-2 text-xs font-semibold text-muted-foreground">Estado</p>
+      </div>
+      <div className="space-y-2">
+      <p className="text-xs font-semibold text-muted-foreground">Estado</p>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por estado">
         {CATEGORIAS_CAL.map((c) => {
           const activa = filtroEstados.has(c.clave);
@@ -3900,6 +3918,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
             </button>
           );
         })}
+      </div>
       </div>
     </div>
   );
@@ -3946,7 +3965,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
       );
     }
 
-    // Semana: siete columnas que aprovechan todo el alto; cada día lista sus publicaciones con hora, red y estado.
+    // Semana: rejilla por horas (días en columnas). Cada publicación ocupa su hora; si coinciden, se reparten en carriles.
     const postsDeDia = (d: Date) =>
       publicaciones
         .filter((p) => {
@@ -3955,78 +3974,165 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
         })
         .sort((a, b) => (toDate(a.fechaProgramada)?.getTime() ?? 0) - (toDate(b.fechaProgramada)?.getTime() ?? 0));
 
+    const ALTO_HORA = 64;
+    // Una publicación es un instante; el bloque dura lo justo para leerse (45 min: hora y dos líneas de título)
+    // y de ahí salen los choques entre bloques. Dos publicaciones separadas 45 min o más no se tocan.
+    const DURACION_MIN = 45;
+    const semana = diasSemana.map((d) => ({ d, posts: postsDeDia(d) }));
+    const horasUsadas = semana.flatMap((s) => s.posts.map((p) => toDate(p.fechaProgramada)?.getHours() ?? 0));
+    const horaInicio = Math.min(9, ...horasUsadas);
+    const horaFin = Math.min(24, Math.max(19, ...horasUsadas.map((h) => h + 1)));
+    const horas = Array.from({ length: horaFin - horaInicio }, (_, i) => horaInicio + i);
+    const totalSemana = semana.reduce((n, s) => n + s.posts.length, 0);
+    const etiquetaHora = (h: number) => new Date(2000, 0, 1, h).toLocaleTimeString('es-CO', { hour: 'numeric', hour12: true });
+    const minutosDesdeInicio = (f: Date) => f.getHours() * 60 + f.getMinutes() - horaInicio * 60;
+    const ahoraMin = minutosDesdeInicio(now);
+    // A qué altura debe quedar la rejilla al abrirla: la próxima publicación (lo que aún está por salir);
+    // si no hay, la primera de la semana; si la semana está vacía, la hora actual.
+    const fechasSemana = semana.flatMap((s) => s.posts).map((p) => toDate(p.fechaProgramada) as Date);
+    const proximas = fechasSemana.filter((f) => f.getTime() >= now.getTime());
+    const referencia = proximas.length ? proximas : fechasSemana;
+    const mirarMin = referencia.length ? Math.min(...referencia.map(minutosDesdeInicio)) : ahoraMin;
+    const scrollInicial = Math.max(0, Math.round(((mirarMin - 30) / 60) * ALTO_HORA));
+
     return (
-      <div className="min-h-0 flex-1 overflow-x-auto">
-        <div
-          className="grid h-full gap-2 md:min-h-[24rem] md:grid-cols-[repeat(7,minmax(8rem,1fr))]"
-          role="list"
-          aria-label="Semana"
-        >
-          {diasSemana.map((d) => {
-            const lista = postsDeDia(d);
-            const esHoyD = d.toDateString() === now.toDateString();
-            const seleccionado = selectedDay === d.getDate() && d.getMonth() === mes && d.getFullYear() === anio;
-            const nombreDia = d.toLocaleDateString('es-CO', { weekday: 'short' }).replace('.', '');
-            return (
-              <div
-                key={d.toISOString()}
-                role="listitem"
-                className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border transition-colors duration-150 ${
-                  seleccionado ? 'border-brand/40 bg-brand-soft/40' : 'border-border'
-                }`}
-              >
+      <div
+        ref={semanaRef}
+        data-scroll-inicial={scrollInicial}
+        className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card"
+        aria-label="Semana por horas"
+      >
+        <div className="relative min-w-[44rem]">
+          <div className="sticky top-0 z-20 grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] border-b border-border bg-card">
+            <div />
+            {semana.map(({ d, posts }) => {
+              const esHoyD = d.toDateString() === now.toDateString();
+              const seleccionado = selectedDay === d.getDate() && d.getMonth() === mes && d.getFullYear() === anio;
+              return (
                 <button
+                  key={d.toISOString()}
                   type="button"
                   onClick={() => irADia(d)}
-                  aria-label={`${d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}, ${lista.length} publicación(es)`}
-                  className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 text-left transition-colors hover:bg-accent"
+                  aria-label={`${d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}, ${posts.length} publicación(es)`}
+                  aria-pressed={seleccionado}
+                  className={`flex flex-col items-center gap-0.5 border-l border-border px-1 py-2 transition-colors hover:bg-accent ${
+                    seleccionado ? 'bg-brand-soft/50' : ''
+                  }`}
                 >
-                  <span className="flex items-center gap-2 md:flex-col md:items-start md:gap-0.5">
-                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{nombreDia}</span>
-                    <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-full text-base font-semibold tabular-nums ${
-                        esHoyD ? 'bg-brand text-white' : 'text-foreground'
-                      }`}
-                    >
-                      {d.getDate()}
-                    </span>
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {d.toLocaleDateString('es-CO', { weekday: 'short' }).replace('.', '')}
                   </span>
-                  {lista.length > 0 && <Badge variant="purple">{lista.length}</Badge>}
+                  <span
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-base font-semibold tabular-nums ${
+                      esHoyD ? 'bg-brand text-white' : 'text-foreground'
+                    }`}
+                  >
+                    {d.getDate()}
+                  </span>
+                  <span className="h-4 text-[11px] text-muted-foreground">
+                    {posts.length > 0 ? `${posts.length} publicación${posts.length > 1 ? 'es' : ''}` : ''}
+                  </span>
                 </button>
-                <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
-                  {lista.map((post) => {
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]">
+            <div className="relative" style={{ height: horas.length * ALTO_HORA }} aria-hidden>
+              {horas.map((h, i) => (
+                <span
+                  key={h}
+                  className="absolute right-2 -translate-y-1/2 text-[11px] tabular-nums text-muted-foreground"
+                  style={{ top: i * ALTO_HORA, display: i === 0 ? 'none' : undefined }}
+                >
+                  {etiquetaHora(h)}
+                </span>
+              ))}
+            </div>
+
+            {semana.map(({ d, posts }) => {
+              const esHoyD = d.toDateString() === now.toDateString();
+              const seleccionado = selectedDay === d.getDate() && d.getMonth() === mes && d.getFullYear() === anio;
+              // Carriles: cada publicación va en el primero libre; el ancho se reparte entre los carriles del día.
+              // El reparto es por grupo de bloques que se solapan: uno suelto ocupa todo el ancho.
+              const finCarril: number[] = [];
+              const carrilesPorGrupo: number[] = [];
+              let finGrupo = -1;
+              const colocadas = posts.map((post) => {
+                const f = toDate(post.fechaProgramada) as Date;
+                const inicio = minutosDesdeInicio(f);
+                if (inicio >= finGrupo) {
+                  finCarril.length = 0;
+                  carrilesPorGrupo.push(0);
+                  finGrupo = -1;
+                }
+                let carril = finCarril.findIndex((fin) => fin <= inicio);
+                if (carril < 0) {
+                  carril = finCarril.length;
+                  finCarril.push(0);
+                }
+                finCarril[carril] = inicio + DURACION_MIN;
+                finGrupo = Math.max(finGrupo, inicio + DURACION_MIN);
+                const grupo = carrilesPorGrupo.length - 1;
+                carrilesPorGrupo[grupo] = Math.max(carrilesPorGrupo[grupo], carril + 1);
+                return { post, f, inicio, carril, grupo };
+              });
+              return (
+                <div
+                  key={d.toISOString()}
+                  role="list"
+                  aria-label={d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric' })}
+                  className={`relative border-l border-border ${seleccionado ? 'bg-brand-soft/30' : ''}`}
+                  style={{
+                    height: horas.length * ALTO_HORA,
+                    backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${ALTO_HORA - 1}px, var(--border) ${ALTO_HORA - 1}px, var(--border) ${ALTO_HORA}px)`,
+                  }}
+                >
+                  {colocadas.map(({ post, f, inicio, carril, grupo }) => {
+                    const carriles = carrilesPorGrupo[grupo];
                     const cat = categoriaDeCal(post, isPostOverdue(post));
                     const info = CATEGORIAS_CAL.find((c) => c.clave === cat);
+                    const redes = (post.redesDestino ?? []).map((r) => redConfig(r as RedSocial)?.nombre ?? r).join(', ');
                     return (
-                      <li key={post.id}>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewPost(post)}
-                          title={`${post.titulo || 'Sin título'} · ${info?.nombre ?? cat}`}
-                          className="flex w-full gap-2 rounded-lg bg-accent/60 p-2 text-left transition-colors hover:bg-accent"
-                        >
-                          <span className={`w-1 shrink-0 self-stretch rounded-full ${info?.punto ?? 'bg-brand'}`} aria-hidden />
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-xs tabular-nums text-muted-foreground">
-                              {toDate(post.fechaProgramada)?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                              <span className="sr-only"> · {info?.nombre ?? cat}</span>
-                            </span>
-                            <span className="line-clamp-2 text-xs font-medium text-foreground">{post.titulo || 'Sin título'}</span>
-                            <span className="mt-1 flex items-center gap-1">
-                              {(post.redesDestino ?? []).slice(0, 4).map((r) => (
-                                <span key={r}>{redIcono(r as RedSocial, 'h-3.5 w-3.5')}</span>
-                              ))}
-                            </span>
-                          </span>
-                        </button>
-                      </li>
+                      <button
+                        key={post.id}
+                        type="button"
+                        role="listitem"
+                        onClick={() => setPreviewPost(post)}
+                        title={`${post.titulo || 'Sin título'} · ${redes} · ${info?.nombre ?? cat}`}
+                        className={`absolute overflow-hidden rounded-md py-0.5 pl-2.5 pr-1.5 text-left shadow-sm ring-1 ring-inset ring-black/5 transition hover:z-10 hover:brightness-95 ${info?.chip ?? ''}`}
+                        style={{
+                          top: (inicio / 60) * ALTO_HORA + 1,
+                          height: (DURACION_MIN / 60) * ALTO_HORA - 2,
+                          left: `calc(${(carril / carriles) * 100}% + 2px)`,
+                          width: `calc(${100 / carriles}% - 4px)`,
+                        }}
+                      >
+                        <span className={`absolute inset-y-1 left-1 w-[3px] rounded-full ${info?.punto ?? 'bg-brand'}`} aria-hidden />
+                        <span className="block truncate text-[11px] font-semibold leading-tight tabular-nums">
+                          {f.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })}
+                          <span className="sr-only"> · {info?.nombre ?? cat}</span>
+                        </span>
+                        <span className="line-clamp-2 text-xs font-medium leading-tight text-foreground">{post.titulo || 'Sin título'}</span>
+                      </button>
                     );
                   })}
-                  {lista.length === 0 && <li className="py-6 text-center text-xs text-muted-foreground">Libre</li>}
-                </ul>
-              </div>
-            );
-          })}
+                  {esHoyD && ahoraMin >= 0 && ahoraMin <= horas.length * 60 && (
+                    <div className="pointer-events-none absolute inset-x-0 z-10 flex items-center" style={{ top: (ahoraMin / 60) * ALTO_HORA }} aria-hidden>
+                      <span className="-ml-1 h-2 w-2 rounded-full bg-destructive" />
+                      <span className="h-px flex-1 bg-destructive" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {totalSemana === 0 && (
+            <p className="pointer-events-none absolute inset-x-0 top-1/2 text-center text-sm text-muted-foreground">
+              Sin publicaciones esta semana
+            </p>
+          )}
         </div>
       </div>
     );
@@ -4232,6 +4338,39 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
     invalidate();
   };
 
+  /** Vista, Hoy y navegación: en la cabecera del panel desde 640 px; en una fila propia por debajo. */
+  const controlesCal = (
+    <div className="flex flex-wrap items-center justify-end gap-1">
+      <Segmented
+        size="sm"
+        ariaLabel="Vista del calendario"
+        className="mr-1"
+        value={vista}
+        onChange={(v) => setVista(v as 'mes' | 'semana' | 'lista')}
+        options={[
+          { value: 'mes', label: 'Mes' },
+          { value: 'semana', label: 'Semana' },
+          { value: 'lista', label: 'Lista' },
+        ]}
+      />
+      <Button
+        variant="ghost"
+        onClick={() => {
+          setViewDate(new Date(now.getFullYear(), now.getMonth(), 1));
+          setSelectedDay(now.getDate());
+        }}
+      >
+        Hoy
+      </Button>
+      <IconButton label={vista === 'semana' ? 'Semana anterior' : 'Mes anterior'} onClick={() => desplazar(-1)}>
+        <ChevronLeft />
+      </IconButton>
+      <IconButton label={vista === 'semana' ? 'Semana siguiente' : 'Mes siguiente'} onClick={() => desplazar(1)}>
+        <ChevronRight />
+      </IconButton>
+    </div>
+  );
+
   return (
     <ScreenLayout>
       {dialogoConfirmacion}
@@ -4306,38 +4445,9 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
           scroll={false}
           className="max-[359px]:[&>div:nth-child(2)]:!p-2"
           bodyClassName="flex flex-col"
-          actions={
-            <div className="flex flex-wrap items-center justify-end gap-1">
-              <Segmented
-                size="sm"
-                ariaLabel="Vista del calendario"
-                className="mr-1"
-                value={vista}
-                onChange={(v) => setVista(v as 'mes' | 'semana' | 'lista')}
-                options={[
-                  { value: 'mes', label: 'Mes' },
-                  { value: 'semana', label: 'Semana' },
-                  { value: 'lista', label: 'Lista' },
-                ]}
-              />
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setViewDate(new Date(now.getFullYear(), now.getMonth(), 1));
-                  setSelectedDay(now.getDate());
-                }}
-              >
-                Hoy
-              </Button>
-              <IconButton label={vista === 'semana' ? 'Semana anterior' : 'Mes anterior'} onClick={() => desplazar(-1)}>
-                <ChevronLeft />
-              </IconButton>
-              <IconButton label={vista === 'semana' ? 'Semana siguiente' : 'Mes siguiente'} onClick={() => desplazar(1)}>
-                <ChevronRight />
-              </IconButton>
-            </div>
-          }
+          actions={<div className="hidden sm:block">{controlesCal}</div>}
         >
+          <div className="mb-3 shrink-0 sm:hidden">{controlesCal}</div>
           <div className={`mb-2 grid shrink-0 grid-cols-7 gap-1 sm:gap-2 ${vista !== 'mes' ? 'hidden' : ''}`} aria-hidden>
             {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
               <div key={d} className="py-1 text-center text-xs text-muted-foreground">
@@ -4362,7 +4472,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
               key={`${anio}-${mes}`}
               role="grid"
               aria-label={monthLabel}
-              className="grid flex-1 animate-fade grid-cols-7 gap-1 [--celda:44px] sm:gap-2 lg:[--celda:56px] lg:[@media(max-height:719px)]:[--celda:48px]"
+              className="grid min-h-0 flex-1 animate-fade grid-cols-7 gap-1 [--celda:44px] sm:gap-2 lg:[--celda:56px] lg:[@media(max-height:719px)]:[--celda:48px]"
               style={{ gridTemplateRows: `repeat(${semanas}, minmax(var(--celda), 1fr))` }}
             >
               {Array.from({ length: firstDayOffset }).map((_, i) => (
@@ -4398,19 +4508,38 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
                     aria-pressed={isSelected}
                     aria-current={esHoy ? 'date' : undefined}
                     aria-label={`${day} de ${monthLabel}${describirDia(posts)}`}
-                    className={`flex min-h-0 min-w-0 flex-col items-center overflow-hidden rounded-[10px] border p-1 text-left transition-colors duration-150 sm:items-start sm:p-2
+                    className={`flex min-h-0 min-w-0 flex-col items-center overflow-hidden rounded-[10px] border p-1 text-left transition-colors duration-150 sm:items-start sm:p-1.5
                       ${isSelected ? 'border-brand/40 bg-brand-soft' : 'border-border hover:bg-accent'}
                       ${destino ? 'border-brand ring-2 ring-brand/40' : ''}`}
                   >
                     <span
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm tabular-nums ${
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-sm tabular-nums ${
                         esHoy ? 'ring-2 ring-brand font-semibold text-brand-strong' : isSelected ? 'font-semibold text-brand-strong' : 'text-foreground'
                       }`}
                     >
                       {day}
                     </span>
                     {posts.length > 0 && (
-                      <span className="mt-auto flex items-center gap-1 pb-0.5" aria-hidden>
+                      <span className="mt-1 hidden w-full min-w-0 flex-col gap-0.5 xl:flex" aria-hidden>
+                        {posts.slice(0, semanas > 5 ? 1 : 2).map((post) => {
+                          const info = CATEGORIAS_CAL.find((c) => c.clave === categoriaDeCal(post, isPostOverdue(post)));
+                          return (
+                            <span
+                              key={post.id}
+                              className={`block truncate rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight ${info?.chip ?? ''}`}
+                            >
+                              {toDate(post.fechaProgramada)?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })}{' '}
+                              {post.titulo || 'Sin título'}
+                            </span>
+                          );
+                        })}
+                        {posts.length > (semanas > 5 ? 1 : 2) && (
+                          <span className="px-1 text-[11px] text-muted-foreground">+{posts.length - (semanas > 5 ? 1 : 2)} más</span>
+                        )}
+                      </span>
+                    )}
+                    {posts.length > 0 && (
+                      <span className="mt-auto flex items-center gap-1 pb-0.5 xl:hidden" aria-hidden>
                         {posts.slice(0, 3).map((post) => (
                           <span
                             key={post.id}
@@ -4477,15 +4606,13 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
                           <img src={post.imagenUrl} alt="" className="pointer-events-none h-full w-full object-cover" />
                         </div>
                       )}
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="line-clamp-1 text-sm font-medium" title={post.titulo}>
-                          {post.titulo || 'Publicación sin título'}
-                        </p>
-                        <span className="flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
-                          <Clock className="h-3.5 w-3.5" />
-                          {fp ? fp.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : 'Sin hora'}
-                        </span>
-                      </div>
+                      <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
+                        <Clock className="h-3.5 w-3.5" />
+                        {fp ? fp.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : 'Sin hora'}
+                      </span>
+                      <p className="mt-1 line-clamp-2 text-sm font-medium" title={post.titulo}>
+                        {post.titulo || 'Publicación sin título'}
+                      </p>
                       <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{post.contenido}</p>
                       <div className="mt-2">
                         <Badge
@@ -4681,7 +4808,7 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
     healthCheck()
       .then((h) => {
         setBackendOk(h.ok);
-        setAiHint(h.ai ? `IA: ${h.provider}` : h.aiError || h.hint || '');
+        setAiHint(h.ai ? (h.provider ? `IA: ${h.provider}` : 'IA activa') : h.aiError || h.hint || '');
         if (!h.ai) setError(h.aiError || 'API de IA no configurada en el backend');
       })
       .catch((e) => {
@@ -5015,8 +5142,8 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
         </section>
 
         {/* Columna lateral (≥ 1024): cuota de hoy, acciones rápidas y horas de referencia */}
-        <aside className="hidden min-h-0 flex-col gap-6 lg:flex">
-        <Panel title="Cuota de hoy">
+        <aside className="hidden min-h-0 flex-col gap-6 overflow-y-auto lg:flex">
+        <Panel title="Cuota de hoy" scroll={false} className="shrink-0">
           <div className="space-y-4">
             {([
               { clave: 'texto', nombre: 'Textos' },
@@ -5040,7 +5167,7 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
           <p className="mt-4 text-xs text-muted-foreground">Límite diario por cuenta. Se reinicia a medianoche UTC.</p>
         </Panel>
 
-        <Panel title="Acciones rápidas" icon={<Zap />}>
+        <Panel title="Acciones rápidas" icon={<Zap />} scroll={false} className="shrink-0">
           <Button
             size="lg"
             className="w-full"
@@ -5085,7 +5212,7 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
           </div>
         </Panel>
 
-        <Panel title="Horas de referencia">
+        <Panel title="Horas de referencia" scroll={false} className="shrink-0">
           <div className="flex flex-wrap gap-2">
             {['Mar 09:00', 'Jue 12:30', 'Vie 17:00'].map((hora) => (
               <span key={hora} className="rounded-full bg-brand-soft px-3 py-1 text-xs font-medium text-brand-strong">
@@ -5582,7 +5709,7 @@ const AnaliticaScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ o
     {
       label: 'Interacciones',
       value: k ? numero(k.interacciones) : '—',
-      hint: 'Me gusta, comentarios y compartidos',
+      hint: 'Reacciones y comentarios',
       icon: <Sparkles />,
       tone: 'success' as const,
     },
@@ -6036,7 +6163,7 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
 
   // Cada tarjeta lleva a la pantalla donde se revisa lo que cuenta.
   const statCards = [
-    { label: 'Hoy', hint: 'Programadas para hoy', value: stats.hoy, icon: <Clock />, tone: 'brand' as const, ir: () => onNavigate('calendar') },
+    { label: 'Hoy', hint: 'Programadas hoy', value: stats.hoy, icon: <Clock />, tone: 'brand' as const, ir: () => onNavigate('calendar') },
     { label: 'Próximos 7 días', hint: 'Programadas', value: stats.proximos7, icon: <Calendar />, tone: 'success' as const, ir: () => onNavigate('calendar') },
     {
       label: 'Fallidas',
@@ -6077,13 +6204,13 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
         </Notice>
       )}
 
-      <div className="grid shrink-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid shrink-0 grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {statCards.map((card) => (
           <button
             key={card.label}
             type="button"
             onClick={card.ir}
-            className="surface group flex items-center justify-between gap-4 p-5 text-left transition-colors duration-150 hover:bg-accent"
+            className="surface group flex items-center justify-between gap-4 p-4 text-left transition-colors duration-150 hover:bg-accent"
           >
             <div className="min-w-0">
               <p className="truncate text-sm text-muted-foreground">{card.label}</p>
@@ -6092,90 +6219,99 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
               </div>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.hint}</p>
             </div>
-            <IconTile tone={card.tone} size="lg">
-              {card.icon}
-            </IconTile>
+            <span className="hidden min-[480px]:block">
+              <IconTile tone={card.tone} size="lg">
+                {card.icon}
+              </IconTile>
+            </span>
           </button>
         ))}
       </div>
 
-      {/* Desde 1024 todo cabe en la pantalla: los paneles se reparten el alto restante y cada lista muestra las filas que caben. */}
-      <div className="grid gap-6 lg:min-h-0 lg:flex-1 lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)_auto] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px] 2xl:grid-rows-[minmax(0,1fr)]">
-        <Panel
-          title="Próximas publicaciones"
-          icon={<CalendarClock />}
-          scroll={false}
-          className="lg:min-h-[10rem]"
-          bodyClassName="relative lg:!p-0"
-          actions={
-            <Button variant="ghost" onClick={() => onNavigate('calendar')}>
-              Ver calendario
-            </Button>
+      {/* Desde 1024 todo cabe en la pantalla: las dos filas se reparten el alto y cada lista muestra las filas que caben. */}
+      <Panel
+        title="Próximas publicaciones"
+        icon={<CalendarClock />}
+        scroll={false}
+        className="lg:min-h-[8rem] lg:flex-[1_1_0%]"
+        bodyClassName="relative lg:!p-0"
+        actions={
+          <Button variant="ghost" onClick={() => onNavigate('calendar')}>
+            <span className="sm:hidden">Calendario</span>
+            <span className="hidden sm:inline">Ver calendario</span>
+          </Button>
+        }
+      >
+        <FilasAjustadas
+          items={isLoading ? [] : stats.proximas}
+          alturaFila={52}
+          max={5}
+          vacio={
+            isLoading ? (
+              esqueletoFilas(2)
+            ) : (
+              <EmptyState
+                compacto
+                icon={<Calendar />}
+                title="Nada programado"
+                text="Cuando programes una publicación, aparecerá aquí."
+                action={
+                  <Button variant="outline" icon={<PenSquare />} onClick={() => onNavigate('new-post')}>
+                    Nueva publicación
+                  </Button>
+                }
+              />
+            )
           }
         >
-          <FilasAjustadas
-            items={isLoading ? [] : stats.proximas}
-            alturaFila={60}
-            max={5}
-            vacio={
-              isLoading ? (
-                esqueletoFilas(3)
-              ) : (
-                <EmptyState
-                  compacto
-                  icon={<Calendar />}
-                  title="Nada programado"
-                  text="Cuando programes una publicación, aparecerá aquí."
-                  action={
-                    <Button variant="outline" icon={<PenSquare />} onClick={() => onNavigate('new-post')}>
-                      Nueva publicación
-                    </Button>
-                  }
-                />
-              )
-            }
-          >
-            {(p) => {
-              const fecha = toDate(p.fechaProgramada);
-              const redes = (p.redesDestino ?? []).map((r) => redConfig(r)?.nombre ?? r).join(', ');
-              return (
-                <li key={p.id} className="flex min-h-14 items-center gap-3 rounded-[10px] px-2 py-2">
-                  <time className="w-20 shrink-0 text-xs tabular-nums text-muted-foreground">
-                    {fecha ? fecha.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }) : 'Sin fecha'}
-                    <br />
-                    {fecha ? fecha.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}
-                  </time>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground" title={p.titulo}>
-                      {p.titulo || 'Sin título'}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">{redes || 'Sin redes'}</p>
-                  </div>
-                  <Badge variant="purple">Programada</Badge>
-                </li>
-              );
-            }}
-          </FilasAjustadas>
-        </Panel>
+          {(p) => {
+            const fecha = toDate(p.fechaProgramada);
+            const redes = (p.redesDestino ?? []).map((r) => redConfig(r)?.nombre ?? r).join(', ');
+            return (
+              <li key={p.id} className="flex min-h-12 items-center gap-3 rounded-[10px] px-2 py-1.5">
+                <time className="w-20 shrink-0 text-xs tabular-nums text-muted-foreground">
+                  {fecha ? fecha.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }) : 'Sin fecha'}
+                  <br />
+                  {fecha ? fecha.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}
+                </time>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground" title={p.titulo}>
+                    {p.titulo || 'Sin título'}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">{redes || 'Sin redes'}</p>
+                </div>
+                <Badge variant="purple" className="hidden sm:inline-flex">
+                  Programada
+                </Badge>
+              </li>
+            );
+          }}
+        </FilasAjustadas>
+      </Panel>
 
+      <div className="grid gap-6 lg:min-h-[9rem] lg:flex-[1.25_1_0%] lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[minmax(0,1fr)]">
         <Panel
           title="Notificaciones"
           icon={<Bell />}
           scroll={false}
-          className="lg:min-h-[10rem]"
           bodyClassName="relative lg:!p-0"
           actions={
             <>
-              {cantidadSinLeer > 0 && <Badge variant="purple">{cantidadSinLeer} sin leer</Badge>}
+              {cantidadSinLeer > 0 && (
+                <Badge variant="purple" className="hidden sm:inline-flex">
+                  {cantidadSinLeer} sin leer
+                </Badge>
+              )}
               <Button variant="ghost" disabled={cantidadSinLeer === 0} onClick={marcarTodasLeidas}>
-                Marcar todas como leídas
+                <span className="sm:hidden">Marcar leídas</span>
+                <span className="hidden sm:inline">Marcar todas como leídas</span>
               </Button>
             </>
           }
         >
           <FilasAjustadas
             items={errorAct || loadingAct ? [] : actividad}
-            alturaFila={60}
+            alturaFila={52}
             max={5}
             vacio={
               errorAct ? (
@@ -6183,7 +6319,7 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
                   No se pudo cargar la actividad.
                 </Notice>
               ) : loadingAct ? (
-                esqueletoFilas(3)
+                esqueletoFilas(2)
               ) : (
                 <EmptyState
                   compacto
@@ -6200,7 +6336,7 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
             }
           >
             {(a) => (
-              <li key={a.id} className="flex min-h-14 items-center gap-3 rounded-[10px] px-2 py-2">
+              <li key={a.id} className="flex min-h-12 items-center gap-3 rounded-[10px] px-2 py-1.5">
                 <IconTile tone={tonoActividad(a.tipo)}>
                   {a.tipo === 'programado' ? <Calendar /> : a.tipo === 'borrador' ? <FileText /> : a.tipo === 'error' ? <X /> : <CheckCircle2 />}
                 </IconTile>
@@ -6221,24 +6357,25 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
           </FilasAjustadas>
         </Panel>
 
-        <Panel title="Accesos rápidos" icon={<Zap />} scroll={false} className="lg:col-span-2 2xl:col-span-1">
-          <div className="-mx-2 grid gap-1 lg:grid-cols-3 2xl:grid-cols-1">
-            {accesos.map((a) => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => onNavigate(a.id)}
-                className="group flex min-h-14 w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-colors duration-150 hover:bg-accent"
-              >
-                <IconTile>{a.icon}</IconTile>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-foreground">{a.label}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{a.desc}</span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
-              </button>
-            ))}
-          </div>
+        <Panel title="Accesos rápidos" icon={<Zap />} scroll={false} bodyClassName="relative lg:!p-0">
+          <FilasAjustadas items={accesos} alturaFila={52} max={accesos.length} vacio={null}>
+            {(a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(a.id)}
+                  className="group flex min-h-12 w-full items-center gap-3 rounded-[10px] px-2 py-1.5 text-left transition-colors duration-150 hover:bg-accent"
+                >
+                  <IconTile>{a.icon}</IconTile>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-foreground">{a.label}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{a.desc}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
+                </button>
+              </li>
+            )}
+          </FilasAjustadas>
         </Panel>
       </div>
     </ScreenLayout>
