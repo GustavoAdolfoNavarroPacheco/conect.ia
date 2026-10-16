@@ -35,10 +35,7 @@ async function createMediaContainer(
   mediaUrl: string,
   caption: string
 ): Promise<string> {
-  const body = new URLSearchParams({
-    access_token: accessToken,
-    caption,
-  });
+  const body = new URLSearchParams({ caption });
   if (isVideoUrl(mediaUrl)) {
     body.set('media_type', 'VIDEO');
     body.set('video_url', mediaUrl);
@@ -49,7 +46,10 @@ async function createMediaContainer(
   const res = await fetch(`${GRAPH_URL}/${igAccountId}/media`, {
     method: 'POST',
     body: body.toString(),
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Bearer ${accessToken}`,
+    },
   });
   const text = await res.text();
   if (!res.ok) {
@@ -60,9 +60,9 @@ async function createMediaContainer(
 }
 
 async function consultarEstadoContenedor(accessToken: string, containerId: string): Promise<string | undefined> {
-  const res = await fetch(
-    `${GRAPH_URL}/${containerId}?fields=status_code&access_token=${accessToken}`
-  );
+  const res = await fetch(`${GRAPH_URL}/${containerId}?fields=status_code`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   const text = await res.text();
   if (!res.ok) {
     throw new ErrorApi(parseMetaError(res.status, text, 'Instagram'), res.status);
@@ -99,14 +99,14 @@ async function publishContainer(
   igAccountId: string,
   containerId: string
 ): Promise<string> {
-  const body = new URLSearchParams({
-    access_token: accessToken,
-    creation_id: containerId,
-  });
+  const body = new URLSearchParams({ creation_id: containerId });
   const res = await fetch(`${GRAPH_URL}/${igAccountId}/media_publish`, {
     method: 'POST',
     body: body.toString(),
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Bearer ${accessToken}`,
+    },
   });
   const text = await res.text();
   if (!res.ok) {

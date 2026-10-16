@@ -218,12 +218,13 @@ async function callGeminiRest(
   modelName: string,
   userPrompt: string
 ): Promise<string> {
-  const url = `${GEMINI_INTERACTIONS_URL}?key=${encodeURIComponent(apiKey)}`;
-  const res = await fetch(url, {
+  // La clave va en la cabecera, no en la URL: las URL acaban en registros de terceros.
+  const res = await fetch(GEMINI_INTERACTIONS_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Api-Revision': '2026-05-20',
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify({
       model: modelName,

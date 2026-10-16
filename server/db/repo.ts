@@ -1,4 +1,5 @@
 import { sql, iso } from './client';
+import { cifrarValor, descifrarValor } from './cifradoTokens';
 
 /**
  * Acceso a datos de Conect.ia sobre Neon (PostgreSQL). Las respuestas usan
@@ -548,7 +549,13 @@ export async function listarMensajesChat(uid: string): Promise<Array<Record<stri
 
 export async function obtenerTokens(uid: string): Promise<Record<string, any>> {
   const rows = await sql()`SELECT linkedin, meta, tiktok FROM tokens_redes WHERE usuario_id = ${uid}`;
-  return rows[0] ?? {};
+  const fila = rows[0];
+  if (!fila) return {};
+  return {
+    linkedin: descifrarValor(fila.linkedin),
+    meta: descifrarValor(fila.meta),
+    tiktok: descifrarValor(fila.tiktok),
+  };
 }
 
 export async function guardarTokenRed(uid: string, red: string, valor: unknown): Promise<void> {
@@ -558,7 +565,7 @@ export async function guardarTokenRed(uid: string, red: string, valor: unknown):
   await q.query(
     `INSERT INTO tokens_redes (usuario_id, ${columna}) VALUES ($1, $2::jsonb)
      ON CONFLICT (usuario_id) DO UPDATE SET ${columna} = EXCLUDED.${columna}, actualizado_en = now()`,
-    [uid, JSON.stringify(valor)]
+    [uid, JSON.stringify(cifrarValor(valor))]
   );
 }
 

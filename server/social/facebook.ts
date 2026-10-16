@@ -7,9 +7,16 @@ export interface FacebookTokens {
   pageId?: string | null;
 }
 
-function graphUrl(path: string, params: Record<string, string>): string {
-  const qs = new URLSearchParams(params).toString();
-  return `https://graph.facebook.com/${META_GRAPH_VERSION}/${path}?${qs}`;
+function graphUrl(path: string): string {
+  return `https://graph.facebook.com/${META_GRAPH_VERSION}/${path}`;
+}
+
+/** El token va en la cabecera y los parámetros en el cuerpo: nada sensible en la URL. */
+function metaHeaders(accessToken: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    Authorization: `Bearer ${accessToken}`,
+  };
 }
 
 function parseMetaError(status: number, text: string): string {
@@ -31,13 +38,11 @@ async function publishFeed(
   pageId: string,
   contenido: string
 ): Promise<{ id: string }> {
-  const res = await fetch(
-    graphUrl(`${pageId}/feed`, {
-      message: contenido,
-      access_token: accessToken,
-    }),
-    { method: 'POST' }
-  );
+  const res = await fetch(graphUrl(`${pageId}/feed`), {
+    method: 'POST',
+    headers: metaHeaders(accessToken),
+    body: new URLSearchParams({ message: contenido }).toString(),
+  });
   const text = await res.text();
   if (!res.ok) {
     throw new ErrorApi(parseMetaError(res.status, text), res.status);
@@ -53,15 +58,15 @@ async function publishPhoto(
   imagenUrl: string,
   contenido: string
 ): Promise<{ id: string }> {
-  const res = await fetch(
-    graphUrl(`${pageId}/photos`, {
+  const res = await fetch(graphUrl(`${pageId}/photos`), {
+    method: 'POST',
+    headers: metaHeaders(accessToken),
+    body: new URLSearchParams({
       url: imagenUrl,
       caption: contenido,
-      access_token: accessToken,
       published: 'true',
-    }),
-    { method: 'POST' }
-  );
+    }).toString(),
+  });
   const text = await res.text();
   if (!res.ok) {
     throw new ErrorApi(parseMetaError(res.status, text), res.status);
