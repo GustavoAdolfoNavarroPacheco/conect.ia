@@ -48,6 +48,7 @@ import { LandingPage } from './pages/landing/LandingPage';
 import { AccountMenu } from './components/ruixen/AccountMenu';
 import { NotificationInbox, type InboxItem } from './components/ruixen/NotificationInbox';
 import { ThemeToggle } from './components/ruixen/ThemeToggle';
+import { DateTimePicker } from './components/ruixen/DateTimePicker';
 import {
   ESTADOS_EN_CALENDARIO,
   useBorradores,
@@ -2310,22 +2311,15 @@ const NewPostScreen: React.FC<{ onNavigate?: (screen: string) => void }> = ({ on
                       transition={TRANSICION}
                       className="space-y-3 overflow-hidden"
                     >
-                      <div className="grid gap-3 min-[400px]:grid-cols-[minmax(0,1fr)_120px]">
-                        <input
-                          type="date"
-                          aria-label="Fecha"
-                          value={scheduledDate}
-                          onChange={(e) => setScheduledDate(e.target.value)}
-                          className="field tabular-nums"
-                        />
-                        <input
-                          type="time"
-                          aria-label="Hora"
-                          value={scheduledTime}
-                          onChange={(e) => setScheduledTime(e.target.value)}
-                          className="field tabular-nums"
-                        />
-                      </div>
+                      <DateTimePicker
+                        label="Fecha y hora de publicación"
+                        fecha={scheduledDate}
+                        hora={scheduledTime}
+                        onChange={(f, h) => {
+                          setScheduledDate(f);
+                          setScheduledTime(h);
+                        }}
+                      />
                       <button
                         type="button"
                         aria-expanded={opcionesProgramacion}
@@ -2927,16 +2921,16 @@ const ManualPostScreen: React.FC = () => {
                     transition={TRANSICION}
                     className="space-y-3"
                   >
-                    <div className="grid gap-3 min-[400px]:grid-cols-[minmax(0,1fr)_120px]">
-                      <label className="flex flex-col gap-2">
-                        <span className="text-sm font-medium text-foreground">Fecha</span>
-                        <input type="date" min={today} value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="field tabular-nums" />
-                      </label>
-                      <label className="flex flex-col gap-2">
-                        <span className="text-sm font-medium text-foreground">Hora</span>
-                        <input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="field tabular-nums" />
-                      </label>
-                    </div>
+                    <DateTimePicker
+                      label="Fecha y hora de publicación"
+                      min={today}
+                      fecha={scheduledDate}
+                      hora={scheduledTime}
+                      onChange={(f, h) => {
+                        setScheduledDate(f);
+                        setScheduledTime(h);
+                      }}
+                    />
                     <Dropdown label="Zona horaria" icon={<Globe />} value={timezone} onChange={setTimezone} options={ZONAS_HORARIAS} />
                     {scheduledDate && scheduledTime && (
                       <Notice tone="info" icon={<CalendarClock />}>
@@ -4381,16 +4375,15 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
           </>
         }
       >
-        <div className="grid gap-3 min-[400px]:grid-cols-[minmax(0,1fr)_120px]">
-          <label className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-foreground">Fecha</span>
-            <input type="date" value={repFecha} onChange={(e) => setRepFecha(e.target.value)} className="field tabular-nums" />
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-foreground">Hora</span>
-            <input type="time" value={repHora} onChange={(e) => setRepHora(e.target.value)} className="field tabular-nums" />
-          </label>
-        </div>
+        <DateTimePicker
+          label="Nueva fecha y hora"
+          fecha={repFecha}
+          hora={repHora}
+          onChange={(f, h) => {
+            setRepFecha(f);
+            setRepHora(h);
+          }}
+        />
       </Modal>
 
       <Modal
