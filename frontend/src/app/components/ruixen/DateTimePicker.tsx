@@ -69,6 +69,22 @@ export function DateTimePicker({ fecha, hora, onChange, min, label = 'Fecha y ho
     return new Date(`${fecha}T${h}`).getTime() <= Date.now();
   };
 
+  /** Al abrir, deja a la vista el horario ya elegido (la lista se desplaza dentro de su caja, no la página). */
+  const horasRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!abierto) return;
+    const id = requestAnimationFrame(() => {
+      const caja = horasRef.current;
+      const elegido = caja?.querySelector<HTMLElement>('[aria-pressed="true"]');
+      if (!caja || !elegido) return;
+      caja.scrollTop = elegido.offsetTop - caja.offsetTop - (caja.clientHeight - elegido.offsetHeight) / 2;
+      caja.scrollLeft = elegido.offsetLeft - caja.offsetLeft - (caja.clientWidth - elegido.offsetWidth) / 2;
+    });
+    return () => cancelAnimationFrame(id);
+    // Solo al abrir: elegir otra hora con el selector abierto no debe mover la lista.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abierto]);
+
   const elegirDia = (d: number) => {
     const nueva = clave(y, m, d);
     // Si el horario elegido ya pasó para el nuevo día, se limpia para obligar a elegir otro.
@@ -164,7 +180,7 @@ export function DateTimePicker({ fecha, hora, onChange, min, label = 'Fecha y ho
 
           <div className="flex shrink-0 flex-col border-t border-border p-3 sm:min-h-0 sm:p-4 sm:flex-1 sm:shrink sm:border-l sm:border-t-0">
             <p className="mb-2 text-xs font-semibold text-muted-foreground">Hora</p>
-            <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:min-h-0 sm:flex-1 sm:grid-cols-2 sm:content-start sm:overflow-y-auto sm:overflow-x-visible sm:pb-0 sm:pr-1" role="group" aria-label="Horarios">
+            <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:grid sm:min-h-0 sm:flex-1 sm:grid-cols-2 sm:content-start sm:overflow-y-auto sm:overflow-x-visible sm:pb-0 sm:pr-1" role="group" aria-label="Horarios" ref={horasRef}>
               {HORAS.map((h) => {
                 const elegida = hora === h;
                 const pasada = horaPasada(h);
