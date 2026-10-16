@@ -11,7 +11,7 @@ import {
   Filter, Copy, Download, Mail, LogOut, Moon, Sun, ShieldCheck,
   User, ChevronLeft,
   Upload, Image, Video, FileUp, CalendarClock,
-  AlarmClock, Globe, ChevronRight, Info, Menu
+  AlarmClock, Globe, ChevronRight, Info, Menu, Hash
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
@@ -51,6 +51,7 @@ import { ThemeToggle } from './components/ruixen/ThemeToggle';
 import { DateTimePicker } from './components/ruixen/DateTimePicker';
 import { NumberTicker } from './components/ruixen/NumberTicker';
 import { ProgressRing } from './components/ruixen/ProgressRing';
+import { ChatComposer, ChatGreeting, TypingDots } from './components/ruixen/ChatComposer';
 import {
   ESTADOS_EN_CALENDARIO,
   useBorradores,
@@ -4624,23 +4625,16 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
   const sinConexion = backendOk === false || Boolean(error);
   const ultimoBot = [...messages].reverse().find((m) => m.role === 'bot' && !m.fallo);
 
-  const atajos = (
-    <div className="flex flex-wrap gap-2">
-      {quickActions.map((action) => (
-        <button
-          key={action}
-          type="button"
-          onClick={() => {
-            setInput(action);
-            composerRef.current?.focus();
-          }}
-          className="flex h-10 items-center rounded-[10px] border border-border bg-card px-3 text-sm text-foreground transition-colors duration-150 hover:bg-accent"
-        >
-          {action}
-        </button>
-      ))}
-    </div>
-  );
+  const conversacionVacia = messages.length <= 1 && !isLoading;
+  const iconosAtajo = [<Linkedin key="li" />, <Hash key="h" />, <FileText key="f" />, <Calendar key="c" />];
+  const sugerencias = quickActions.map((action, i) => ({
+    label: action,
+    icon: iconosAtajo[i % iconosAtajo.length],
+    onClick: () => {
+      setInput(action);
+      composerRef.current?.focus();
+    },
+  }));
 
   return (
     <ScreenLayout>
@@ -4666,15 +4660,15 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
           aria-label="Conversación con el asistente"
           className="surface-flat flex h-[max(420px,calc(100dvh-96px))] flex-col overflow-hidden sm:h-[max(420px,calc(100dvh-112px))] lg:h-auto lg:min-h-0"
         >
-          <div className="shrink-0 border-b border-border p-4 lg:hidden">{atajos}</div>
-
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 lg:p-6">
-            {messages.length <= 1 && !isLoading && (
-              <p className="text-sm text-muted-foreground">
-                Prueba con «Dame 3 ideas de posts sobre nuestro bootcamp» o «Mejora este copy para LinkedIn».
-              </p>
+            {conversacionVacia && (
+              <ChatGreeting
+                title="¿Qué publicamos hoy?"
+                subtitle="Pide ideas, mejora un copy o genera hashtags. Cuando tengas un tema listo, usa «Generar publicación» y se crea el borrador."
+                suggestions={sugerencias}
+              />
             )}
-            {messages.map((msg, i) =>
+            {(conversacionVacia ? [] : messages).map((msg, i) =>
               msg.fallo ? (
                 <Notice
                   key={i}
@@ -4756,8 +4750,8 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-white" aria-hidden>
                   <Sparkles className="h-4 w-4" />
                 </span>
-                <div className="rounded-2xl rounded-bl-[6px] border border-border bg-accent px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Escribiendo…</p>
+                <div className="rounded-2xl rounded-bl-[6px] border border-border bg-accent px-4 py-3.5">
+                  <TypingDots />
                 </div>
               </div>
             )}
@@ -4770,49 +4764,16 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
           </div>
 
           <div className="shrink-0 border-t border-border p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
-            <div className="flex items-end gap-2">
-              <textarea
-                ref={composerRef}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  const el = e.target;
-                  el.style.height = '';
-                  el.style.height = `${Math.min(el.scrollHeight + 2, 120)}px`;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    void handleSend();
-                  }
-                }}
-                aria-label="Mensaje para el asistente"
-                aria-describedby="chat-ayuda"
-                placeholder="Pide ideas, optimiza copy o genera contenido…"
-                className="field max-h-[120px] min-h-11 resize-none py-3 leading-5"
-                rows={1}
-              />
-              {sending ? (
-                <button
-                  type="button"
-                  onClick={detener}
-                  className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-[10px] border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-accent"
-                >
-                  <X className="h-4 w-4" />
-                  Detener
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  aria-label="Enviar mensaje"
-                  onClick={() => void handleSend()}
-                  disabled={!input.trim()}
-                  className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-brand text-white transition-colors duration-150 hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Send className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+            <ChatComposer
+              value={input}
+              onChange={setInput}
+              onSend={() => void handleSend()}
+              onStop={detener}
+              sending={sending}
+              textareaRef={composerRef}
+              placeholder="Pide ideas, optimiza copy o genera contenido…"
+              describedBy="chat-ayuda"
+            />
             <p id="chat-ayuda" className="mt-2 hidden text-center text-xs text-muted-foreground sm:block">
               Enter para enviar · Shift + Enter para nueva línea
             </p>
@@ -4822,22 +4783,20 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
         {/* Columna lateral (≥ 1024): cuota de hoy, acciones rápidas y horas de referencia */}
         <aside className="hidden min-h-0 flex-col gap-6 overflow-y-auto lg:flex">
         <Panel title="Cuota de hoy" scroll={false} className="shrink-0">
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
             {([
               { clave: 'texto', nombre: 'Textos' },
               { clave: 'imagen', nombre: 'Imágenes' },
             ] as const).map(({ clave, nombre }) => {
               const fila = cuota?.tipos[clave];
               const porcentaje = fila && fila.limite > 0 ? Math.min(100, (fila.usado / fila.limite) * 100) : 0;
+              const tono = porcentaje >= 90 ? 'danger' : porcentaje >= 70 ? 'warning' : 'brand';
               return (
-                <div key={clave}>
-                  <div className="flex items-baseline justify-between text-sm">
-                    <span className="text-foreground">{nombre}</span>
-                    <span className="tabular-nums text-muted-foreground">{fila ? `${fila.usado} de ${fila.limite}` : '—'}</span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-accent" aria-hidden>
-                    <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${porcentaje}%` }} />
-                  </div>
+                <div key={clave} className="flex flex-col items-center gap-2">
+                  <ProgressRing value={porcentaje} size={84} stroke={10} tone={tono} label={`Cuota de ${nombre.toLowerCase()} usada hoy`}>
+                    <span className="text-sm tabular-nums">{fila ? `${fila.usado}/${fila.limite}` : '—'}</span>
+                  </ProgressRing>
+                  <span className="text-sm text-foreground">{nombre}</span>
                 </div>
               );
             })}
