@@ -10,6 +10,7 @@ export type ErrorCode =
   | 'not-found'
   | 'invalid-argument'
   | 'failed-precondition'
+  | 'resource-exhausted'
   | 'internal';
 
 export class HttpsError extends Error {
@@ -25,6 +26,8 @@ export class HttpsError extends Error {
 export type CallableRequest<T = any> = {
   auth?: { uid: string; email: string; nombre: string };
   data: T;
+  /** IP de quien llama (la pasa el despachador); sirve para limitar intentos. */
+  ip?: string;
 };
 
 export type CallableHandler<T = any, R = any> = (request: CallableRequest<T>) => Promise<R>;

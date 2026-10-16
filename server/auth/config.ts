@@ -1,7 +1,7 @@
 import Google from '@auth/core/providers/google';
 import Credentials from '@auth/core/providers/credentials';
 import type { AuthConfig } from '@auth/core/types';
-import { buscarCuentaCorreo } from '../db/repo';
+import { buscarCuentaCorreo, registrarIntentoAcceso } from '../db/repo';
 import { verificarPassword } from './password';
 
 /**
@@ -28,10 +28,17 @@ export const authConfig: AuthConfig = {
         email: { label: 'Correo', type: 'email' },
         password: { label: 'Contraseña', type: 'password' },
       },
-      async authorize(credenciales) {
+      async authorize(credenciales, request) {
         const email = typeof credenciales?.email === 'string' ? credenciales.email.trim() : '';
         const password = typeof credenciales?.password === 'string' ? credenciales.password : '';
         if (!email || !password) return null;
+
+        // Límites por correo y por IP para frenar la adivinación de contraseñas. Un bloqueo se
+        // responde igual que una contraseña incorrecta, sin dar pistas.
+        const ip = request?.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined;
+        const correoDentro = await registrarIntentoAcceso(`login:correo:${email.toLowerCase()}`, 10, 900);
+        const ipDentro = ip ? await registrarIntentoAcceso(`login:ip:${ip}`, 50, 900) : true;
+        if (!correoDentro || !ipDentro) return null;
 
         const cuenta = await buscarCuentaCorreo(email);
         if (!cuenta) return null;

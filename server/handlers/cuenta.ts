@@ -1,5 +1,5 @@
 import { onCall, HttpsError } from '../platform/callable';
-import { crearCuentaCorreo, existeCorreo } from '../db/repo';
+import { crearCuentaCorreo, existeCorreo, registrarIntentoAcceso } from '../db/repo';
 import { hashPassword } from '../auth/password';
 
 const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -23,11 +23,16 @@ export const registrarCuenta = onCall({ region: 'us-central1' }, async (request)
     throw new HttpsError('invalid-argument', `La contraseña debe tener entre ${MIN_PASSWORD} y ${MAX_PASSWORD} caracteres.`);
   }
 
+  // Límites por IP y por correo. El mensaje no dice si el correo ya tiene cuenta.
+  if (request.ip && !(await registrarIntentoAcceso(`registro:ip:${request.ip}`, 10, 3600))) {
+    throw new HttpsError('resource-exhausted', 'Demasiados intentos de registro desde tu red. Espera una hora.');
+  }
+  if (!(await registrarIntentoAcceso(`registro:correo:${email}`, 3, 3600))) {
+    throw new HttpsError('resource-exhausted', 'Demasiados intentos con ese correo. Espera una hora.');
+  }
+
   if (await existeCorreo(email)) {
-    throw new HttpsError(
-      'failed-precondition',
-      'Ya existe una cuenta con ese correo. Inicia sesión con tu contraseña o con Google.'
-    );
+    throw new HttpsError('failed-precondition', 'No se pudo crear la cuenta. Si ya tienes una, inicia sesión.');
   }
 
   const nombre = (nombreEntrada || email.split('@')[0] || 'Usuario').slice(0, 120);

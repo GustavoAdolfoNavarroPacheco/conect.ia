@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from '../platform/callable';
 import { logger } from '../platform/logger';
+import { exigirCuotaIA } from './cuotaIA';
 
 export type GeneratedVideo = {
   videoUrl: string;
@@ -88,6 +89,8 @@ export const generateVideo = onCall(
     if (!trimmed) {
       throw new HttpsError('invalid-argument', 'prompt es obligatorio');
     }
+
+    await exigirCuotaIA(request.auth.uid, 'video');
 
     const key = pollinationsKey();
     if (!key) {

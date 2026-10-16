@@ -448,6 +448,51 @@ export async function liberarBloqueo(clave: string): Promise<void> {
   await sql()`DELETE FROM bloqueos WHERE clave = ${clave}`;
 }
 
+/**
+ * Descuenta `unidades` de la cuota diaria del usuario y del tope global de ese tipo.
+ * Devuelve false, sin descontar nada, si cualquiera de los dos límites se superaría.
+ */
+export async function consumirCuotaIA(
+  uid: string,
+  tipo: string,
+  unidades: number,
+  porUsuario: number,
+  global: number
+): Promise<boolean> {
+  if (unidades > porUsuario) return false;
+  const totales = await sql()`
+    SELECT COALESCE(SUM(unidades), 0)::int AS total FROM uso_ia
+    WHERE dia = current_date AND tipo = ${tipo}`;
+  if (Number(totales[0]?.total ?? 0) + unidades > global) return false;
+
+  const rows = await sql()`
+    INSERT INTO uso_ia (usuario_id, dia, tipo, unidades)
+    VALUES (${uid}, current_date, ${tipo}, ${unidades}::int)
+    ON CONFLICT (usuario_id, dia, tipo) DO UPDATE SET unidades = uso_ia.unidades + EXCLUDED.unidades
+      WHERE uso_ia.unidades + EXCLUDED.unidades <= ${porUsuario}::int
+    RETURNING unidades`;
+  return rows.length > 0;
+}
+
+/**
+ * Cuenta un intento de acceso en una ventana fija. Devuelve false cuando ya se superó el máximo
+ * dentro de la ventana. Se usa por correo y por IP en el inicio de sesión y el registro.
+ */
+export async function registrarIntentoAcceso(clave: string, maximo: number, ventanaSegundos: number): Promise<boolean> {
+  const rows = await sql()`
+    INSERT INTO intentos_acceso (clave, ventana_inicio, intentos)
+    VALUES (${clave}, now(), 1)
+    ON CONFLICT (clave) DO UPDATE SET
+      ventana_inicio = CASE
+        WHEN intentos_acceso.ventana_inicio < now() - (${ventanaSegundos}::int * interval '1 second') THEN now()
+        ELSE intentos_acceso.ventana_inicio END,
+      intentos = CASE
+        WHEN intentos_acceso.ventana_inicio < now() - (${ventanaSegundos}::int * interval '1 second') THEN 1
+        ELSE intentos_acceso.intentos + 1 END
+    RETURNING intentos`;
+  return Number(rows[0]?.intentos ?? 0) <= maximo;
+}
+
 // ------------------------------------------------------------------ configuración
 
 export type ConfiguracionRow = {

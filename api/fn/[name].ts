@@ -11,8 +11,15 @@ const STATUS: Record<ErrorCode, number> = {
   'not-found': 404,
   'invalid-argument': 400,
   'failed-precondition': 400,
+  'resource-exhausted': 429,
   internal: 500,
 };
+
+/** IP de quien llama. Vercel la reenvía en x-forwarded-for; el primer valor es el cliente. */
+function ipDeLlamada(req: VercelRequest): string | undefined {
+  const reenviada = String(req.headers['x-forwarded-for'] ?? '').split(',')[0]?.trim();
+  return reenviada || req.socket?.remoteAddress || undefined;
+}
 
 function aError(err: unknown): HttpsError {
   if (err instanceof HttpsError) return err;
@@ -39,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body ?? {};
     const auth = await sesionDesdeCookie(req.headers.cookie);
-    const result = await callable.run({ auth: auth ?? undefined, data: body });
+    const result = await callable.run({ auth: auth ?? undefined, data: body, ip: ipDeLlamada(req) });
     res.status(200).json({ result: result ?? null });
   } catch (err) {
     const e = aError(err);

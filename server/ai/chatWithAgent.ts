@@ -4,6 +4,7 @@ import { guardarMensajesChat } from '../db/repo';
 import { generateAiText } from './aiProvider';
 import { formatChatResponse } from './formatChatResponse';
 import { httpsErrorFrom } from './httpsErrorFrom';
+import { exigirCuotaIA } from './cuotaIA';
 import type { ChatMessage } from '../types';
 
 const CHAT_INSTRUCTIONS = `
@@ -82,6 +83,7 @@ export const chatWithAgent = onCall(
     }
 
     const uid = request.auth.uid;
+    await exigirCuotaIA(uid, 'chat');
 
     try {
       const historyText = historial

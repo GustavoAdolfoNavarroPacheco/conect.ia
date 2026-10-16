@@ -130,6 +130,22 @@ CREATE TABLE IF NOT EXISTS bloqueos (
   hasta   TIMESTAMPTZ NOT NULL
 );
 
+-- Generaciones de IA por usuario y día (UTC). Controla el coste de las llamadas a proveedores.
+CREATE TABLE IF NOT EXISTS uso_ia (
+  usuario_id  TEXT NOT NULL REFERENCES usuarios(uid) ON DELETE CASCADE,
+  dia         DATE NOT NULL,
+  tipo        TEXT NOT NULL,
+  unidades    INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (usuario_id, dia, tipo)
+);
+
+-- Intentos de acceso en ventana fija (inicio de sesión y registro), por correo o por IP.
+CREATE TABLE IF NOT EXISTS intentos_acceso (
+  clave           TEXT PRIMARY KEY,
+  ventana_inicio  TIMESTAMPTZ NOT NULL,
+  intentos        INTEGER NOT NULL
+);
+
 -- Inicio de sesión con correo y contraseña (hash PBKDF2 en password_hash; NULL en cuentas de Google).
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE publicaciones ADD COLUMN IF NOT EXISTS intentos INTEGER NOT NULL DEFAULT 0;

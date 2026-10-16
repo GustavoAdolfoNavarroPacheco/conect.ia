@@ -4,6 +4,7 @@ import { logger } from '../platform/logger';
 import { generateAiText, getAiKeys } from './aiProvider';
 import { generateGeminiImage } from './generateImage';
 import { parsePostJson } from './parsePostJson';
+import { exigirCuotaIA } from './cuotaIA';
 import type { GenerateContentRequest, GenerateContentResponse } from '../types';
 
 const RED_HINTS: Record<string, string> = {
@@ -30,6 +31,10 @@ export const generateContent = onCall(
     if (!prompt?.trim()) {
       throw new HttpsError('invalid-argument', 'prompt es obligatorio');
     }
+
+    // Antes de llamar a ningún proveedor: el coste de IA es compartido y no tiene límite propio.
+    await exigirCuotaIA(request.auth.uid, 'texto');
+    if (generarImagen) await exigirCuotaIA(request.auth.uid, 'imagen');
 
     const red = (redSocial || 'instagram').toLowerCase();
     const hint = RED_HINTS[red] ?? RED_HINTS.instagram;
