@@ -546,17 +546,13 @@ const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) => {
 //   interno. Si una altura muy corta no cabe, el contenedor desplaza en vez de recortar.
 // ----------------------------------------------------------------------------
 
-const ScreenLayout: React.FC<{ children: React.ReactNode; maxWidth?: string; className?: string; crece?: boolean }> = ({
+const ScreenLayout: React.FC<{ children: React.ReactNode; maxWidth?: string; className?: string }> = ({
   children,
   maxWidth = 'max-w-[1440px]',
   className = '',
-  crece = false,
 }) => (
   <div className="h-full w-full overflow-y-auto">
-    {/* `crece`: la pantalla mide lo que mide su contenido (sin scroll interno en los paneles) */}
-    <div
-      className={`mx-auto flex w-full ${maxWidth} flex-col gap-6 p-4 sm:p-6 lg:p-8 ${crece ? 'lg:min-h-full' : 'lg:h-full'} ${className}`}
-    >
+    <div className={`mx-auto flex w-full ${maxWidth} flex-col gap-6 p-4 sm:p-6 lg:h-full lg:p-8 ${className}`}>
       {children}
     </div>
   </div>
@@ -694,21 +690,96 @@ const Notice: React.FC<{
 };
 
 /** Estado vacío estándar. */
-const EmptyState: React.FC<{ icon: React.ReactNode; title: string; text?: string; action?: React.ReactNode }> = ({
-  icon,
-  title,
-  text,
-  action,
-}) => (
-  <div className="flex h-full min-h-[220px] flex-col items-center justify-center px-6 py-10 text-center">
-    <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-[10px] bg-brand-soft text-brand-strong [&>svg]:h-6 [&>svg]:w-6">
+const EmptyState: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  text?: string;
+  action?: React.ReactNode;
+  /** Para paneles de alto ajustado: sin alto mínimo y con menos aire. */
+  compacto?: boolean;
+}> = ({ icon, title, text, action, compacto = false }) => (
+  <div
+    className={`flex h-full flex-col items-center justify-center px-6 text-center ${
+      compacto ? 'min-h-0 py-3' : 'min-h-[220px] py-10'
+    }`}
+  >
+    <span
+      className={`flex items-center justify-center rounded-[10px] bg-brand-soft text-brand-strong ${
+        compacto ? 'mb-2 h-10 w-10 [&>svg]:h-5 [&>svg]:w-5' : 'mb-4 h-12 w-12 [&>svg]:h-6 [&>svg]:w-6'
+      }`}
+    >
       {icon}
     </span>
     <p className="text-sm font-semibold text-foreground">{title}</p>
     {text && <p className="mt-1 max-w-xs text-sm text-muted-foreground">{text}</p>}
-    {action && <div className="mt-5">{action}</div>}
+    {action && <div className={compacto ? 'mt-3' : 'mt-5'}>{action}</div>}
   </div>
 );
+
+/** Filas de carga para listas de alto ajustado. */
+const esqueletoFilas = (n: number) => (
+  <div className="space-y-2" aria-busy="true">
+    {Array.from({ length: n }).map((_, i) => (
+      <div key={i} className="flex min-h-14 items-center gap-3">
+        <Skeleton className="h-9 w-9 !rounded-[10px]" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-3.5 w-2/3" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+/**
+ * Lista que muestra tantas filas como caben en su alto, sin scroll. Desde 1024 llena el hueco del panel
+ * (va posicionada sobre él, así no empuja el alto de la pantalla); por debajo muestra todas y la página fluye.
+ */
+function FilasAjustadas<T>({
+  items,
+  alturaFila,
+  max,
+  vacio,
+  children,
+}: {
+  items: T[];
+  alturaFila: number;
+  max: number;
+  vacio: React.ReactNode;
+  children: (item: T) => React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [caben, setCaben] = useState(max);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const medir = () => {
+      if (!window.matchMedia('(min-width: 1024px)').matches) {
+        setCaben(max);
+        return;
+      }
+      const estilo = getComputedStyle(el);
+      const alto = el.clientHeight - parseFloat(estilo.paddingTop) - parseFloat(estilo.paddingBottom);
+      // n filas ocupan n·fila + (n−1)·4px de separación: el +4 del cociente cuenta el hueco que sobra al final.
+      setCaben(Math.max(1, Math.min(max, Math.floor((alto + 4) / alturaFila))));
+    };
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(el);
+    window.addEventListener('resize', medir);
+    return () => {
+      observador.disconnect();
+      window.removeEventListener('resize', medir);
+    };
+  }, [alturaFila, max]);
+
+  return (
+    <div ref={ref} className="lg:absolute lg:inset-0 lg:overflow-hidden lg:p-6">
+      {items.length === 0 ? vacio : <ul className="-mx-2 space-y-1">{items.slice(0, caben).map((item) => children(item))}</ul>}
+    </div>
+  );
+}
 
 /** Contenedor de icono con tinte de marca (36px; variante `lg` de 44px con icono de 20). */
 const IconTile: React.FC<{
@@ -3712,6 +3783,13 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
     }
   }, [inicial]);
 
+  // Debe ir antes de `postVisible`: se usa durante el render y una `const` posterior aún no existe (error de inicialización).
+  const isPostOverdue = (post: Publicacion) => {
+    if (post.estado !== 'programado' || !post.fechaProgramada) return false;
+    const d = toDate(post.fechaProgramada);
+    return d ? d.getTime() <= Date.now() : false;
+  };
+
   const postVisible = (post: Publicacion) =>
     (post.redesDestino ?? [RED_PRINCIPAL]).some((r) => filtroRedes.has(r)) &&
     filtroEstados.has(categoriaDeCal(post, isPostOverdue(post)));
@@ -3958,12 +4036,6 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
     () => Object.values(porDia).flat(),
     [porDia]
   );
-
-  const isPostOverdue = (post: Publicacion) => {
-    if (post.estado !== 'programado' || !post.fechaProgramada) return false;
-    const d = toDate(post.fechaProgramada);
-    return d ? d.getTime() <= Date.now() : false;
-  };
 
   const overdueCount = useMemo(
     () => allPostsInMonth.filter(isPostOverdue).length,
@@ -5988,7 +6060,7 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
     tipo === 'publicado' ? 'success' : tipo === 'borrador' ? 'warning' : tipo === 'error' ? 'danger' : 'brand';
 
   return (
-    <ScreenLayout crece>
+    <ScreenLayout>
       <PageHeader
         title={primerNombre ? `Hola, ${primerNombre}` : 'Panel principal'}
         subtitle="Resumen de tu actividad en Conect.ia"
@@ -6027,42 +6099,43 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
         ))}
       </div>
 
-      <Panel
-        title="Próximas publicaciones"
-        icon={<CalendarClock />}
-        className="shrink-0"
-        actions={
-          <Button variant="ghost" onClick={() => onNavigate('calendar')}>
-            Ver calendario
-          </Button>
-        }
-      >
-        {isLoading ? (
-          <div className="space-y-2" aria-busy="true">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex min-h-14 items-center gap-3">
-                <Skeleton className="h-9 w-20" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-3.5 w-2/3" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : stats.proximas.length === 0 ? (
-          <EmptyState
-            icon={<Calendar />}
-            title="Nada programado"
-            text="Cuando programes una publicación, aparecerá aquí."
-            action={
-              <Button variant="outline" icon={<PenSquare />} onClick={() => onNavigate('new-post')}>
-                Nueva publicación
-              </Button>
+      {/* Desde 1024 todo cabe en la pantalla: los paneles se reparten el alto restante y cada lista muestra las filas que caben. */}
+      <div className="grid gap-6 lg:min-h-0 lg:flex-1 lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)_auto] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_320px] 2xl:grid-rows-[minmax(0,1fr)]">
+        <Panel
+          title="Próximas publicaciones"
+          icon={<CalendarClock />}
+          scroll={false}
+          className="lg:min-h-[10rem]"
+          bodyClassName="relative lg:!p-0"
+          actions={
+            <Button variant="ghost" onClick={() => onNavigate('calendar')}>
+              Ver calendario
+            </Button>
+          }
+        >
+          <FilasAjustadas
+            items={isLoading ? [] : stats.proximas}
+            alturaFila={60}
+            max={5}
+            vacio={
+              isLoading ? (
+                esqueletoFilas(3)
+              ) : (
+                <EmptyState
+                  compacto
+                  icon={<Calendar />}
+                  title="Nada programado"
+                  text="Cuando programes una publicación, aparecerá aquí."
+                  action={
+                    <Button variant="outline" icon={<PenSquare />} onClick={() => onNavigate('new-post')}>
+                      Nueva publicación
+                    </Button>
+                  }
+                />
+              )
             }
-          />
-        ) : (
-          <ul className="-mx-2 space-y-1">
-            {stats.proximas.map((p) => {
+          >
+            {(p) => {
               const fecha = toDate(p.fechaProgramada);
               const redes = (p.redesDestino ?? []).map((r) => redConfig(r)?.nombre ?? r).join(', ');
               return (
@@ -6081,16 +6154,16 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
                   <Badge variant="purple">Programada</Badge>
                 </li>
               );
-            })}
-          </ul>
-        )}
-      </Panel>
+            }}
+          </FilasAjustadas>
+        </Panel>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Panel
           title="Notificaciones"
           icon={<Bell />}
           scroll={false}
+          className="lg:min-h-[10rem]"
+          bodyClassName="relative lg:!p-0"
           actions={
             <>
               {cantidadSinLeer > 0 && <Badge variant="purple">{cantidadSinLeer} sin leer</Badge>}
@@ -6100,60 +6173,56 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
             </>
           }
         >
-          {errorAct ? (
-            <Notice tone="danger" action={<Button variant="ghost" onClick={recargarAct}>Reintentar</Button>}>
-              No se pudo cargar la actividad.
-            </Notice>
-          ) : loadingAct ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex min-h-14 items-center gap-3">
-                  <Skeleton className="h-9 w-9 !rounded-[10px]" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-3.5 w-2/3" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
+          <FilasAjustadas
+            items={errorAct || loadingAct ? [] : actividad}
+            alturaFila={60}
+            max={5}
+            vacio={
+              errorAct ? (
+                <Notice tone="danger" action={<Button variant="ghost" onClick={recargarAct}>Reintentar</Button>}>
+                  No se pudo cargar la actividad.
+                </Notice>
+              ) : loadingAct ? (
+                esqueletoFilas(3)
+              ) : (
+                <EmptyState
+                  compacto
+                  icon={<Sparkles />}
+                  title="Todavía no hay actividad"
+                  text="Cuando publiques o programes contenido, verás aquí su historial."
+                  action={
+                    <Button variant="outline" icon={<Upload />} onClick={() => onNavigate('manual-post')}>
+                      Subir publicación
+                    </Button>
+                  }
+                />
+              )
+            }
+          >
+            {(a) => (
+              <li key={a.id} className="flex min-h-14 items-center gap-3 rounded-[10px] px-2 py-2">
+                <IconTile tone={tonoActividad(a.tipo)}>
+                  {a.tipo === 'programado' ? <Calendar /> : a.tipo === 'borrador' ? <FileText /> : a.tipo === 'error' ? <X /> : <CheckCircle2 />}
+                </IconTile>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground" title={a.mensaje}>
+                    {esSinLeer(a) && (
+                      <>
+                        <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-brand align-middle" aria-hidden />
+                        <span className="sr-only">Sin leer: </span>
+                      </>
+                    )}
+                    {a.mensaje}
+                  </p>
+                  <p className="text-xs tabular-nums text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
                 </div>
-              ))}
-            </div>
-          ) : actividad.length === 0 ? (
-            <EmptyState
-              icon={<Sparkles />}
-              title="Todavía no hay actividad"
-              text="Cuando publiques o programes contenido, verás aquí su historial."
-              action={
-                <Button variant="outline" icon={<Upload />} onClick={() => onNavigate('manual-post')}>
-                  Subir publicación
-                </Button>
-              }
-            />
-          ) : (
-            <ul className="-mx-2 space-y-1">
-              {actividad.slice(0, 5).map((a) => (
-                <li key={a.id} className="flex min-h-14 items-center gap-3 rounded-[10px] px-2 py-2">
-                  <IconTile tone={tonoActividad(a.tipo)}>
-                    {a.tipo === 'programado' ? <Calendar /> : a.tipo === 'borrador' ? <FileText /> : a.tipo === 'error' ? <X /> : <CheckCircle2 />}
-                  </IconTile>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground" title={a.mensaje}>
-                      {esSinLeer(a) && (
-                        <>
-                          <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-brand align-middle" aria-hidden />
-                          <span className="sr-only">Sin leer: </span>
-                        </>
-                      )}
-                      {a.mensaje}
-                    </p>
-                    <p className="text-xs tabular-nums text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+              </li>
+            )}
+          </FilasAjustadas>
         </Panel>
 
-        <Panel title="Accesos rápidos" icon={<Zap />} scroll={false}>
-          <div className="-mx-2 space-y-1">
+        <Panel title="Accesos rápidos" icon={<Zap />} scroll={false} className="lg:col-span-2 2xl:col-span-1">
+          <div className="-mx-2 grid gap-1 lg:grid-cols-3 2xl:grid-cols-1">
             {accesos.map((a) => (
               <button
                 key={a.id}
