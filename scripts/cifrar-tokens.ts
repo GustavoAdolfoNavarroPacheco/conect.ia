@@ -22,7 +22,7 @@ async function main() {
       if (valor === null || valor === undefined || esCifrado(valor)) continue;
       await sql().query(`UPDATE tokens_redes SET ${columna} = $2::jsonb WHERE usuario_id = $1`, [
         fila.usuario_id,
-        JSON.stringify(cifrarValor(valor)),
+        JSON.stringify(await cifrarValor(valor)),
       ]);
       cifrados++;
     }

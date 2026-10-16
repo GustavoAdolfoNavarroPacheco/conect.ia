@@ -609,9 +609,9 @@ export async function obtenerTokens(uid: string): Promise<Record<string, any>> {
   const fila = rows[0];
   if (!fila) return {};
   return {
-    linkedin: descifrarValor(fila.linkedin),
-    meta: descifrarValor(fila.meta),
-    tiktok: descifrarValor(fila.tiktok),
+    linkedin: await descifrarValor(fila.linkedin),
+    meta: await descifrarValor(fila.meta),
+    tiktok: await descifrarValor(fila.tiktok),
   };
 }
 
@@ -622,7 +622,7 @@ export async function guardarTokenRed(uid: string, red: string, valor: unknown):
   await q.query(
     `INSERT INTO tokens_redes (usuario_id, ${columna}) VALUES ($1, $2::jsonb)
      ON CONFLICT (usuario_id) DO UPDATE SET ${columna} = EXCLUDED.${columna}, actualizado_en = now()`,
-    [uid, JSON.stringify(cifrarValor(valor))]
+    [uid, JSON.stringify(await cifrarValor(valor))]
   );
 }
 
