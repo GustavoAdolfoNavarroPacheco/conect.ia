@@ -1487,7 +1487,8 @@ function redesIniciales(canales: CanalesDoc | null | undefined): RedSocial[] {
   const conectadas = CATALOGO_REDES.filter(
     (r) => r.disponible && redEstaConectada(r.id, canales)
   ).map((r) => r.id);
-  return conectadas.length ? conectadas : [RED_PRINCIPAL];
+  // Sin redes conectadas no se preselecciona ninguna: elegir una sin conexión falla más tarde.
+  return conectadas;
 }
 
 type RedSelectorProps = {
@@ -1879,6 +1880,14 @@ const NewPostScreen: React.FC = () => {
       const platforms: RedSocial[] = platformsSelected().length
         ? platformsSelected()
         : [RED_PRINCIPAL];
+      // Sin Make, solo se envía a redes conectadas: el motivo se muestra antes de intentarlo.
+      const desconectadas = platforms.filter((r) => !redEstaConectada(r, canales));
+      if (desconectadas.length && !getAutomationWebhookUrl(config)) {
+        setErrorMsg(
+          `${desconectadas.map((r) => redConfig(r)?.nombre ?? r).join(', ')} no está conectada. Conéctala en Canales o quítala de la selección.`
+        );
+        return;
+      }
       const finalImageUrl = await resolvePostImageUrl();
       if (imagenQuedoSinResolver(imagenUrl || previewImageUrl, finalImageUrl)) {
         setMakeWarning(
