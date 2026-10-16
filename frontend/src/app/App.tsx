@@ -1861,6 +1861,16 @@ const NewPostScreen: React.FC = () => {
         setErrorMsg('Conecta al menos una red en Canales o configura la URL de Make en Ajustes.');
         return;
       }
+      // Publicar ahora no tiene vuelta atrás: se confirma antes de enviar.
+      const redesAhora = platformsSelected().map((r) => redConfig(r)?.nombre ?? r).join(', ') || RED_PRINCIPAL;
+      if (
+        !(await confirmar({
+          titulo: '¿Publicar ahora?',
+          mensaje: `Se enviará a ${redesAhora} en este momento. Revisa el texto y la imagen antes de continuar.`,
+          accion: 'Publicar',
+        }))
+      )
+        return;
     }
     setIsGenerating(true);
     setErrorMsg('');
@@ -1875,15 +1885,13 @@ const NewPostScreen: React.FC = () => {
           'No se pudo subir la imagen: la publicación irá solo con texto. Revisa BLOB_READ_WRITE_TOKEN en Vercel para incluir imágenes.'
         );
       }
-      if (platforms.includes('instagram') && !finalImageUrl) {
-        setMakeWarning(
-          'Instagram requiere una imagen o video: activa «Generar imagen con IA» o sube un archivo, o Instagram no podrá publicar.'
+      // Las redes que necesitan medio se bloquean aquí, no después de fallar en la red.
+      const sinMedio = platforms.filter((r) => redConfig(r)?.requiereMedia && !finalImageUrl);
+      if (sinMedio.length) {
+        setErrorMsg(
+          `${sinMedio.map((r) => redConfig(r)?.nombre ?? r).join(' y ')} requiere una imagen o video. Añade uno o quita la red.`
         );
-      }
-      if (platforms.includes('tiktok') && !finalImageUrl) {
-        setMakeWarning(
-          'TikTok requiere un video (mp4/mov/webm): sube un archivo de video o usa un video con IA, o TikTok no podrá publicar.'
-        );
+        return;
       }
       if (videoUrl && platforms.some((r) => r !== 'tiktok')) {
         setMakeWarning(
@@ -1983,6 +1991,15 @@ const NewPostScreen: React.FC = () => {
           mensaje: `Programado para ${formatDateTime(new Date(iso))}${repeatMode !== 'none' ? ` · repetición ${repeatMode}` : ''}`,
           red: platforms[0],
         });
+      }
+      if (scheduleMode === 'now') {
+        // Ya salió: se limpia el formulario para que un clic más no la envíe otra vez.
+        setTopic('');
+        setGeneratedText('');
+        setImagenUrl('');
+        setManualUploads([]);
+        setHasContent(false);
+        setEditingBorradorId(null);
       }
       invalidate();
       setShowToast(true);
@@ -2269,16 +2286,6 @@ const NewPostScreen: React.FC = () => {
                       {opcionesProgramacion && (
                         <div className="grid gap-3 sm:grid-cols-2">
                           <Dropdown label="Zona horaria" value={timezone} onChange={setTimezone} options={ZONAS_HORARIAS} />
-                          <Dropdown
-                            label="Repetir"
-                            value={repeatMode}
-                            onChange={setRepeatMode}
-                            options={[
-                              { value: 'none', label: 'Sin repetir' },
-                              { value: 'daily', label: 'Diario' },
-                              { value: 'weekly', label: 'Semanal' },
-                            ]}
-                          />
                         </div>
                       )}
                     </motion.div>
@@ -2372,6 +2379,7 @@ const ManualPostScreen: React.FC = () => {
   const [scheduledTime, setScheduledTime] = useState('');
   const [timezone, setTimezone] = useState('America/Bogota');
   const [uploadedFiles, setUploadedFiles] = useState<{ name: string; type: string; preview?: string; file: File }[]>([]);
+  const [confirmar, dialogoConfirmacion] = useConfirm();
   const [isDragging, setIsDragging] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
@@ -2428,6 +2436,23 @@ const ManualPostScreen: React.FC = () => {
         notify('Conecta al menos una red en Canales o configura la URL de Make en Ajustes.');
         return;
       }
+      // Publicar ahora no tiene vuelta atrás: se confirma antes de enviar.
+      const redesAhora = redesDestino.map((r) => redConfig(r)?.nombre ?? r).join(', ') || RED_PRINCIPAL;
+      if (
+        !(await confirmar({
+          titulo: '¿Publicar ahora?',
+          mensaje: `Se enviará a ${redesAhora} en este momento.`,
+          accion: 'Publicar',
+        }))
+      )
+        return;
+    }
+    // Las redes que necesitan medio se bloquean aquí, no después de fallar en la red.
+    const redesConMedio = redesDestino.length ? redesDestino : [RED_PRINCIPAL];
+    const sinMedio = redesConMedio.filter((r) => redConfig(r)?.requiereMedia && uploadedFiles.length === 0);
+    if (sinMedio.length) {
+      notify(`${sinMedio.map((r) => redConfig(r)?.nombre ?? r).join(' y ')} requiere una imagen o video. Añade uno o quita la red.`);
+      return;
     }
     setSaving(true);
     try {
@@ -2553,6 +2578,7 @@ const ManualPostScreen: React.FC = () => {
   return (
     <ScreenLayout>
       <Toast message={toastMsg} type="success" show={showToast} />
+      {dialogoConfirmacion}
 
       <PageHeader title="Subir publicación" subtitle="Crea y programa contenido manualmente, sin IA" />
 
@@ -2757,19 +2783,6 @@ const ManualPostScreen: React.FC = () => {
                       </label>
                     </div>
                     <Dropdown label="Zona horaria" icon={<Globe />} value={timezone} onChange={setTimezone} options={ZONAS_HORARIAS} />
-                    <Dropdown
-                      label="Repetir"
-                      icon={<AlarmClock />}
-                      value={repeatMode}
-                      onChange={setRepeatMode}
-                      options={[
-                        { value: 'none', label: 'Sin repetición' },
-                        { value: 'daily', label: 'Diario' },
-                        { value: 'weekly', label: 'Semanal' },
-                        { value: 'biweekly', label: 'Cada 2 semanas' },
-                        { value: 'monthly', label: 'Mensual' },
-                      ]}
-                    />
                     {scheduledDate && scheduledTime && (
                       <Notice tone="info" icon={<CalendarClock />}>
                         <span className="block font-medium">
