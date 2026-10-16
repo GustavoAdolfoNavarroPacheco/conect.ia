@@ -173,9 +173,5 @@ ALTER TABLE publicaciones ADD COLUMN IF NOT EXISTS intentos INTEGER NOT NULL DEF
 ALTER TABLE publicaciones ADD COLUMN IF NOT EXISTS ultimo_error TEXT;
 ALTER TABLE publicaciones ADD COLUMN IF NOT EXISTS publicado_en TIMESTAMPTZ;
 ALTER TABLE publicaciones ADD COLUMN IF NOT EXISTS generado_ia BOOLEAN NOT NULL DEFAULT false;
--- Aprobaciones (borradores): quién revisó y qué cambios pidió (Aprobaciones).
-ALTER TABLE borradores ADD COLUMN IF NOT EXISTS revision_comentario TEXT;
-ALTER TABLE borradores ADD COLUMN IF NOT EXISTS revisado_por TEXT;
-ALTER TABLE borradores ADD COLUMN IF NOT EXISTS revisado_en TIMESTAMPTZ;
 DROP INDEX IF EXISTS usuarios_correo_unico_idx;
 CREATE UNIQUE INDEX IF NOT EXISTS usuarios_correo_password_idx ON usuarios (lower(email)) WHERE password_hash IS NOT NULL;

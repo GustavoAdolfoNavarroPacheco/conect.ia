@@ -10,7 +10,7 @@ import {
 } from '../lib/db';
 import { obtenerConfiguracion } from '../lib/db/configuracion';
 import type { ActividadItem, Borrador, EstadoPublicacion, Publicacion } from '../lib/db/types';
-import { actualizarMetricas, moverBorrador, resumenAnalitica } from '../services/cloudFunctions';
+import { actualizarMetricas, resumenAnalitica } from '../services/cloudFunctions';
 
 /**
  * Listas de datos desde Neon vía API. Se refrescan cada pocos segundos y tras cada escritura
@@ -149,20 +149,6 @@ export function useActualizarMetricas() {
   });
 }
 
-/** Paso del flujo de aprobación de un borrador. Refresca borradores, publicaciones y actividad. */
-export function useMoverBorrador() {
-  const { user } = useAuth();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: Parameters<typeof moverBorrador>[0]) => moverBorrador(input),
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['borradores', user?.uid] });
-      qc.invalidateQueries({ queryKey: ['publicaciones', user?.uid] });
-      qc.invalidateQueries({ queryKey: ['actividad', user?.uid] });
-    },
-  });
-}
-
 export function useCanales() {
   const { user } = useAuth();
   return useQuery({
@@ -244,12 +230,15 @@ export function useDashboardStats() {
   };
 }
 
+/** Estados que se ven en el calendario: lo programado y lo que ya salió (con su resultado). Borradores no. */
+export const ESTADOS_EN_CALENDARIO: EstadoPublicacion[] = ['programado', 'en_proceso', 'enviado', 'parcial', 'publicado', 'fallido'];
+
 export function usePublicacionesProgramadas(mes: number, anio: number) {
   const { data, ...rest } = usePublicaciones();
   const porDia = useMemo(() => {
     const map: Record<number, Publicacion[]> = {};
     (data ?? [])
-      .filter((p) => p.estado === 'programado' && p.fechaProgramada)
+      .filter((p) => ESTADOS_EN_CALENDARIO.includes(p.estado) && p.fechaProgramada)
       .forEach((p) => {
         const date = new Date(p.fechaProgramada as string);
         if (date.getMonth() === mes && date.getFullYear() === anio) {

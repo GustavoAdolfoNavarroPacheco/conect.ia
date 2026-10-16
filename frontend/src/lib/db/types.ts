@@ -19,8 +19,7 @@ export type EstadoPublicacion =
   | 'pendiente'
   | 'en_proceso';
 
-/** Flujo de aprobación: pendiente (borrador) → en_revision → aprobado → programado. */
-export type EstadoBorrador = 'pendiente' | 'en_revision' | 'aprobado' | 'rechazado' | 'programado';
+export type EstadoBorrador = 'pendiente' | 'aprobado' | 'rechazado' | 'programado';
 
 export type Usuario = {
   uid: string;
@@ -96,10 +95,6 @@ export type Borrador = {
   estado: EstadoBorrador;
   n8nExecutionId?: string | null;
   programadoPara?: string | null;
-  /** Cambios que pidió el administrador, hasta que el borrador se vuelve a enviar. */
-  revisionComentario?: string | null;
-  revisadoPor?: string | null;
-  revisadoEn?: string | null;
   creadoEn?: string;
   actualizadoEn?: string;
 };

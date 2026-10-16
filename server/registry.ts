@@ -11,7 +11,6 @@ import { triggerMakeWorkflow } from './integracion/triggerMakeWorkflow';
 import { verifyChannelConnection } from './integracion/verifyChannelConnection';
 import { probarWebhook, verificarCanal } from './integracion/verificarCanal';
 import { actualizarMetricas, resumenAnalitica } from './analitica/analiticaCallable';
-import { moverBorradorCallable } from './aprobaciones/aprobacionesCallable';
 import { startLinkedInOAuth } from './integracion/startLinkedInOAuth';
 import { completeLinkedInOAuth } from './integracion/completeLinkedInOAuth';
 import { startMetaOAuth } from './integracion/startMetaOAuth';
@@ -59,7 +58,6 @@ export const CALLABLES: Record<string, Callable> = {
   probarWebhook,
   actualizarMetricas,
   resumenAnalitica,
-  moverBorrador: moverBorradorCallable,
   startLinkedInOAuth,
   completeLinkedInOAuth,
   startMetaOAuth,

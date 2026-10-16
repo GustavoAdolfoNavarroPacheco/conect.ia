@@ -17,7 +17,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { ejecutarFlujoPublicacion, getAutomationWebhookUrl } from '../services/make';
 import {
-  type AccionBorrador,
   chatWithAgent,
   cuotaIAHoy,
   type CuotaIAHoy,
@@ -43,14 +42,14 @@ import {
   guardarCanal,
 } from '../lib/db';
 import { guardarConfiguracion } from '../lib/db/configuracion';
-import type { RedSocial, Borrador, Publicacion, EstadoBorrador } from '../lib/db/types';
+import type { RedSocial, Borrador, Publicacion } from '../lib/db/types';
 import { ConectiaLogo } from './components/ConectiaLogo';
 import {
+  ESTADOS_EN_CALENDARIO,
   useBorradores,
   useActividadLeida,
   useActualizarMetricas,
   useCanales,
-  useMoverBorrador,
   useResumenAnalitica,
   useConfiguracion,
   useDashboardStats,
@@ -547,13 +546,17 @@ const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) => {
 //   interno. Si una altura muy corta no cabe, el contenedor desplaza en vez de recortar.
 // ----------------------------------------------------------------------------
 
-const ScreenLayout: React.FC<{ children: React.ReactNode; maxWidth?: string; className?: string }> = ({
+const ScreenLayout: React.FC<{ children: React.ReactNode; maxWidth?: string; className?: string; crece?: boolean }> = ({
   children,
   maxWidth = 'max-w-[1440px]',
   className = '',
+  crece = false,
 }) => (
   <div className="h-full w-full overflow-y-auto">
-    <div className={`mx-auto flex w-full ${maxWidth} flex-col gap-6 p-4 sm:p-6 lg:h-full lg:p-8 ${className}`}>
+    {/* `crece`: la pantalla mide lo que mide su contenido (sin scroll interno en los paneles) */}
+    <div
+      className={`mx-auto flex w-full ${maxWidth} flex-col gap-6 p-4 sm:p-6 lg:p-8 ${crece ? 'lg:min-h-full' : 'lg:h-full'} ${className}`}
+    >
       {children}
     </div>
   </div>
@@ -609,7 +612,9 @@ const Segmented: React.FC<{
   className?: string;
   full?: boolean;
   ariaLabel?: string;
-}> = ({ value, onChange, options, className = '', full = false, ariaLabel }) => {
+  /** `sm`: 40px de alto en total, para alinearse con los botones de una barra de acciones. */
+  size?: 'md' | 'sm';
+}> = ({ value, onChange, options, className = '', full = false, ariaLabel, size = 'md' }) => {
   const id = React.useId();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const mover = (e: React.KeyboardEvent, i: number) => {
@@ -624,7 +629,9 @@ const Segmented: React.FC<{
     <div
       role="radiogroup"
       aria-label={ariaLabel}
-      className={`relative ${full ? 'grid w-full' : 'inline-flex'} rounded-[10px] border border-border bg-secondary p-1 ${className}`}
+      className={`relative ${full ? 'grid w-full' : 'inline-flex'} rounded-[10px] border border-border bg-secondary ${
+        size === 'sm' ? 'p-[3px]' : 'p-1'
+      } ${className}`}
       style={full ? { gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` } : undefined}
     >
       {options.map((o, i) => {
@@ -641,7 +648,7 @@ const Segmented: React.FC<{
             tabIndex={activo ? 0 : -1}
             onClick={() => onChange(o.value)}
             onKeyDown={(e) => mover(e, i)}
-            className={`relative z-10 flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-[6px] px-3 text-sm transition-colors duration-150 ${
+            className={`relative z-10 flex ${size === 'sm' ? 'h-8' : 'h-10'} items-center justify-center gap-1.5 whitespace-nowrap rounded-[6px] px-3 text-sm transition-colors duration-150 ${
               activo ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -1250,7 +1257,6 @@ const DashboardShell: React.FC<{
     { id: 'borradores', texto: 'Ir a Borradores', ejecutar: () => onNavigate('drafts') },
     { id: 'calendario', texto: 'Ir a Calendario', ejecutar: () => onNavigate('calendar') },
     { id: 'analitica', texto: 'Ir a Analítica', ejecutar: () => onNavigate('analytics') },
-    { id: 'aprobaciones', texto: 'Ir a Aprobaciones', ejecutar: () => onNavigate('approvals') },
     { id: 'asistente', texto: 'Ir a Asistente IA', ejecutar: () => onNavigate('agent') },
     { id: 'canales', texto: 'Ir a Canales', ejecutar: () => onNavigate('channels') },
     { id: 'ajustes', texto: 'Ir a Ajustes', ejecutar: () => onNavigate('settings') },
@@ -1309,7 +1315,6 @@ const DashboardShell: React.FC<{
         { id: 'new-post', icon: <PenSquare />, label: 'Nueva publicación' },
         { id: 'manual-post', icon: <Upload />, label: 'Subir publicación' },
         { id: 'drafts', icon: <FileText />, label: 'Borradores' },
-        { id: 'approvals', icon: <CheckCircle2 />, label: 'Aprobaciones' },
         { id: 'calendar', icon: <Calendar />, label: 'Calendario' },
         { id: 'analytics', icon: <BarChart3 />, label: 'Analítica' },
       ],
@@ -1697,9 +1702,11 @@ type RedSelectorProps = {
   canales?: CanalesDoc | null;
   /** El medio adjunto es un video: se bloquean las redes que no lo admiten. */
   medioVideo?: boolean;
+  /** Paneles estrechos: sin el motivo bajo el nombre (queda en el tooltip). */
+  compacto?: boolean;
 };
 
-const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales, medioVideo = false }) => {
+const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales, medioVideo = false, compacto = false }) => {
   const toggle = (red: RedSocial) => {
     onChange(value.includes(red) ? value.filter((r) => r !== red) : [...value, red]);
   };
@@ -1725,18 +1732,20 @@ const RedSelector: React.FC<RedSelectorProps> = ({ value, onChange, canales, med
             <button
               key={red.id}
               type="button"
-              disabled={bloqueada}
+              // Una red ya marcada siempre se puede quitar, aunque hoy esté bloqueada (p. ej. TikTok sin conexión).
+              disabled={bloqueada && !selected}
               aria-pressed={selected}
               onClick={() => toggle(red.id)}
               title={title}
               className={`flex h-10 items-center gap-2 rounded-[10px] border px-3 text-left text-sm transition-colors duration-150
                 ${selected ? 'border-brand bg-brand-soft text-foreground' : 'border-border bg-card hover:border-brand/40'}
-                ${bloqueada ? 'cursor-not-allowed opacity-45' : 'cursor-pointer'}`}
+                ${bloqueada && !selected ? 'cursor-not-allowed opacity-45' : 'cursor-pointer'}
+                ${bloqueada && selected ? 'opacity-70' : ''}`}
             >
               {redIcono(red.id, 'w-4 h-4')}
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{red.nombre}</span>
-                {motivo && <span className="block text-[11px] leading-tight text-muted-foreground">{motivo}</span>}
+                {motivo && !compacto && <span className="block text-[11px] leading-tight text-muted-foreground">{motivo}</span>}
               </span>
               <span
                 className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[6px] border transition-colors duration-150 ${
@@ -1794,6 +1803,8 @@ const NewPostScreen: React.FC<{ onNavigate?: (screen: string) => void }> = ({ on
   const [imagenUrl, setImagenUrl] = useState('');
   const [generarVideo, setGenerarVideo] = useState(false);
   const [videoUrl, setVideoUrl] = useState('');
+  // Redes elegidas antes de activar el video IA (que fuerza TikTok), para devolverlas al desactivarlo.
+  const redesAntesDeVideo = useRef<RedSocial[] | null>(null);
   const [manualUploads, setManualUploads] = useState<UploadedMedia[]>([]);
   const [isDraggingMedia, setIsDraggingMedia] = useState(false);
   const newPostFileRef = useRef<HTMLInputElement>(null);
@@ -2283,6 +2294,16 @@ const NewPostScreen: React.FC<{ onNavigate?: (screen: string) => void }> = ({ on
 
   const hayContenido = Boolean(topic.trim() || generatedText.trim() || manualUploads.length || imagenUrl);
 
+  /** Sale del modo video IA y devuelve las redes elegidas antes (el video fuerza TikTok). */
+  const dejarVideoIa = () => {
+    setGenerarVideo(false);
+    setVideoUrl('');
+    const previas = redesAntesDeVideo.current;
+    redesAntesDeVideo.current = null;
+    if (previas) setSelectedRedes(previas.filter((r) => redEstaConectada(r, canales)));
+    else setSelectedRedes((actuales) => actuales.filter((r) => r !== 'tiktok' || redEstaConectada(r, canales)));
+  };
+
   const limpiar = async () => {
     if (
       !(await confirmar({
@@ -2383,7 +2404,7 @@ const NewPostScreen: React.FC<{ onNavigate?: (screen: string) => void }> = ({ on
                       setGenerateImage(v);
                       if (v) {
                         setManualUploads([]);
-                        setGenerarVideo(false);
+                        if (generarVideo) dejarVideoIa();
                       }
                     }}
                   />
@@ -2391,18 +2412,19 @@ const NewPostScreen: React.FC<{ onNavigate?: (screen: string) => void }> = ({ on
                     label="Video (TikTok)"
                     checked={generarVideo}
                     onChange={(v) => {
-                      setGenerarVideo(v);
-                      if (v) {
-                        setGenerateImage(false);
-                        setManualUploads([]);
-                        setVideoUrl('');
-                        setSelectedRedes(['tiktok']);
-                        setToastMsg('Con video IA se publica solo en TikTok (vertical 9:16).');
-                        setShowToast(true);
-                        setTimeout(() => setShowToast(false), 3500);
-                      } else {
-                        setVideoUrl('');
+                      if (!v) {
+                        dejarVideoIa();
+                        return;
                       }
+                      setGenerarVideo(true);
+                      setGenerateImage(false);
+                      setManualUploads([]);
+                      setVideoUrl('');
+                      redesAntesDeVideo.current = selectedRedes;
+                      setSelectedRedes(['tiktok']);
+                      setToastMsg('Con video IA se publica solo en TikTok (vertical 9:16).');
+                      setShowToast(true);
+                      setTimeout(() => setShowToast(false), 3500);
                     }}
                   />
                 </div>
@@ -3098,6 +3120,7 @@ const ManualPostScreen: React.FC = () => {
                 onChange={setRedesDestino}
                 canales={canales}
                 medioVideo={uploadedFiles.some((f) => f.type.startsWith('video'))}
+                compacto
               />
               <ul className="mt-3 grid gap-1 text-xs" aria-label="Caracteres por red">
                 {(redesDestino.length ? redesDestino : [RED_PRINCIPAL]).map((r) => {
@@ -3210,7 +3233,6 @@ const DraftsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNa
 
   const statusColors: Record<string, 'warning' | 'success' | 'purple' | 'default'> = {
     pendiente: 'warning',
-    en_revision: 'default',
     aprobado: 'success',
     programado: 'purple',
     rechazado: 'default',
@@ -3660,7 +3682,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
   const initials = (profile?.nombre || user?.email || 'U').slice(0, 2).toUpperCase();
   const mes = viewDate.getMonth();
   const anio = viewDate.getFullYear();
-  const { porDia, isLoading, error: errorCal, refetch: recargarCal } = usePublicacionesProgramadas(mes, anio);
+  const { porDia, publicaciones, isLoading, error: errorCal, refetch: recargarCal } = usePublicacionesProgramadas(mes, anio);
   const [confirmar, dialogoConfirmacion] = useConfirm();
   const [reprogramando, setReprogramando] = useState<Publicacion | null>(null);
   const [repFecha, setRepFecha] = useState('');
@@ -3702,6 +3724,12 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
 
   const selectedPosts = selectedDay ? porDiaVisible[selectedDay] ?? [] : [];
 
+  // Semana (lunes a domingo) del día seleccionado. Puede cruzar de mes: sus datos salen de todas las publicaciones.
+  const baseSemana = new Date(anio, mes, selectedDay ?? 1);
+  const lunesSemana = new Date(baseSemana.getFullYear(), baseSemana.getMonth(), baseSemana.getDate() - ((baseSemana.getDay() + 6) % 7));
+  const diasSemana = Array.from({ length: 7 }, (_, i) => new Date(lunesSemana.getFullYear(), lunesSemana.getMonth(), lunesSemana.getDate() + i));
+  const rangoSemana = `${diasSemana[0].toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })} – ${diasSemana[6].toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
   const alternarFiltro = <T extends string>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, clave: T) =>
     setter((prev) => {
       const next = new Set(prev);
@@ -3709,6 +3737,12 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
       else next.add(clave);
       return next;
     });
+
+  /** Lleva el calendario a un día concreto, aunque sea de otro mes (vista de semana). */
+  const irADia = (d: Date) => {
+    setViewDate(new Date(d.getFullYear(), d.getMonth(), 1));
+    setSelectedDay(d.getDate());
+  };
 
   /** Anterior y siguiente: un mes en la vista de mes, una semana en la vista de semana. */
   const desplazar = (sentido: -1 | 1) => {
@@ -3722,8 +3756,35 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
     setViewDate(new Date(anio, mes + sentido, 1));
   };
 
+  // Filtros: viven en un popover junto a "Nueva publicación", no ocupan espacio en el calendario.
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  const filtrosRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!filtrosAbiertos) return;
+    const fuera = (e: MouseEvent) => {
+      if (!filtrosRef.current?.contains(e.target as Node)) setFiltrosAbiertos(false);
+    };
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFiltrosAbiertos(false);
+    };
+    document.addEventListener('mousedown', fuera);
+    window.addEventListener('keydown', tecla);
+    return () => {
+      document.removeEventListener('mousedown', fuera);
+      window.removeEventListener('keydown', tecla);
+    };
+  }, [filtrosAbiertos]);
+
+  /** Opciones desactivadas: sirve para el contador del botón y para saber si hay algo que restablecer. */
+  const filtrosOcultos = CATALOGO_REDES.length - filtroRedes.size + (CATEGORIAS_CAL.length - filtroEstados.size);
+  const restablecerFiltros = () => {
+    setFiltroRedes(new Set(CATALOGO_REDES.map((r) => r.id)));
+    setFiltroEstados(new Set(CATEGORIAS_CAL.map((c) => c.clave)));
+  };
+
   const filtrosCal = (
-    <div className="mb-3 space-y-2" aria-label="Filtros del calendario">
+    <div className="space-y-4" aria-label="Filtros del calendario">
+      <p className="-mb-2 text-xs font-semibold text-muted-foreground">Redes</p>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por red">
         {CATALOGO_REDES.map((r) => {
           const activa = filtroRedes.has(r.id);
@@ -3742,6 +3803,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
           );
         })}
       </div>
+      <p className="-mb-2 text-xs font-semibold text-muted-foreground">Estado</p>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por estado">
         {CATEGORIAS_CAL.map((c) => {
           const activa = filtroEstados.has(c.clave);
@@ -3806,49 +3868,88 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
       );
     }
 
-    const base = new Date(anio, mes, selectedDay ?? 1);
-    const lunes = new Date(base.getFullYear(), base.getMonth(), base.getDate() - ((base.getDay() + 6) % 7));
-    const dias = Array.from({ length: 7 }, (_, i) => new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + i));
+    // Semana: siete columnas que aprovechan todo el alto; cada día lista sus publicaciones con hora, red y estado.
+    const postsDeDia = (d: Date) =>
+      publicaciones
+        .filter((p) => {
+          const f = toDate(p.fechaProgramada);
+          return ESTADOS_EN_CALENDARIO.includes(p.estado) && f !== null && f.toDateString() === d.toDateString() && postVisible(p);
+        })
+        .sort((a, b) => (toDate(a.fechaProgramada)?.getTime() ?? 0) - (toDate(b.fechaProgramada)?.getTime() ?? 0));
+
     return (
-      <div className="grid gap-2 sm:grid-cols-7" role="list" aria-label="Semana">
-        {dias.map((d) => {
-          const enMes = d.getMonth() === mes && d.getFullYear() === anio;
-          const lista = enMes ? porDiaVisible[d.getDate()] ?? [] : [];
-          const seleccionado = enMes && selectedDay === d.getDate();
-          return (
-            <div
-              key={d.toISOString()}
-              role="listitem"
-              className={`min-w-0 rounded-xl border p-2 ${seleccionado ? 'border-brand/40 bg-brand-soft' : 'border-border'}`}
-            >
-              <button
-                type="button"
-                disabled={!enMes}
-                onClick={() => enMes && elegirDia(d.getDate())}
-                className="mb-2 w-full text-left text-xs font-medium capitalize text-muted-foreground disabled:opacity-60"
+      <div className="min-h-0 flex-1 overflow-x-auto">
+        <div
+          className="grid h-full gap-2 md:min-h-[24rem] md:grid-cols-[repeat(7,minmax(8rem,1fr))]"
+          role="list"
+          aria-label="Semana"
+        >
+          {diasSemana.map((d) => {
+            const lista = postsDeDia(d);
+            const esHoyD = d.toDateString() === now.toDateString();
+            const seleccionado = selectedDay === d.getDate() && d.getMonth() === mes && d.getFullYear() === anio;
+            const nombreDia = d.toLocaleDateString('es-CO', { weekday: 'short' }).replace('.', '');
+            return (
+              <div
+                key={d.toISOString()}
+                role="listitem"
+                className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border transition-colors duration-150 ${
+                  seleccionado ? 'border-brand/40 bg-brand-soft/40' : 'border-border'
+                }`}
               >
-                {d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' })}
-              </button>
-              <ul className="space-y-1">
-                {lista.map((post) => (
-                  <li key={post.id}>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewPost(post)}
-                      className="w-full truncate rounded-md px-1.5 py-1 text-left text-xs hover:bg-accent"
+                <button
+                  type="button"
+                  onClick={() => irADia(d)}
+                  aria-label={`${d.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}, ${lista.length} publicación(es)`}
+                  className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 text-left transition-colors hover:bg-accent"
+                >
+                  <span className="flex items-center gap-2 md:flex-col md:items-start md:gap-0.5">
+                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{nombreDia}</span>
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-base font-semibold tabular-nums ${
+                        esHoyD ? 'bg-brand text-white' : 'text-foreground'
+                      }`}
                     >
-                      <span className="tabular-nums text-muted-foreground">
-                        {toDate(post.fechaProgramada)?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                      </span>{' '}
-                      {post.titulo || 'Sin título'}
-                    </button>
-                  </li>
-                ))}
-                {enMes && lista.length === 0 && <li className="text-xs text-muted-foreground">Sin publicaciones</li>}
-              </ul>
-            </div>
-          );
-        })}
+                      {d.getDate()}
+                    </span>
+                  </span>
+                  {lista.length > 0 && <Badge variant="purple">{lista.length}</Badge>}
+                </button>
+                <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+                  {lista.map((post) => {
+                    const cat = categoriaDeCal(post, isPostOverdue(post));
+                    const info = CATEGORIAS_CAL.find((c) => c.clave === cat);
+                    return (
+                      <li key={post.id}>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewPost(post)}
+                          title={`${post.titulo || 'Sin título'} · ${info?.nombre ?? cat}`}
+                          className="flex w-full gap-2 rounded-lg bg-accent/60 p-2 text-left transition-colors hover:bg-accent"
+                        >
+                          <span className={`w-1 shrink-0 self-stretch rounded-full ${info?.punto ?? 'bg-brand'}`} aria-hidden />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-xs tabular-nums text-muted-foreground">
+                              {toDate(post.fechaProgramada)?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                              <span className="sr-only"> · {info?.nombre ?? cat}</span>
+                            </span>
+                            <span className="line-clamp-2 text-xs font-medium text-foreground">{post.titulo || 'Sin título'}</span>
+                            <span className="mt-1 flex items-center gap-1">
+                              {(post.redesDestino ?? []).slice(0, 4).map((r) => (
+                                <span key={r}>{redIcono(r as RedSocial, 'h-3.5 w-3.5')}</span>
+                              ))}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                  {lista.length === 0 && <li className="py-6 text-center text-xs text-muted-foreground">Libre</li>}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -4066,9 +4167,43 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
         title="Calendario editorial"
         subtitle="Organiza y reprograma tus publicaciones por día."
         actions={
-          <Button icon={<Plus />} onClick={() => onNavigate('new-post')}>
-            Nueva publicación
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="relative" ref={filtrosRef}>
+              <Button
+                variant="outline"
+                icon={<Filter />}
+                aria-expanded={filtrosAbiertos}
+                aria-haspopup="dialog"
+                onClick={() => setFiltrosAbiertos((v) => !v)}
+              >
+                Filtros
+                {filtrosOcultos > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-xs font-semibold text-white">
+                    {filtrosOcultos}
+                  </span>
+                )}
+              </Button>
+              <Popover
+                open={filtrosAbiertos}
+                className="absolute right-0 top-full z-50 mt-2 w-[min(26rem,calc(100vw-2rem))]"
+              >
+                <div role="dialog" aria-label="Filtros del calendario" className="space-y-4 p-4">
+                  {filtrosCal}
+                  <div className="flex items-center justify-between border-t border-border pt-3">
+                    <span className="text-xs text-muted-foreground">
+                      {filtrosOcultos > 0 ? `${filtrosOcultos} opción(es) ocultas` : 'Se muestra todo'}
+                    </span>
+                    <Button variant="ghost" disabled={filtrosOcultos === 0} onClick={restablecerFiltros}>
+                      Restablecer
+                    </Button>
+                  </div>
+                </div>
+              </Popover>
+            </div>
+            <Button icon={<Plus />} onClick={() => onNavigate('new-post')}>
+              Nueva publicación
+            </Button>
+          </div>
         }
       />
 
@@ -4094,28 +4229,25 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
       <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* Mes */}
         <Panel
-          title={<span className="inline-block first-letter:uppercase">{monthLabel}</span>}
+          title={<span className="inline-block first-letter:uppercase">{vista === 'semana' ? rangoSemana : monthLabel}</span>}
           icon={<Calendar />}
           scroll={false}
           className="max-[359px]:[&>div:nth-child(2)]:!p-2"
           bodyClassName="flex flex-col"
           actions={
-            <div className="flex flex-wrap items-center gap-1">
-              <div className="mr-1 flex items-center rounded-full border border-border p-0.5" role="group" aria-label="Vista del calendario">
-                {(['mes', 'semana', 'lista'] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    aria-pressed={vista === v}
-                    onClick={() => setVista(v)}
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
-                      vista === v ? 'bg-brand-soft text-brand-strong' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-wrap items-center justify-end gap-1">
+              <Segmented
+                size="sm"
+                ariaLabel="Vista del calendario"
+                className="mr-1"
+                value={vista}
+                onChange={(v) => setVista(v as 'mes' | 'semana' | 'lista')}
+                options={[
+                  { value: 'mes', label: 'Mes' },
+                  { value: 'semana', label: 'Semana' },
+                  { value: 'lista', label: 'Lista' },
+                ]}
+              />
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -4134,8 +4266,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?:
             </div>
           }
         >
-          {filtrosCal}
-          <div className={`mb-2 grid shrink-0 grid-cols-7 gap-1 sm:gap-2 ${vista === 'lista' ? 'hidden' : ''}`} aria-hidden>
+          <div className={`mb-2 grid shrink-0 grid-cols-7 gap-1 sm:gap-2 ${vista !== 'mes' ? 'hidden' : ''}`} aria-hidden>
             {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
               <div key={d} className="py-1 text-center text-xs text-muted-foreground">
                 {d}
@@ -5326,245 +5457,6 @@ const ChannelsScreen: React.FC = () => {
 };
 
 // ============================================================================
-// PANTALLA: APROBACIONES (flujo de borradores: enviar, aprobar, pedir cambios, programar)
-// ============================================================================
-
-const COLUMNAS_APROBACION: { clave: EstadoBorrador; nombre: string; ayuda: string }[] = [
-  { clave: 'pendiente', nombre: 'Borrador', ayuda: 'Sin enviar a revisión' },
-  { clave: 'en_revision', nombre: 'En revisión', ayuda: 'Esperando a un administrador' },
-  { clave: 'aprobado', nombre: 'Aprobado', ayuda: 'Listo para programar' },
-  { clave: 'programado', nombre: 'Programado', ayuda: 'Se publicará a la hora elegida' },
-];
-
-const AprobacionesScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
-  const { profile } = useAuth();
-  const { data: borradores = [], isLoading, error, refetch } = useBorradores();
-  const mover = useMoverBorrador();
-  const esAdministrador = profile?.rol === 'admin';
-  const [aviso, setAviso] = useState('');
-  const [pidiendoCambios, setPidiendoCambios] = useState<Borrador | null>(null);
-  const [comentario, setComentario] = useState('');
-  const [programando, setProgramando] = useState<Borrador | null>(null);
-  const [fechaLocal, setFechaLocal] = useState('');
-
-  const ejecutar = (input: { id: string; accion: AccionBorrador; comentario?: string; fechaHora?: string }, alTerminar?: () => void) => {
-    setAviso('');
-    mover.mutate(input, {
-      onSuccess: () => alTerminar?.(),
-      onError: (e) => setAviso(mensajeCallable(e)),
-    });
-  };
-
-  const fechaValida = fechaLocal !== '' && !Number.isNaN(new Date(fechaLocal).getTime());
-
-  const acciones = (b: Borrador) => {
-    const ocupado = mover.isPending;
-    if (b.estado === 'pendiente') {
-      return (
-        <Button variant="outline" disabled={ocupado} onClick={() => ejecutar({ id: b.id, accion: 'enviar' })}>
-          Enviar a revisión
-        </Button>
-      );
-    }
-    if (b.estado === 'en_revision') {
-      const aviso = esAdministrador ? undefined : 'Solo un administrador aprueba o pide cambios';
-      return (
-        <>
-          <Button disabled={!esAdministrador || ocupado} title={aviso} onClick={() => ejecutar({ id: b.id, accion: 'aprobar' })}>
-            Aprobar
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!esAdministrador || ocupado}
-            title={aviso}
-            onClick={() => {
-              setComentario('');
-              setPidiendoCambios(b);
-            }}
-          >
-            Pedir cambios
-          </Button>
-        </>
-      );
-    }
-    if (b.estado === 'aprobado') {
-      return (
-        <Button
-          disabled={ocupado}
-          onClick={() => {
-            setFechaLocal('');
-            setProgramando(b);
-          }}
-        >
-          Programar
-        </Button>
-      );
-    }
-    return (
-      <Button variant="ghost" onClick={() => onNavigate('calendar')}>
-        Ver calendario
-      </Button>
-    );
-  };
-
-  const tarjeta = (b: Borrador) => {
-    const redes = (b.redesDestino ?? []).map((r) => redConfig(r)?.nombre ?? r).join(', ');
-    return (
-      <li key={b.id} className="surface space-y-3 p-4">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground" title={b.titulo}>
-            {b.titulo || 'Sin título'}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">{redes || 'Sin redes'}</p>
-        </div>
-        {b.estado === 'pendiente' && b.revisionComentario && (
-          <div className="rounded-lg bg-warning-soft p-3 text-xs text-foreground">
-            <span className="font-semibold text-warning">Cambios pedidos: </span>
-            {b.revisionComentario}
-          </div>
-        )}
-        {b.estado === 'programado' && b.programadoPara && (
-          <p className="text-xs text-muted-foreground">
-            Se publicará el{' '}
-            {new Date(b.programadoPara).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2">{acciones(b)}</div>
-      </li>
-    );
-  };
-
-  return (
-    <ScreenLayout>
-      <PageHeader title="Aprobaciones" subtitle="Revisa los borradores antes de programarlos" />
-
-      {!esAdministrador && (
-        <Notice tone="info" className="shrink-0">
-          Puedes enviar borradores a revisión. Aprobar y pedir cambios lo hace el administrador de la cuenta.
-        </Notice>
-      )}
-      {aviso && <Notice tone="danger" className="shrink-0">{aviso}</Notice>}
-      {error && (
-        <Notice tone="danger" className="shrink-0" action={<Button variant="ghost" onClick={() => void refetch()}>Reintentar</Button>}>
-          No se pudieron cargar los borradores.
-        </Notice>
-      )}
-
-      {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-busy="true">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-48 w-full" />
-          ))}
-        </div>
-      ) : borradores.length === 0 ? (
-        <EmptyState
-          icon={<CheckCircle2 />}
-          title="No hay borradores"
-          text="Crea uno con el asistente y aparecerá aquí para revisarlo."
-          action={
-            <Button variant="outline" icon={<PenSquare />} onClick={() => onNavigate('new-post')}>
-              Nueva publicación
-            </Button>
-          }
-        />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {COLUMNAS_APROBACION.map((col) => {
-            const lista = borradores.filter((b) => b.estado === col.clave);
-            return (
-              <section key={col.clave} aria-labelledby={`col-${col.clave}`} className="flex min-h-0 flex-col gap-3 rounded-[14px] bg-accent/50 p-3">
-                <header className="flex items-start justify-between gap-2 px-1">
-                  <div className="min-w-0">
-                    <h2 id={`col-${col.clave}`} className="text-sm font-semibold text-foreground">
-                      {col.nombre}
-                    </h2>
-                    <p className="text-xs text-muted-foreground">{col.ayuda}</p>
-                  </div>
-                  <Badge>{lista.length}</Badge>
-                </header>
-                {lista.length === 0 ? (
-                  <p className="px-1 py-6 text-center text-xs text-muted-foreground">Nada aquí.</p>
-                ) : (
-                  <ul className="space-y-3">{lista.map(tarjeta)}</ul>
-                )}
-              </section>
-            );
-          })}
-        </div>
-      )}
-
-      <p className="text-xs text-muted-foreground">
-        Invitar revisores por correo llegará con el envío de correos. Por ahora, la revisión la hace el administrador de la cuenta.
-      </p>
-
-      <Modal
-        isOpen={pidiendoCambios !== null}
-        onClose={() => setPidiendoCambios(null)}
-        title="Pedir cambios"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setPidiendoCambios(null)}>
-              Cancelar
-            </Button>
-            <Button
-              disabled={comentario.trim().length < 3 || mover.isPending}
-              onClick={() =>
-                pidiendoCambios &&
-                ejecutar({ id: pidiendoCambios.id, accion: 'pedir_cambios', comentario: comentario.trim() }, () => setPidiendoCambios(null))
-              }
-            >
-              Enviar comentario
-            </Button>
-          </>
-        }
-      >
-        <Textarea
-          label="¿Qué debe cambiar?"
-          rows={4}
-          maxLength={500}
-          value={comentario}
-          onChange={(e) => setComentario(e.target.value)}
-          placeholder="Ej.: Cambia la frase final, suena a eslogan."
-        />
-      </Modal>
-
-      <Modal
-        isOpen={programando !== null}
-        onClose={() => setProgramando(null)}
-        title="Programar publicación"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setProgramando(null)}>
-              Cancelar
-            </Button>
-            <Button
-              disabled={!fechaValida || mover.isPending}
-              onClick={() =>
-                programando &&
-                ejecutar(
-                  { id: programando.id, accion: 'programar', fechaHora: new Date(fechaLocal).toISOString() },
-                  () => setProgramando(null)
-                )
-              }
-            >
-              Programar
-            </Button>
-          </>
-        }
-      >
-        <Input
-          label="Fecha y hora"
-          type="datetime-local"
-          value={fechaLocal}
-          onChange={(e) => setFechaLocal(e.target.value)}
-          hint="Se usa la hora de tu dispositivo. Debe ser futura."
-        />
-      </Modal>
-    </ScreenLayout>
-  );
-};
-
-// ============================================================================
 // PANTALLA: ANALÍTICA (M9 métricas, L1 panel, L5 mejor hora propia)
 // ============================================================================
 
@@ -6096,7 +5988,7 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
     tipo === 'publicado' ? 'success' : tipo === 'borrador' ? 'warning' : tipo === 'error' ? 'danger' : 'brand';
 
   return (
-    <ScreenLayout>
+    <ScreenLayout crece>
       <PageHeader
         title={primerNombre ? `Hola, ${primerNombre}` : 'Panel principal'}
         subtitle="Resumen de tu actividad en Conect.ia"
@@ -6194,10 +6086,11 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
         )}
       </Panel>
 
-      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Panel
           title="Notificaciones"
           icon={<Bell />}
+          scroll={false}
           actions={
             <>
               {cantidadSinLeer > 0 && <Badge variant="purple">{cantidadSinLeer} sin leer</Badge>}
@@ -6236,7 +6129,7 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
             />
           ) : (
             <ul className="-mx-2 space-y-1">
-              {actividad.map((a) => (
+              {actividad.slice(0, 5).map((a) => (
                 <li key={a.id} className="flex min-h-14 items-center gap-3 rounded-[10px] px-2 py-2">
                   <IconTile tone={tonoActividad(a.tipo)}>
                     {a.tipo === 'programado' ? <Calendar /> : a.tipo === 'borrador' ? <FileText /> : a.tipo === 'error' ? <X /> : <CheckCircle2 />}
@@ -6259,7 +6152,7 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
           )}
         </Panel>
 
-        <Panel title="Accesos rápidos" icon={<Zap />} scroll={false} className="self-start">
+        <Panel title="Accesos rápidos" icon={<Zap />} scroll={false}>
           <div className="-mx-2 space-y-1">
             {accesos.map((a) => (
               <button
@@ -6332,8 +6225,6 @@ export default function App({ productionMode = false }: { productionMode?: boole
         return <CalendarScreen onNavigate={navegar} inicial={calendarioInicial} />;
       case 'agent':
         return <AgentScreen onNavigate={setCurrentScreen} />;
-      case 'approvals':
-        return <AprobacionesScreen onNavigate={navegar} />;
       case 'analytics':
         return <AnaliticaScreen onNavigate={navegar} />;
       case 'channels':

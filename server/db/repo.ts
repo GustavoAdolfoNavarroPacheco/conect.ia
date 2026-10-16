@@ -51,7 +51,7 @@ export async function asegurarCuenta(uid: string, email: string, nombre: string)
   const q = sql();
   await q.transaction([
     q`INSERT INTO usuarios (uid, email, nombre, rol, redes_conectadas)
-      VALUES (${uid}, ${email}, ${nombre}, 'admin',
+      VALUES (${uid}, ${email}, ${nombre}, 'editor',
               '{"linkedin":false,"instagram":false,"facebook":false,"twitter":false,"tiktok":false}'::jsonb)
       ON CONFLICT (uid) DO UPDATE SET
         email = EXCLUDED.email,
@@ -318,9 +318,6 @@ export type BorradorRow = {
   estado: string;
   n8nExecutionId: string | null;
   programadoPara: string | null;
-  revisionComentario: string | null;
-  revisadoPor: string | null;
-  revisadoEn: string | null;
   creadoEn: string | null;
   actualizadoEn: string | null;
 };
@@ -341,9 +338,6 @@ function mapBorrador(r: Record<string, any>): BorradorRow {
     estado: r.estado,
     n8nExecutionId: r.n8n_execution_id ?? null,
     programadoPara: iso(r.programado_para),
-    revisionComentario: r.revision_comentario ?? null,
-    revisadoPor: r.revisado_por ?? null,
-    revisadoEn: iso(r.revisado_en),
     creadoEn: iso(r.creado_en),
     actualizadoEn: iso(r.actualizado_en),
   };
