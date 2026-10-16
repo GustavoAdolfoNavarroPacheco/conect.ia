@@ -11,6 +11,7 @@ import {
   registrarFalloPublicacion,
   registrarResultadoRed,
   reclamarPublicacion,
+  reclamarReintentoRedes,
 } from '../db/repo';
 import { estadoDeRed, tokenRechazado } from '../integracion/estadoConexion';
 import type { RedSocial, ResultadoRed } from '../types';
@@ -56,9 +57,41 @@ export async function publishPostById(postId: string, userId: string): Promise<v
   }
 }
 
+/**
+ * Reintenta solo las redes que fallaron. Las que ya publicaron no se vuelven a enviar: así un
+ * reintento nunca duplica una publicación que ya salió.
+ */
+export async function reintentarRedesFallidas(postId: string, userId: string): Promise<void> {
+  const post = await obtenerPublicacion(postId);
+  if (!post || post.creadoPor !== userId) {
+    throw new Error(`Publicación ${postId} no encontrada`);
+  }
+  if (post.estado !== 'parcial' && post.estado !== 'fallido') {
+    throw new Error('Solo se reintentan publicaciones parciales o fallidas.');
+  }
+  const previos = (post.resultados ?? {}) as Record<string, ResultadoRed>;
+  const fallidas = post.redesDestino.filter((r) => previos[r]?.success !== true);
+  if (fallidas.length === 0) {
+    throw new Error('No hay redes fallidas que reintentar.');
+  }
+  if (!(await reclamarReintentoRedes(postId))) {
+    throw new Error('La publicación ya se está enviando o llegó al máximo de intentos.');
+  }
+  try {
+    await enviarPublicacion(post, userId, fallidas);
+  } catch (err) {
+    await registrarFalloPublicacion(postId, mensajeDeFalloEnvio(err));
+    throw err;
+  }
+}
+
 type PublicacionEnvio = NonNullable<Awaited<ReturnType<typeof obtenerPublicacion>>>;
 
-async function enviarPublicacion(post: PublicacionEnvio, userId: string): Promise<void> {
+async function enviarPublicacion(
+  post: PublicacionEnvio,
+  userId: string,
+  redes: string[] = post.redesDestino
+): Promise<void> {
   const postId = post.id;
   const tokens = await obtenerTokens(userId);
 
@@ -129,7 +162,7 @@ async function enviarPublicacion(post: PublicacionEnvio, userId: string): Promis
       }
     | undefined;
 
-  const tasks = post.redesDestino.map(async (red) => {
+  const tasks = redes.map(async (red) => {
     // Con el token caducado no se llama a la red: se pide reconectar en Canales.
     if (estadoDeRed(red, tokens).estado === 'caducado') {
       resultados[red] = {
@@ -233,12 +266,15 @@ async function enviarPublicacion(post: PublicacionEnvio, userId: string): Promis
 
   await Promise.all(tasks);
 
-  const allOk = Object.values(resultados).every((r) => r?.success);
-  const anyOk = Object.values(resultados).some((r) => r?.success);
+  // Se combinan con lo que ya salió en intentos anteriores: esas redes no se borran ni se reenvían.
+  const previos = (post.resultados ?? {}) as Record<string, ResultadoRed>;
+  const todos: Record<string, ResultadoRed> = { ...previos, ...resultados };
+  const allOk = post.redesDestino.every((r) => todos[r]?.success);
+  const anyOk = post.redesDestino.some((r) => todos[r]?.success);
 
   // Éxito parcial: sale en algunas redes y falla en otras. Queda `parcial` con el detalle por red.
   const estado = allOk ? 'publicado' : anyOk ? 'parcial' : 'fallido';
-  await marcarPublicacion(postId, estado, resultados);
+  await marcarPublicacion(postId, estado, todos);
 
   if (!anyOk) {
     const detalle = Object.entries(resultados)

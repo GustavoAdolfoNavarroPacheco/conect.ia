@@ -82,6 +82,10 @@ export type PublicacionRow = {
   n8nExecutionId: string | null;
   creadoEn: string | null;
   actualizadoEn: string | null;
+  /** Intentos de envío hechos (máximo 5) y el último error registrado. */
+  intentos: number;
+  ultimoError: string | null;
+  publicadoEn: string | null;
 };
 
 function mapPublicacion(r: Record<string, any>): PublicacionRow {
@@ -98,6 +102,9 @@ function mapPublicacion(r: Record<string, any>): PublicacionRow {
     n8nExecutionId: r.n8n_execution_id ?? null,
     creadoEn: iso(r.creado_en),
     actualizadoEn: iso(r.actualizado_en),
+    intentos: Number(r.intentos ?? 0),
+    ultimoError: r.ultimo_error ?? null,
+    publicadoEn: iso(r.publicado_en),
   };
 }
 
@@ -177,6 +184,23 @@ export async function reclamarPublicacion(id: string): Promise<boolean> {
       actualizado_en = now()
     WHERE id = ${id}
       AND estado IN ('pendiente', 'programado', 'fallido')
+      AND intentos < 5
+    RETURNING id`;
+  return rows.length > 0;
+}
+
+/**
+ * Reclamo para reintentar solo las redes que fallaron. Solo entra una publicación parcial o fallida,
+ * con intentos disponibles. Las redes que ya salieron no se vuelven a enviar.
+ */
+export async function reclamarReintentoRedes(id: string): Promise<boolean> {
+  const rows = await sql()`
+    UPDATE publicaciones SET
+      estado = 'en_proceso',
+      intentos = intentos + 1,
+      actualizado_en = now()
+    WHERE id = ${id}
+      AND estado IN ('parcial', 'fallido')
       AND intentos < 5
     RETURNING id`;
   return rows.length > 0;
@@ -446,6 +470,30 @@ export async function adquirirBloqueo(clave: string, segundos: number): Promise<
 
 export async function liberarBloqueo(clave: string): Promise<void> {
   await sql()`DELETE FROM bloqueos WHERE clave = ${clave}`;
+}
+
+/** Latido del programador: cada ejecución del cron deja una fila. */
+export async function registrarCicloProgramador(procesadas: number, fallidas: number): Promise<void> {
+  await sql()`INSERT INTO ciclos_programador (procesadas, fallidas) VALUES (${procesadas}::int, ${fallidas}::int)`;
+  // Se conservan las últimas 200 ejecuciones.
+  await sql()`
+    DELETE FROM ciclos_programador
+    WHERE id NOT IN (SELECT id FROM ciclos_programador ORDER BY id DESC LIMIT 200)`;
+}
+
+export async function ultimoCicloProgramador(): Promise<{
+  ejecutadoEn: string | null;
+  procesadas: number;
+  fallidas: number;
+} | null> {
+  const rows = await sql()`SELECT ejecutado_en, procesadas, fallidas FROM ciclos_programador ORDER BY id DESC LIMIT 1`;
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    ejecutadoEn: iso(r.ejecutado_en),
+    procesadas: Number(r.procesadas),
+    fallidas: Number(r.fallidas),
+  };
 }
 
 /**

@@ -20,6 +20,9 @@ import {
   chatWithAgent,
   cuotaIAHoy,
   type CuotaIAHoy,
+  estadoProgramador,
+  reintentarRedes,
+  type EstadoProgramador,
   generateContent as generateContentFn,
   generateVideo as generateVideoFn,
   schedulePost as schedulePostFn,
@@ -3119,6 +3122,151 @@ const DraftsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNa
 // PANTALLA 5: CALENDARIO
 // ============================================================================
 
+/** Nombre legible de cada estado de publicación (Q13: el estado se lee sin depender del color). */
+function etiquetaEstado(estado: string): string {
+  const etiquetas: Record<string, string> = {
+    borrador: 'Borrador',
+    pendiente: 'Pendiente',
+    programado: 'Programada',
+    en_proceso: 'Enviando',
+    enviado: 'Enviada sin confirmar',
+    parcial: 'Parcial',
+    publicado: 'Publicada',
+    fallido: 'Fallida',
+  };
+  return etiquetas[estado] ?? estado;
+}
+
+const ETAPAS_ENVIO = ['Programada', 'Enviando', 'Parcial', 'Publicada'] as const;
+
+/** Etapa actual del envío: solo figura como publicada cuando todas las redes confirman (U6). */
+function etapaDeEnvio(estado: string): number {
+  if (estado === 'publicado') return 3;
+  if (estado === 'parcial') return 2;
+  if (estado === 'en_proceso' || estado === 'enviado') return 1;
+  return 0;
+}
+
+/** Detalle de envío de una publicación: etapas, resultado por red, intentos y reintento de fallidas. */
+const DetalleEnvio: React.FC<{
+  post: Publicacion;
+  reintentando: boolean;
+  onReintentar: () => void;
+  onIrCanales: () => void;
+}> = ({ post, reintentando, onReintentar, onIrCanales }) => {
+  const resultados = post.resultados ?? {};
+  const fallidas = post.redesDestino.filter((r) => resultados[r]?.success !== true);
+  const puedeReintentar = (post.estado === 'parcial' || post.estado === 'fallido') && fallidas.length > 0;
+  const conToken = fallidas.some((r) => /token|401|190|caduc|conect/i.test(resultados[r]?.error ?? ''));
+  const fechaPrevista = post.fechaProgramada ? toDate(post.fechaProgramada) : null;
+  const vencida = post.estado === 'programado' && !!fechaPrevista && fechaPrevista.getTime() < Date.now();
+  const actual = etapaDeEnvio(post.estado);
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border p-4">
+      <ol className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4" aria-label="Etapas del envío">
+        {ETAPAS_ENVIO.map((nombre, i) => (
+          <li
+            key={nombre}
+            aria-current={i === actual ? 'step' : undefined}
+            className={`rounded-lg px-2 py-1.5 text-center font-medium ${
+              i === actual ? 'bg-brand-soft text-brand-strong' : i < actual ? 'bg-accent text-foreground' : 'text-muted-foreground'
+            }`}
+          >
+            {nombre}
+          </li>
+        ))}
+      </ol>
+
+      {vencida && (
+        <Notice tone="warning">
+          La hora prevista ya pasó y sigue sin enviarse. Si esto se repite, revisa el último ciclo del programador.
+        </Notice>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs text-muted-foreground">
+              <th scope="col" className="py-1 font-medium">Red</th>
+              <th scope="col" className="py-1 font-medium">Estado</th>
+              <th scope="col" className="py-1 font-medium">Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {post.redesDestino.map((red) => {
+              const r = resultados[red];
+              const estadoRed = r?.success ? 'Publicado' : r?.error ? 'Fallido' : 'Pendiente';
+              return (
+                <tr key={red} className="border-t border-border align-top">
+                  <th scope="row" className="py-2 pr-2 text-left font-medium text-foreground">
+                    {redConfig(red as RedSocial)?.nombre ?? red}
+                  </th>
+                  <td className="py-2 pr-2">{estadoRed}</td>
+                  <td className="py-2 text-muted-foreground [overflow-wrap:anywhere]">
+                    {r?.success ? (r.postId ? `ID ${r.postId}` : 'Confirmado') : (r?.error ?? 'Sin envío todavía')}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {(post.intentos ?? 0) > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Intento {post.intentos} de 5
+          {post.ultimoError ? ` · Último error: ${post.ultimoError}` : ''}
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {puedeReintentar && (
+          <Button
+            icon={reintentando ? <Loader2 className="animate-spin" /> : <Send />}
+            disabled={reintentando}
+            onClick={onReintentar}
+          >
+            {fallidas.length === 1 ? 'Reintentar la red fallida' : 'Reintentar las redes fallidas'}
+          </Button>
+        )}
+        {conToken && (
+          <Button variant="outline" onClick={onIrCanales}>
+            Ir a Canales
+          </Button>
+        )}
+      </div>
+      {puedeReintentar && (
+        <p className="text-xs text-muted-foreground">
+          Solo se reintenta lo que falló: las redes que ya publicaron no se vuelven a enviar.
+        </p>
+      )}
+    </div>
+  );
+};
+
+/** Último ciclo del programador. Avisa si lleva tiempo sin ejecutarse (U2). */
+const ProgramadorEstado: React.FC<{ ciclo: EstadoProgramador['ultimoCiclo'] | undefined }> = ({ ciclo }) => {
+  if (ciclo === undefined) return null;
+  if (!ciclo?.ejecutadoEn) {
+    return (
+      <Notice tone="warning">
+        El programador aún no tiene ejecuciones registradas. Configura el disparador externo cada 5 minutos (ver docs/deploy-vercel.md).
+      </Notice>
+    );
+  }
+  const minutos = Math.round((Date.now() - new Date(ciclo.ejecutadoEn).getTime()) / 60_000);
+  const atrasado = minutos > 15;
+  const texto = minutos < 1 ? 'hace menos de 1 min' : `hace ${minutos} min`;
+  return (
+    <p role="status" className={`text-xs ${atrasado ? 'text-destructive' : 'text-muted-foreground'}`}>
+      {atrasado
+        ? `El programador no se ejecuta desde ${texto}. Las publicaciones programadas no salen a su hora.`
+        : `Último ciclo del programador: ${texto}${ciclo.fallidas ? ` · ${ciclo.fallidas} con error` : ''}.`}
+    </p>
+  );
+};
+
 const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
   const { user, profile } = useAuth();
   const invalidate = useInvalidateCampus();
@@ -3202,6 +3350,30 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
       setSchedulerMsg(
         `Publicación enviada a ${(post.redesDestino ?? [RED_PRINCIPAL]).join(', ')}`
       );
+      invalidate();
+    } catch (e) {
+      setSchedulerMsg(mensajeCallable(e));
+    } finally {
+      setPublishingId(null);
+    }
+  };
+
+  // Último ciclo del programador (U2): se carga al entrar y tras cada acción sobre publicaciones.
+  const [ciclo, setCiclo] = useState<EstadoProgramador['ultimoCiclo'] | undefined>(undefined);
+  useEffect(() => {
+    estadoProgramador()
+      .then((r) => setCiclo(r.ultimoCiclo))
+      .catch(() => setCiclo(null));
+  }, []);
+
+  /** Reintenta solo las redes que fallaron de una publicación (U6 / Q15). */
+  const reintentarFallidas = async (post: Publicacion) => {
+    setPublishingId(post.id);
+    setSchedulerMsg('');
+    try {
+      await reintentarRedes(post.id);
+      setSchedulerMsg('Reintento terminado. Las redes que ya habían publicado no se volvieron a enviar.');
+      setPreviewPost(null);
       invalidate();
     } catch (e) {
       setSchedulerMsg(mensajeCallable(e));
@@ -3359,6 +3531,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
               correspondiente.
             </Notice>
           )}
+          <ProgramadorEstado ciclo={ciclo} />
           {schedulerMsg && <Notice tone="success">{schedulerMsg}</Notice>}
         </div>
       )}
@@ -3545,7 +3718,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
                           variant={post.estado === 'publicado' ? 'success' : post.estado === 'fallido' || overdue ? 'danger' : 'purple'}
                           className="capitalize"
                         >
-                          {overdue ? 'Vencida' : post.estado}
+                          {overdue ? 'Vencida' : etiquetaEstado(post.estado)}
                         </Badge>
                       </div>
                       {post.estado === 'fallido' && (
@@ -3656,8 +3829,10 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
                   {formatDateTime(toDate(previewPost.fechaProgramada))}
                 </Badge>
               )}
-              <Badge variant={previewPost.estado === 'publicado' ? 'success' : 'default'} className="capitalize">
-                {previewPost.estado}
+              <Badge
+                variant={previewPost.estado === 'publicado' ? 'success' : previewPost.estado === 'fallido' ? 'danger' : 'default'}
+              >
+                {etiquetaEstado(previewPost.estado)}
               </Badge>
               {previewPost.redesDestino.map((net) => (
                 <Badge key={net} variant="purple">
@@ -3665,6 +3840,15 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
                 </Badge>
               ))}
             </div>
+            <DetalleEnvio
+              post={previewPost}
+              reintentando={publishingId === previewPost.id}
+              onReintentar={() => void reintentarFallidas(previewPost)}
+              onIrCanales={() => {
+                setPreviewPost(null);
+                onNavigate('channels');
+              }}
+            />
             <SocialPostPreview
               network={previewPost.redesDestino[0] || RED_PRINCIPAL}
               authorName={displayName}

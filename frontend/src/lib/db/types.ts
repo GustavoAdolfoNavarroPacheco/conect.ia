@@ -63,6 +63,10 @@ export type Publicacion = {
   fechaProgramada?: string | null;
   creadoPor: string;
   resultados?: Record<string, { success: boolean; postId?: string; error?: string }>;
+  /** Intentos de envío hechos (máximo 5) y el último error registrado. */
+  intentos?: number;
+  ultimoError?: string | null;
+  publicadoEn?: string | null;
   n8nExecutionId?: string | null;
   creadoEn?: string;
   actualizadoEn?: string;

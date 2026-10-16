@@ -71,6 +71,20 @@ export async function publishPostNow(postId: string) {
   return callFn<{ success: boolean; postId: string }>('publishPostNow', { postId });
 }
 
+/** Reintenta solo las redes que fallaron. Las que ya publicaron no se vuelven a enviar. */
+export async function reintentarRedes(postId: string) {
+  return callFn<{ success: boolean; postId: string }>('reintentarRedes', { postId });
+}
+
+/** Último ciclo del programador (cron). `null` si nunca se ha registrado. */
+export type EstadoProgramador = {
+  ultimoCiclo: { ejecutadoEn: string | null; procesadas: number; fallidas: number } | null;
+};
+
+export async function estadoProgramador() {
+  return callFn<EstadoProgramador>('estadoProgramador');
+}
+
 export async function processDueScheduledPosts() {
   return callFn<{
     processed: number;

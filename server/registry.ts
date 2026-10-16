@@ -5,7 +5,7 @@ import { generateVideo } from './ai/generateVideo';
 import { chatWithAgent } from './ai/chatWithAgent';
 import { cuotaIAHoy } from './ai/cuotaIA';
 import { schedulePost } from './posts/schedulePost';
-import { publishPostNow } from './posts/publishPostCallable';
+import { estadoProgramador, publishPostNow, reintentarRedes } from './posts/publishPostCallable';
 import { processDueScheduledPosts } from './posts/processDueScheduledPosts';
 import { triggerMakeWorkflow } from './integracion/triggerMakeWorkflow';
 import { verifyChannelConnection } from './integracion/verifyChannelConnection';
@@ -47,6 +47,8 @@ export const CALLABLES: Record<string, Callable> = {
   cuotaIA: cuotaIAHoy,
   schedulePost,
   publishPostNow,
+  reintentarRedes,
+  estadoProgramador,
   processDueScheduledPosts,
   triggerMakeWorkflow,
   verifyChannelConnection,

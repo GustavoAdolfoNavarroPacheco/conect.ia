@@ -124,6 +124,14 @@ CREATE TABLE IF NOT EXISTS oauth_pendientes (
   creado_en      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Latido del programador: cada ejecución del cron deja una fila (para mostrar cuándo corrió por última vez).
+CREATE TABLE IF NOT EXISTS ciclos_programador (
+  id            BIGSERIAL PRIMARY KEY,
+  ejecutado_en  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  procesadas    INTEGER NOT NULL DEFAULT 0,
+  fallidas      INTEGER NOT NULL DEFAULT 0
+);
+
 -- Bloqueos cortos por clave (p. ej. renovar un token): evitan dos ejecuciones simultáneas.
 CREATE TABLE IF NOT EXISTS bloqueos (
   clave   TEXT PRIMARY KEY,
