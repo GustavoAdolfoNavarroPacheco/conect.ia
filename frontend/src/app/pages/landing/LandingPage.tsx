@@ -169,7 +169,7 @@ export const LandingPage: React.FC<{ onNavigate: (screen: string) => void }> = (
                 type="button"
                 aria-label={mode === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
                 onClick={toggleTheme}
-                className="press flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="press flex max-[359px]:hidden h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 {mode === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
               </button>

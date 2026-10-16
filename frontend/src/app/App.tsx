@@ -4808,7 +4808,7 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
               onStop={detener}
               sending={sending}
               textareaRef={composerRef}
-              placeholder="Pide ideas, optimiza copy o genera contenido…"
+              placeholder="Pide ideas o mejora un copy…"
               describedBy="chat-ayuda"
             />
             <p id="chat-ayuda" className="mt-2 hidden text-center text-xs text-muted-foreground sm:block">

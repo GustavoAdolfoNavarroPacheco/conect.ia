@@ -1,7 +1,8 @@
 /**
  * Adaptado de "number-ticker" de Ruixen UI (MIT, © 2025 Ruixen UI, ver LICENSE.md).
- * Conserva el resorte (damping 60, stiffness 100) que cuenta desde el valor inicial al final cuando entra en
- * pantalla, escribiendo directo en el DOM sin re-renders.
+ * Conserva la cuenta con resorte desde el valor inicial al final cuando entra en pantalla, escribiendo directo en el
+ * DOM sin re-renders. El resorte original (damping 60, stiffness 100) tarda más de 3 s en asentarse, demasiado para
+ * cifras de un panel: aquí es críticamente amortiguado (stiffness 150, damping 25) y llega al valor en ~1 s sin pasarse.
  * Cambios: formato español (es-CO), color heredado (el original fijaba negro/blanco), el valor final se muestra
  * de inmediato con prefers-reduced-motion y si el valor cambia después (datos que llegan) vuelve a animar.
  */
@@ -22,7 +23,7 @@ export function NumberTicker({ value, startValue = 0, delay = 0, decimalPlaces =
   const ref = React.useRef<HTMLSpanElement>(null);
   const reducir = useReducedMotion();
   const motionValue = useMotionValue(reducir ? value : startValue);
-  const spring = useSpring(motionValue, { damping: 60, stiffness: 100 });
+  const spring = useSpring(motionValue, { damping: 25, stiffness: 150 });
   const visible = useInView(ref, { once: true, margin: '0px' });
 
   const formatear = React.useCallback(

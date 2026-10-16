@@ -53,7 +53,7 @@ export function FloatingNavbar({ logo, links, actions, className }: FloatingNavb
   return (
     <div className={cn('sticky top-0 z-50 px-4 pt-4', className)}>
       <div className="relative mx-auto max-w-5xl">
-        <header className="surface-glass flex h-14 items-center justify-between gap-3 rounded-full pl-5 pr-2 shadow-[var(--elev-md)]">
+        <header className="surface-glass flex h-14 items-center justify-between gap-2 rounded-full pl-4 pr-2 sm:gap-3 sm:pl-5 shadow-[var(--elev-md)]">
           <a href="#inicio" className="press flex items-center" aria-label="Ir al inicio">
             {logo}
           </a>
@@ -84,7 +84,7 @@ export function FloatingNavbar({ logo, links, actions, className }: FloatingNavb
             })}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {actions}
             <button
               type="button"
