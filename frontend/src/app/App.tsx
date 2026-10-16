@@ -52,6 +52,7 @@ import { DateTimePicker } from './components/ruixen/DateTimePicker';
 import { NumberTicker } from './components/ruixen/NumberTicker';
 import { ProgressRing } from './components/ruixen/ProgressRing';
 import { ChatComposer, ChatGreeting, TypingDots } from './components/ruixen/ChatComposer';
+import { BadgeMorph } from './components/ruixen/BadgeMorph';
 import {
   ESTADOS_EN_CALENDARIO,
   useBorradores,
@@ -5078,18 +5079,15 @@ const ChannelsScreen: React.FC = () => {
             <div className="flex items-center justify-between gap-2">
               <h3 className="truncate text-sm font-semibold text-foreground">{config.nombre}</h3>
               {config.tipo === 'proximamente' ? (
-                <Badge>Próximamente</Badge>
+                <BadgeMorph tone="neutral" label="Próximamente" />
               ) : canal?.motivo === 'token_rechazado' || canal?.estadoToken === 'caducado' ? (
-                <Badge variant="danger">Caducado</Badge>
+                <BadgeMorph tone="danger" label="Caducado" />
               ) : conectado && canal?.estadoToken === 'por_caducar' ? (
-                <Badge variant="warning">Vence pronto</Badge>
+                <BadgeMorph tone="warning" label="Vence pronto" />
               ) : conectado ? (
-                <Badge variant="success">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Conectado
-                </Badge>
+                <BadgeMorph tone="success" label="Conectado" />
               ) : (
-                <Badge>Sin conectar</Badge>
+                <BadgeMorph tone="neutral" label="Sin conectar" />
               )}
             </div>
             <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
@@ -5169,9 +5167,9 @@ const ChannelsScreen: React.FC = () => {
   };
 
   const indicadores = [
-    { label: 'Canales OAuth conectados', value: `${conectadas}/${totalOauth}`, icon: <Share2 />, tone: 'brand' as const },
-    { label: 'Publicaciones publicadas', value: String(stats.publicados), icon: <CheckCircle2 />, tone: 'success' as const },
-    { label: 'Publicaciones programadas', value: String(stats.programados), icon: <CalendarClock />, tone: 'warning' as const },
+    { label: 'Canales OAuth conectados', value: <><NumberTicker value={conectadas} />/{totalOauth}</>, icon: <Share2 />, tone: 'brand' as const },
+    { label: 'Publicaciones publicadas', value: <NumberTicker value={stats.publicados} />, icon: <CheckCircle2 />, tone: 'success' as const },
+    { label: 'Publicaciones programadas', value: <NumberTicker value={stats.programados} />, icon: <CalendarClock />, tone: 'warning' as const },
   ];
 
   return (
