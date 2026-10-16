@@ -3,15 +3,15 @@ import { createPortal } from 'react-dom';
 import {
   Sparkles, Calendar, FileText, Settings,
   Home, PenSquare, MessageSquare, Share2,
-  Search, Bell, ChevronDown, X, Check,
+  Search, Bell, Command, ChevronDown, X, Check,
   Linkedin, Facebook, Instagram, Music2, Briefcase, Store,
   Clock, Trash2, Edit, Send, Plus,
-  Zap, Network, BarChart3, CheckCircle2,
+  Zap, Network, CheckCircle2,
   ArrowRight, Play, Eye, Save, Loader2,
   Filter, Copy, Download, Mail, LogOut, Moon, Sun, ShieldCheck,
   User, ChevronLeft,
   Upload, Image, Video, FileUp, CalendarClock,
-  AlarmClock, Globe, ChevronRight, Info, Menu, Activity
+  AlarmClock, Globe, ChevronRight, Info, Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
@@ -46,7 +46,7 @@ import type { RedSocial, Borrador, Publicacion } from '../lib/db/types';
 import { ConectiaLogo } from './components/ConectiaLogo';
 import {
   useBorradores,
-  useActividad,
+  useActividadLeida,
   useCanales,
   useConfiguracion,
   useDashboardStats,
@@ -1081,15 +1081,129 @@ const Popover: React.FC<{ open: boolean; children: React.ReactNode; className?: 
   </AnimatePresence>
 );
 
+/** Calendario abierto desde fuera (paleta o tarjetas): vista, categorías y mes de partida. */
+type CalendarioInicial = { vista: 'lista'; categorias: CategoriaCal[]; fecha: string | null };
+type OpcionesNavegacion = { calendario?: CalendarioInicial };
+type Navegar = (pantalla: string, opciones?: OpcionesNavegacion) => void;
+
+/** Lista de fallidas en el calendario, abierta en el mes de la más reciente. */
+function destinoFallidas(ultima: Publicacion | null): OpcionesNavegacion {
+  return {
+    calendario: { vista: 'lista', categorias: ['fallida'], fecha: ultima?.fechaProgramada ?? ultima?.actualizadoEn ?? null },
+  };
+}
+
+type ComandoPaleta = { id: string; texto: string; ejecutar: () => void };
+
+/** Paleta de comandos (Ctrl/Cmd + K, o "/" fuera de los campos): salta a una sección o ejecuta una acción. */
+const PaletaComandos: React.FC<{ abierta: boolean; onCerrar: () => void; comandos: ComandoPaleta[] }> = ({
+  abierta,
+  onCerrar,
+  comandos,
+}) => {
+  const [consulta, setConsulta] = useState('');
+  const [activo, setActivo] = useState(0);
+  const entradaRef = useRef<HTMLInputElement>(null);
+  const filtrados = comandos.filter((c) => c.texto.toLowerCase().includes(consulta.trim().toLowerCase()));
+  const indice = Math.min(activo, Math.max(filtrados.length - 1, 0));
+
+  // Al abrir: foco en el campo. Al cerrar: el foco vuelve a donde estaba.
+  useEffect(() => {
+    if (!abierta) return;
+    const previo = document.activeElement as HTMLElement | null;
+    setConsulta('');
+    setActivo(0);
+    entradaRef.current?.focus();
+    return () => previo?.focus();
+  }, [abierta]);
+
+  if (!abierta) return null;
+
+  const ejecutar = (c: ComandoPaleta) => {
+    onCerrar();
+    c.ejecutar();
+  };
+  const mover = (paso: number) =>
+    setActivo((i) => (filtrados.length ? (i + paso + filtrados.length) % filtrados.length : 0));
+
+  const alTeclear = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') onCerrar();
+    else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      mover(1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      mover(-1);
+    } else if (e.key === 'Enter' && filtrados[indice]) {
+      e.preventDefault();
+      ejecutar(filtrados[indice]);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 px-4 pt-[12vh]"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onCerrar();
+      }}
+    >
+      <div role="dialog" aria-modal="true" aria-label="Buscar y saltar" className="surface w-full max-w-lg overflow-hidden shadow-float">
+        <div className="flex items-center gap-3 border-b border-border px-4">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+          <input
+            ref={entradaRef}
+            type="text"
+            value={consulta}
+            onChange={(e) => {
+              setConsulta(e.target.value);
+              setActivo(0);
+            }}
+            onKeyDown={alTeclear}
+            placeholder="Escribe una sección o una acción"
+            aria-label="Buscar sección o acción"
+            aria-controls="paleta-resultados"
+            aria-activedescendant={filtrados[indice] ? `paleta-${filtrados[indice].id}` : undefined}
+            autoComplete="off"
+            className="h-12 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+        <ul id="paleta-resultados" role="listbox" aria-label="Resultados" className="max-h-80 overflow-y-auto p-1.5">
+          {filtrados.map((c, i) => (
+            <li
+              key={c.id}
+              id={`paleta-${c.id}`}
+              role="option"
+              aria-selected={i === indice}
+              onMouseEnter={() => setActivo(i)}
+              onClick={() => ejecutar(c)}
+              className={`flex min-h-10 cursor-pointer items-center rounded-lg px-3 text-sm transition-colors duration-150 ${
+                i === indice ? 'bg-accent text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              {c.texto}
+            </li>
+          ))}
+          {filtrados.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted-foreground">Sin resultados</li>}
+        </ul>
+        <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+          ↑ ↓ para moverte · Enter para abrir · Esc para cerrar
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const DashboardShell: React.FC<{
   children: React.ReactNode;
   activeScreen: string;
-  onNavigate: (screen: string) => void;
+  onNavigate: Navegar;
   onLogout?: () => void;
 }> = ({ children, activeScreen, onNavigate, onLogout }) => {
   const { profile, user } = useAuth();
   const { mode, toggleTheme } = useTheme();
-  const { data: actividad = [] } = useActividad();
+  const { actividad, cantidadSinLeer, esSinLeer, marcarTodasLeidas } = useActividadLeida();
+  const { stats: resumen } = useDashboardStats();
+  const [paletaAbierta, setPaletaAbierta] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
@@ -1105,7 +1219,42 @@ const DashboardShell: React.FC<{
   const nombre = profile?.nombre || 'Usuario';
   const email = profile?.email || user?.email || '';
   const initials = (profile?.nombre || user?.email || 'U').slice(0, 2).toUpperCase();
-  const unreadCount = actividad.length;
+
+  // Ctrl/Cmd + K abre o cierra la paleta; "/" la abre fuera de los campos de texto.
+  useEffect(() => {
+    const alPulsar = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletaAbierta((abierta) => !abierta);
+        return;
+      }
+      const destino = e.target as HTMLElement | null;
+      const enCampo = !!destino && (['INPUT', 'TEXTAREA', 'SELECT'].includes(destino.tagName) || destino.isContentEditable);
+      if (e.key === '/' && !enCampo && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setPaletaAbierta(true);
+      }
+    };
+    window.addEventListener('keydown', alPulsar);
+    return () => window.removeEventListener('keydown', alPulsar);
+  }, []);
+
+  const comandosPaleta: ComandoPaleta[] = [
+    { id: 'inicio', texto: 'Ir a Inicio', ejecutar: () => onNavigate('dashboard') },
+    { id: 'nueva', texto: 'Nueva publicación', ejecutar: () => onNavigate('new-post') },
+    { id: 'subir', texto: 'Subir publicación', ejecutar: () => onNavigate('manual-post') },
+    { id: 'borradores', texto: 'Ir a Borradores', ejecutar: () => onNavigate('drafts') },
+    { id: 'calendario', texto: 'Ir a Calendario', ejecutar: () => onNavigate('calendar') },
+    { id: 'asistente', texto: 'Ir a Asistente IA', ejecutar: () => onNavigate('agent') },
+    { id: 'canales', texto: 'Ir a Canales', ejecutar: () => onNavigate('channels') },
+    { id: 'ajustes', texto: 'Ir a Ajustes', ejecutar: () => onNavigate('settings') },
+    {
+      id: 'fallidas',
+      texto: 'Ver publicaciones fallidas',
+      ejecutar: () => onNavigate('calendar', destinoFallidas(resumen.ultimaFallida)),
+    },
+    { id: 'instagram', texto: 'Reconectar Instagram', ejecutar: () => onNavigate('channels') },
+  ];
 
   useFocusTrap(drawerRef, isMenuOpen, cerrarDrawerRef);
 
@@ -1325,6 +1474,8 @@ const DashboardShell: React.FC<{
         )}
       </AnimatePresence>
 
+      <PaletaComandos abierta={paletaAbierta} onCerrar={() => setPaletaAbierta(false)} comandos={comandosPaleta} />
+
       <div ref={contenidoRef} className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Barra superior: 64px; padding igual al margen del contenido (16 / 24 / 32) */}
         <header className="topbar-surface relative z-30 flex h-16 shrink-0 items-center gap-2 px-4 pt-[env(safe-area-inset-top)] sm:px-6 lg:px-8">
@@ -1348,37 +1499,54 @@ const DashboardShell: React.FC<{
               <Search />
             </IconButton>
 
+            <IconButton label="Buscar y saltar a una sección (Ctrl + K)" onClick={() => setPaletaAbierta(true)}>
+              <Command />
+            </IconButton>
+
             <IconButton label={mode === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} onClick={toggleTheme}>
               {mode === 'dark' ? <Sun /> : <Moon />}
             </IconButton>
 
             <div className="sm:relative" ref={notifRef}>
               <IconButton
-                label={unreadCount > 0 ? `Notificaciones (${unreadCount})` : 'Notificaciones'}
+                label={cantidadSinLeer > 0 ? `Notificaciones (${cantidadSinLeer})` : 'Notificaciones'}
                 aria-expanded={showNotif}
                 onClick={() => setShowNotif((v) => !v)}
                 active={showNotif}
               >
                 <Bell />
-                {unreadCount > 0 && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand" aria-hidden />}
+                {cantidadSinLeer > 0 && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand" aria-hidden />}
               </IconButton>
               <Popover
                 open={showNotif}
                 className="fixed inset-x-4 top-[calc(4rem+env(safe-area-inset-top))] mt-0 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[min(20rem,calc(100vw-2rem))]"
               >
                 <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                  <p className="text-sm font-semibold">Actividad reciente</p>
-                  {unreadCount > 0 && <Badge variant="purple">{unreadCount}</Badge>}
+                  <p className="text-sm font-semibold">Notificaciones</p>
+                  {cantidadSinLeer > 0 && <Badge variant="purple">{cantidadSinLeer} sin leer</Badge>}
                 </div>
                 <div className="max-h-[min(448px,60dvh)] overflow-y-auto p-1.5">
                   {actividad.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted-foreground">Sin notificaciones</p>}
                   {actividad.slice(0, 8).map((a) => (
-                    <div key={a.id} className="rounded-lg px-3 py-2.5">
-                      <p className="text-sm font-medium text-foreground">{a.mensaje}</p>
-                      <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
+                    <div key={a.id} className="flex gap-2.5 rounded-lg px-3 py-2.5">
+                      <span
+                        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${esSinLeer(a) ? 'bg-brand' : 'bg-transparent'}`}
+                        aria-hidden
+                      />
+                      <div className="min-w-0">
+                        <p className={`text-sm ${esSinLeer(a) ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>{a.mensaje}</p>
+                        <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
+                {cantidadSinLeer > 0 && (
+                  <div className="border-t border-border p-1.5">
+                    <Button variant="ghost" className="w-full" onClick={marcarTodasLeidas}>
+                      Marcar todas como leídas
+                    </Button>
+                  </div>
+                )}
               </Popover>
             </div>
 
@@ -3463,7 +3631,10 @@ function categoriaDeCal(post: Publicacion, vencida: boolean): CategoriaCal {
   return vencida ? 'vencida' : 'programada';
 }
 
-const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
+const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void; inicial?: CalendarioInicial | null }> = ({
+  onNavigate,
+  inicial,
+}) => {
   const { user, profile } = useAuth();
   const invalidate = useInvalidateCampus();
   const now = new Date();
@@ -3496,6 +3667,19 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
   const [vista, setVista] = useState<'mes' | 'semana' | 'lista'>('mes');
   const [filtroRedes, setFiltroRedes] = useState<Set<RedSocial>>(() => new Set(CATALOGO_REDES.map((r) => r.id)));
   const [filtroEstados, setFiltroEstados] = useState<Set<CategoriaCal>>(() => new Set(CATEGORIAS_CAL.map((c) => c.clave)));
+
+  // Destino desde fuera (paleta o tarjetas de Inicio): aplica vista, filtros y mes una vez por visita.
+  useEffect(() => {
+    if (!inicial) return;
+    setVista(inicial.vista);
+    setFiltroRedes(new Set(CATALOGO_REDES.map((r) => r.id)));
+    setFiltroEstados(new Set(inicial.categorias));
+    setSelectedDay(null);
+    if (inicial.fecha) {
+      const fecha = new Date(inicial.fecha);
+      if (!Number.isNaN(fecha.getTime())) setViewDate(new Date(fecha.getFullYear(), fecha.getMonth(), 1));
+    }
+  }, [inicial]);
 
   const postVisible = (post: Publicacion) =>
     (post.redesDestino ?? [RED_PRINCIPAL]).some((r) => filtroRedes.has(r)) &&
@@ -5324,16 +5508,33 @@ const SettingsScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
   );
 };
 
-const DashboardHome: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
+const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
   const { profile } = useAuth();
   const { stats, isLoading, error: errorStats, refetch: recargarStats } = useDashboardStats();
-  const { data: actividad = [], isLoading: loadingAct, error: errorAct, refetch: recargarAct } = useActividad();
+  const {
+    actividad,
+    isLoading: loadingAct,
+    error: errorAct,
+    refetch: recargarAct,
+    esSinLeer,
+    cantidadSinLeer,
+    marcarTodasLeidas,
+  } = useActividadLeida();
   const primerNombre = (profile?.nombre || '').split(' ')[0];
 
+  // Cada tarjeta lleva a la pantalla donde se revisa lo que cuenta.
   const statCards = [
-    { label: 'Publicadas', value: stats.publicados, icon: <BarChart3 />, tone: 'brand' as const },
-    { label: 'Programadas', value: stats.programados, icon: <Calendar />, tone: 'success' as const },
-    { label: 'Borradores', value: stats.borradores, icon: <FileText />, tone: 'warning' as const },
+    { label: 'Hoy', hint: 'Programadas para hoy', value: stats.hoy, icon: <Clock />, tone: 'brand' as const, ir: () => onNavigate('calendar') },
+    { label: 'Próximos 7 días', hint: 'Programadas', value: stats.proximos7, icon: <Calendar />, tone: 'success' as const, ir: () => onNavigate('calendar') },
+    {
+      label: 'Fallidas',
+      hint: stats.fallidos > 0 ? 'Revisa el envío' : 'Nada que revisar',
+      value: stats.fallidos,
+      icon: <X />,
+      tone: 'danger' as const,
+      ir: () => onNavigate('calendar', destinoFallidas(stats.ultimaFallida)),
+    },
+    { label: 'Borradores', hint: 'Sin programar', value: stats.borradores, icon: <FileText />, tone: 'warning' as const, ir: () => onNavigate('drafts') },
   ];
 
   // "Nueva publicación" vive solo en la cabecera (sin acciones repetidas).
@@ -5364,24 +5565,100 @@ const DashboardHome: React.FC<{ onNavigate: (screen: string) => void }> = ({ onN
         </Notice>
       )}
 
-      <div className="grid shrink-0 gap-4 sm:grid-cols-3">
+      <div className="grid shrink-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((card) => (
-          <div key={card.label} className="surface flex items-center justify-between gap-4 p-5">
+          <button
+            key={card.label}
+            type="button"
+            onClick={card.ir}
+            className="surface group flex items-center justify-between gap-4 p-5 text-left transition-colors duration-150 hover:bg-accent"
+          >
             <div className="min-w-0">
               <p className="truncate text-sm text-muted-foreground">{card.label}</p>
               <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
                 {isLoading ? <Skeleton className="my-1 h-6 w-10" /> : card.value}
               </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.hint}</p>
             </div>
             <IconTile tone={card.tone} size="lg">
               {card.icon}
             </IconTile>
-          </div>
+          </button>
         ))}
       </div>
 
+      <Panel
+        title="Próximas publicaciones"
+        icon={<CalendarClock />}
+        className="shrink-0"
+        actions={
+          <Button variant="ghost" onClick={() => onNavigate('calendar')}>
+            Ver calendario
+          </Button>
+        }
+      >
+        {isLoading ? (
+          <div className="space-y-2" aria-busy="true">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex min-h-14 items-center gap-3">
+                <Skeleton className="h-9 w-20" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3.5 w-2/3" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : stats.proximas.length === 0 ? (
+          <EmptyState
+            icon={<Calendar />}
+            title="Nada programado"
+            text="Cuando programes una publicación, aparecerá aquí."
+            action={
+              <Button variant="outline" icon={<PenSquare />} onClick={() => onNavigate('new-post')}>
+                Nueva publicación
+              </Button>
+            }
+          />
+        ) : (
+          <ul className="-mx-2 space-y-1">
+            {stats.proximas.map((p) => {
+              const fecha = toDate(p.fechaProgramada);
+              const redes = (p.redesDestino ?? []).map((r) => redConfig(r)?.nombre ?? r).join(', ');
+              return (
+                <li key={p.id} className="flex min-h-14 items-center gap-3 rounded-[10px] px-2 py-2">
+                  <time className="w-20 shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {fecha ? fecha.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }) : 'Sin fecha'}
+                    <br />
+                    {fecha ? fecha.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </time>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground" title={p.titulo}>
+                      {p.titulo || 'Sin título'}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">{redes || 'Sin redes'}</p>
+                  </div>
+                  <Badge variant="purple">Programada</Badge>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Panel>
+
       <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <Panel title="Actividad reciente" icon={<Activity />}>
+        <Panel
+          title="Notificaciones"
+          icon={<Bell />}
+          actions={
+            <>
+              {cantidadSinLeer > 0 && <Badge variant="purple">{cantidadSinLeer} sin leer</Badge>}
+              <Button variant="ghost" disabled={cantidadSinLeer === 0} onClick={marcarTodasLeidas}>
+                Marcar todas como leídas
+              </Button>
+            </>
+          }
+        >
           {errorAct ? (
             <Notice tone="danger" action={<Button variant="ghost" onClick={recargarAct}>Reintentar</Button>}>
               No se pudo cargar la actividad.
@@ -5418,6 +5695,12 @@ const DashboardHome: React.FC<{ onNavigate: (screen: string) => void }> = ({ onN
                   </IconTile>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground" title={a.mensaje}>
+                      {esSinLeer(a) && (
+                        <>
+                          <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-brand align-middle" aria-hidden />
+                          <span className="sr-only">Sin leer: </span>
+                        </>
+                      )}
                       {a.mensaje}
                     </p>
                     <p className="text-xs tabular-nums text-muted-foreground">{formatRelative(toDate(a.creadoEn))}</p>
@@ -5471,6 +5754,13 @@ export default function App({ productionMode = false }: { productionMode?: boole
   const { logout } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<string>(productionMode ? 'dashboard' : 'landing');
   const [viewportWidth, setViewportWidth] = useState(1440);
+  const [calendarioInicial, setCalendarioInicial] = useState<CalendarioInicial | null>(null);
+
+  // Cambiar de pantalla descarta el destino anterior del calendario, salvo que la llamada traiga uno.
+  const navegar: Navegar = (pantalla, opciones) => {
+    setCalendarioInicial(opciones?.calendario ?? null);
+    setCurrentScreen(pantalla);
+  };
 
   React.useEffect(() => {
     if (!productionMode) return;
@@ -5491,7 +5781,7 @@ export default function App({ productionMode = false }: { productionMode?: boole
       case 'drafts':
         return <DraftsScreen onNavigate={setCurrentScreen} />;
       case 'calendar':
-        return <CalendarScreen onNavigate={setCurrentScreen} />;
+        return <CalendarScreen onNavigate={navegar} inicial={calendarioInicial} />;
       case 'agent':
         return <AgentScreen onNavigate={setCurrentScreen} />;
       case 'channels':
@@ -5500,7 +5790,7 @@ export default function App({ productionMode = false }: { productionMode?: boole
         return <SettingsScreen onNavigate={setCurrentScreen} />;
       case 'dashboard':
       default:
-        return <DashboardHome onNavigate={setCurrentScreen} />;
+        return <DashboardHome onNavigate={navegar} />;
     }
   };
 
@@ -5509,7 +5799,7 @@ export default function App({ productionMode = false }: { productionMode?: boole
       <LandingPage onNavigate={setCurrentScreen} />
     ) : (
       // Un solo shell persistente: el menú anima su indicador y las pantallas hacen transición.
-      <DashboardShell activeScreen={pantallaActiva} onNavigate={setCurrentScreen} onLogout={() => logout()}>
+      <DashboardShell activeScreen={pantallaActiva} onNavigate={navegar} onLogout={() => logout()}>
         {contenido()}
       </DashboardShell>
     );

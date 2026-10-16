@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -66,6 +66,67 @@ export function useActividad() {
   };
 }
 
+const EVENTO_LECTURA = 'conectia:actividad-leida';
+const lecturaEnMemoria = new Map<string, number>();
+
+function claveLectura(uid: string) {
+  return `conectia:actividad-leida:${uid}`;
+}
+
+/** Momento (ms) en que la persona marcó la actividad como leída. 0 si nunca lo hizo. */
+function leerUltimaLectura(uid: string): number {
+  let guardada = 0;
+  try {
+    guardada = Date.parse(localStorage.getItem(claveLectura(uid)) ?? '') || 0;
+  } catch {
+    // Sin almacenamiento (ventana privada o datos bloqueados): queda la copia en memoria.
+  }
+  return Math.max(guardada, lecturaEnMemoria.get(uid) ?? 0);
+}
+
+function guardarUltimaLectura(uid: string, ms: number) {
+  lecturaEnMemoria.set(uid, ms);
+  try {
+    localStorage.setItem(claveLectura(uid), new Date(ms).toISOString());
+  } catch {
+    // Sin almacenamiento: la marca dura lo que dure la pestaña.
+  }
+  window.dispatchEvent(new Event(EVENTO_LECTURA));
+}
+
+/**
+ * Actividad con su estado de lectura. Lo leído se guarda por persona en este navegador
+ * (no en la base de datos) y se comparte entre la cabecera y el inicio.
+ */
+export function useActividadLeida() {
+  const { user } = useAuth();
+  const uid = user?.uid ?? '';
+  const { data: actividad, isLoading, error, refetch } = useActividad();
+  const [ultimaLectura, setUltimaLectura] = useState(() => leerUltimaLectura(uid));
+
+  useEffect(() => {
+    const sincronizar = () => setUltimaLectura(leerUltimaLectura(uid));
+    sincronizar();
+    window.addEventListener(EVENTO_LECTURA, sincronizar);
+    return () => window.removeEventListener(EVENTO_LECTURA, sincronizar);
+  }, [uid]);
+
+  const sinLeer = useMemo(
+    () => new Set(actividad.filter((a) => !a.creadoEn || Date.parse(a.creadoEn) > ultimaLectura).map((a) => a.id)),
+    [actividad, ultimaLectura]
+  );
+
+  return {
+    actividad,
+    isLoading,
+    error,
+    refetch,
+    cantidadSinLeer: sinLeer.size,
+    esSinLeer: (a: ActividadItem) => sinLeer.has(a.id),
+    marcarTodasLeidas: () => guardarUltimaLectura(uid, Date.now()),
+  };
+}
+
 export function useCanales() {
   const { user } = useAuth();
   return useQuery({
@@ -102,11 +163,37 @@ export function useDashboardStats() {
 
   const stats = useMemo(() => {
     const list = pubs.data ?? [];
+    const ahora = Date.now();
+    const inicioHoy = new Date();
+    inicioHoy.setHours(0, 0, 0, 0);
+    const finHoy = new Date(inicioHoy);
+    finHoy.setDate(finHoy.getDate() + 1);
+    const en7Dias = ahora + 7 * 24 * 60 * 60 * 1000;
+
+    // Programadas con fecha válida, de la más próxima a la más lejana.
+    const programadas = list
+      .filter((p) => p.estado === 'programado' && p.fechaProgramada)
+      .map((p) => ({ p, t: Date.parse(p.fechaProgramada as string) }))
+      .filter((x) => !Number.isNaN(x.t))
+      .sort((a, b) => a.t - b.t);
+
+    const fallidas = list.filter((p) => p.estado === 'fallido');
+    // La fallida más reciente: el calendario se abre en su mes.
+    const instante = (p: Publicacion) => Date.parse(p.fechaProgramada ?? p.actualizadoEn ?? '') || 0;
+    const ultimaFallida = fallidas.reduce<Publicacion | null>(
+      (mas, p) => (!mas || instante(p) > instante(mas) ? p : mas),
+      null
+    );
+
     return {
       publicados: list.filter((p) => p.estado === 'publicado').length,
       programados: list.filter((p) => p.estado === 'programado').length,
       borradores: borradores.data?.length ?? 0,
-      fallidos: list.filter((p) => p.estado === 'fallido').length,
+      fallidos: fallidas.length,
+      ultimaFallida,
+      hoy: programadas.filter((x) => x.t >= inicioHoy.getTime() && x.t < finHoy.getTime()).length,
+      proximos7: programadas.filter((x) => x.t >= ahora && x.t < en7Dias).length,
+      proximas: programadas.filter((x) => x.t >= ahora).slice(0, 5).map((x) => x.p),
     };
   }, [pubs.data, borradores.data]);
 
