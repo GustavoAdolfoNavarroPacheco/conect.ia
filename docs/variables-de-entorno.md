@@ -121,6 +121,15 @@ La cuenta de Instagram debe ser profesional y estar vinculada a una página de F
 3. Copia el **Client Key** a `TIKTOK_CLIENT_KEY` y el **Client Secret** a `TIKTOK_CLIENT_SECRET`.
 4. Registra `https://TU-DOMINIO/oauth/tiktok` como **Redirect URL** y pon esa misma URL en `TIKTOK_REDIRECT_URI`.
 
+## 6b. Seguridad, cuotas y modelos
+
+- **`TOKEN_ENCRYPTION_KEY`** (recomendada): clave de 32 bytes en base64 para cifrar los tokens de LinkedIn, Meta y TikTok en la base. Genérala con `openssl rand -base64 32`. Sin ella los tokens se guardan en claro, como antes. **Si la defines**, después ejecuta una vez `npx tsx scripts/cifrar-tokens.ts` con esa misma clave en `.env.local`. No la cambies después sin reconectar las cuentas: los tokens cifrados con una clave distinta no se pueden leer.
+- **`ANTHROPIC_MODEL`** (opcional): modelo de Anthropic para el respaldo de texto. Por defecto `claude-haiku-5-5`.
+- **`LINKEDIN_API_VERSION`** (opcional): versión de la API de LinkedIn (`AAAAMM`). Por defecto `202609`. Si LinkedIn responde con un error de versión, cámbiala aquí sin tocar código.
+- **`CUOTA_IA_TEXTO`, `CUOTA_IA_IMAGEN`, `CUOTA_IA_VIDEO`, `CUOTA_IA_CHAT`** (opcionales): generaciones por usuario y día (UTC). Por defecto 40, 15, 3 y 60.
+- **`TOPE_IA_TEXTO`, `TOPE_IA_IMAGEN`, `TOPE_IA_VIDEO`, `TOPE_IA_CHAT`** (opcionales): tope de todos los usuarios juntos por día.
+- **`BLOB_READ_WRITE_TOKEN`**: ahora es obligatorio para generar videos con IA, porque el video se guarda en Blob para publicarlo siempre igual.
+
 ## 7. Automatización (opcional): Make o n8n
 
 Define solo una de las dos. Detalles de los escenarios en [make-setup.md](make-setup.md) y [n8n-docker.md](n8n-docker.md).
