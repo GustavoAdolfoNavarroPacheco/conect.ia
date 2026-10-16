@@ -3441,6 +3441,26 @@ const ProgramadorEstado: React.FC<{ ciclo: EstadoProgramador['ultimoCiclo'] | un
   );
 };
 
+/** Categoría de una publicación en el calendario. Cada una tiene nombre además de color (Q13). */
+type CategoriaCal = 'programada' | 'vencida' | 'parcial' | 'enviando' | 'publicada' | 'fallida';
+
+const CATEGORIAS_CAL: { clave: CategoriaCal; nombre: string; punto: string }[] = [
+  { clave: 'programada', nombre: 'Programada', punto: 'bg-brand' },
+  { clave: 'vencida', nombre: 'Vencida', punto: 'bg-warning' },
+  { clave: 'parcial', nombre: 'Parcial', punto: 'bg-warning' },
+  { clave: 'enviando', nombre: 'Enviando', punto: 'bg-brand' },
+  { clave: 'publicada', nombre: 'Publicada', punto: 'bg-success' },
+  { clave: 'fallida', nombre: 'Fallida', punto: 'bg-destructive' },
+];
+
+function categoriaDeCal(post: Publicacion, vencida: boolean): CategoriaCal {
+  if (post.estado === 'publicado') return 'publicada';
+  if (post.estado === 'fallido') return 'fallida';
+  if (post.estado === 'parcial') return 'parcial';
+  if (post.estado === 'en_proceso' || post.estado === 'enviado') return 'enviando';
+  return vencida ? 'vencida' : 'programada';
+}
+
 const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNavigate }) => {
   const { user, profile } = useAuth();
   const invalidate = useInvalidateCampus();
@@ -3470,7 +3490,173 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
   const daysInMonth = new Date(anio, mes + 1, 0).getDate();
   const firstDayOffset = (new Date(anio, mes, 1).getDay() + 6) % 7;
 
-  const selectedPosts = selectedDay ? porDia[selectedDay] ?? [] : [];
+  // M4: vistas mes, semana y lista, con filtros por red y por estado que se combinan.
+  const [vista, setVista] = useState<'mes' | 'semana' | 'lista'>('mes');
+  const [filtroRedes, setFiltroRedes] = useState<Set<RedSocial>>(() => new Set(CATALOGO_REDES.map((r) => r.id)));
+  const [filtroEstados, setFiltroEstados] = useState<Set<CategoriaCal>>(() => new Set(CATEGORIAS_CAL.map((c) => c.clave)));
+
+  const postVisible = (post: Publicacion) =>
+    (post.redesDestino ?? [RED_PRINCIPAL]).some((r) => filtroRedes.has(r)) &&
+    filtroEstados.has(categoriaDeCal(post, isPostOverdue(post)));
+
+  const porDiaVisible: Record<number, Publicacion[]> = {};
+  for (const [dia, lista] of Object.entries(porDia)) {
+    const visibles = lista.filter(postVisible);
+    if (visibles.length > 0) porDiaVisible[Number(dia)] = visibles;
+  }
+
+  const selectedPosts = selectedDay ? porDiaVisible[selectedDay] ?? [] : [];
+
+  const alternarFiltro = <T extends string>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, clave: T) =>
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(clave)) next.delete(clave);
+      else next.add(clave);
+      return next;
+    });
+
+  /** Anterior y siguiente: un mes en la vista de mes, una semana en la vista de semana. */
+  const desplazar = (sentido: -1 | 1) => {
+    if (vista === 'semana') {
+      const base = new Date(anio, mes, selectedDay ?? 1);
+      const nueva = new Date(base.getFullYear(), base.getMonth(), base.getDate() + sentido * 7);
+      setViewDate(new Date(nueva.getFullYear(), nueva.getMonth(), 1));
+      setSelectedDay(nueva.getDate());
+      return;
+    }
+    setViewDate(new Date(anio, mes + sentido, 1));
+  };
+
+  const filtrosCal = (
+    <div className="mb-3 space-y-2" aria-label="Filtros del calendario">
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por red">
+        {CATALOGO_REDES.map((r) => {
+          const activa = filtroRedes.has(r.id);
+          return (
+            <button
+              key={r.id}
+              type="button"
+              aria-pressed={activa}
+              onClick={() => alternarFiltro(setFiltroRedes, r.id)}
+              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                activa ? 'border-brand bg-brand-soft text-brand-strong' : 'border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {r.nombre}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por estado">
+        {CATEGORIAS_CAL.map((c) => {
+          const activa = filtroEstados.has(c.clave);
+          return (
+            <button
+              key={c.clave}
+              type="button"
+              aria-pressed={activa}
+              onClick={() => alternarFiltro(setFiltroEstados, c.clave)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                activa ? 'border-brand bg-brand-soft text-brand-strong' : 'border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span className={`inline-block h-2 w-2 rounded-full ${c.punto}`} aria-hidden />
+              {c.nombre}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  /** Vista de semana (los 7 días de la semana del día seleccionado) o de lista (todo el mes, por fecha). */
+  const renderSemanaOLista = () => {
+    if (vista === 'lista') {
+      const lista = allPostsInMonth
+        .filter(postVisible)
+        .sort((a, b) => (toDate(a.fechaProgramada)?.getTime() ?? 0) - (toDate(b.fechaProgramada)?.getTime() ?? 0));
+      if (lista.length === 0) {
+        return <p className="py-6 text-center text-sm text-muted-foreground">Ninguna publicación con estos filtros este mes.</p>;
+      }
+      return (
+        <ul className="divide-y divide-border" aria-label="Publicaciones del mes">
+          {lista.map((post) => {
+            const fecha = toDate(post.fechaProgramada);
+            const cat = categoriaDeCal(post, isPostOverdue(post));
+            const nombre = CATEGORIAS_CAL.find((c) => c.clave === cat)?.nombre ?? cat;
+            return (
+              <li key={post.id}>
+                <button
+                  type="button"
+                  onClick={() => setPreviewPost(post)}
+                  className="flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left transition-colors hover:bg-accent"
+                >
+                  <time className="w-20 shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {fecha ? fecha.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }) : 'Sin fecha'}
+                    <br />
+                    {fecha ? fecha.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </time>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">{post.titulo || 'Publicación sin título'}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {(post.redesDestino ?? []).map((r) => redConfig(r as RedSocial)?.nombre ?? r).join(', ')}
+                    </span>
+                  </span>
+                  <Badge variant={cat === 'publicada' ? 'success' : cat === 'fallida' ? 'danger' : 'default'}>{nombre}</Badge>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      );
+    }
+
+    const base = new Date(anio, mes, selectedDay ?? 1);
+    const lunes = new Date(base.getFullYear(), base.getMonth(), base.getDate() - ((base.getDay() + 6) % 7));
+    const dias = Array.from({ length: 7 }, (_, i) => new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + i));
+    return (
+      <div className="grid gap-2 sm:grid-cols-7" role="list" aria-label="Semana">
+        {dias.map((d) => {
+          const enMes = d.getMonth() === mes && d.getFullYear() === anio;
+          const lista = enMes ? porDiaVisible[d.getDate()] ?? [] : [];
+          const seleccionado = enMes && selectedDay === d.getDate();
+          return (
+            <div
+              key={d.toISOString()}
+              role="listitem"
+              className={`min-w-0 rounded-xl border p-2 ${seleccionado ? 'border-brand/40 bg-brand-soft' : 'border-border'}`}
+            >
+              <button
+                type="button"
+                disabled={!enMes}
+                onClick={() => enMes && elegirDia(d.getDate())}
+                className="mb-2 w-full text-left text-xs font-medium capitalize text-muted-foreground disabled:opacity-60"
+              >
+                {d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric' })}
+              </button>
+              <ul className="space-y-1">
+                {lista.map((post) => (
+                  <li key={post.id}>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPost(post)}
+                      className="w-full truncate rounded-md px-1.5 py-1 text-left text-xs hover:bg-accent"
+                    >
+                      <span className="tabular-nums text-muted-foreground">
+                        {toDate(post.fechaProgramada)?.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                      </span>{' '}
+                      {post.titulo || 'Sin título'}
+                    </button>
+                  </li>
+                ))}
+                {enMes && lista.length === 0 && <li className="text-xs text-muted-foreground">Sin publicaciones</li>}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const allPostsInMonth = useMemo(
     () => Object.values(porDia).flat(),
@@ -3719,7 +3905,22 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
           className="max-[359px]:[&>div:nth-child(2)]:!p-2"
           bodyClassName="flex flex-col"
           actions={
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-1">
+              <div className="mr-1 flex items-center rounded-full border border-border p-0.5" role="group" aria-label="Vista del calendario">
+                {(['mes', 'semana', 'lista'] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    aria-pressed={vista === v}
+                    onClick={() => setVista(v)}
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
+                      vista === v ? 'bg-brand-soft text-brand-strong' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -3729,16 +3930,17 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
               >
                 Hoy
               </Button>
-              <IconButton label="Mes anterior" onClick={() => setViewDate(new Date(anio, mes - 1, 1))}>
+              <IconButton label={vista === 'semana' ? 'Semana anterior' : 'Mes anterior'} onClick={() => desplazar(-1)}>
                 <ChevronLeft />
               </IconButton>
-              <IconButton label="Mes siguiente" onClick={() => setViewDate(new Date(anio, mes + 1, 1))}>
+              <IconButton label={vista === 'semana' ? 'Semana siguiente' : 'Mes siguiente'} onClick={() => desplazar(1)}>
                 <ChevronRight />
               </IconButton>
             </div>
           }
         >
-          <div className="mb-2 grid shrink-0 grid-cols-7 gap-1 sm:gap-2" aria-hidden>
+          {filtrosCal}
+          <div className={`mb-2 grid shrink-0 grid-cols-7 gap-1 sm:gap-2 ${vista === 'lista' ? 'hidden' : ''}`} aria-hidden>
             {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
               <div key={d} className="py-1 text-center text-xs text-muted-foreground">
                 {d}
@@ -3746,7 +3948,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
             ))}
           </div>
 
-          {isLoading ? (
+          {vista !== 'mes' ? renderSemanaOLista() : isLoading ? (
             <div
               aria-busy="true"
               aria-label="Cargando calendario"
@@ -3771,7 +3973,7 @@ const CalendarScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ on
 
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const day = i + 1;
-                const posts = porDia[day] || [];
+                const posts = porDiaVisible[day] || [];
                 const isSelected = selectedDay === day;
                 const esHoy = esMesActual && day === now.getDate();
                 const destino = dropTargetDay === day && draggingPostId;
