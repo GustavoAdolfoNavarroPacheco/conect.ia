@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from '../platform/callable';
 import { logger } from '../platform/logger';
 import { exigirCuotaIA } from './cuotaIA';
+import { guardarMedioGenerado } from './guardarMedio';
 
 export type GeneratedVideo = {
   videoUrl: string;
@@ -69,7 +70,18 @@ async function generateWithModel(
     return null;
   }
 
-  return { videoUrl: url, model };
+  // Esta respuesta ya es el video generado: se guarda tal cual en Blob. Así se genera una sola vez
+  // y se publica exactamente lo que se previsualizó (antes, cada descarga generaba otro video).
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (buffer.length === 0) {
+    logger.warn('Video skip (respuesta vacía)', { model });
+    return null;
+  }
+  const videoUrl = await guardarMedioGenerado(buffer, ctype.split(';')[0].trim() || 'video/mp4', 'video-ia', 'mp4');
+  if (!videoUrl) {
+    throw new Error('No se pudo guardar el video en Blob. Revisa BLOB_READ_WRITE_TOKEN en Vercel.');
+  }
+  return { videoUrl, model };
 }
 
 /**
@@ -90,8 +102,6 @@ export const generateVideo = onCall(
       throw new HttpsError('invalid-argument', 'prompt es obligatorio');
     }
 
-    await exigirCuotaIA(request.auth.uid, 'video');
-
     const key = pollinationsKey();
     if (!key) {
       throw new HttpsError(
@@ -99,6 +109,15 @@ export const generateVideo = onCall(
         'POLLINATIONS_API_KEY no configurado. Crea una clave gratis en https://enter.pollinations.ai/keys y añádela a variables de entorno de Vercel'
       );
     }
+    // Sin almacén no se genera: el video no podría publicarse siempre igual.
+    if (!process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Configura BLOB_READ_WRITE_TOKEN en Vercel: el video generado se guarda en Blob para publicarlo tal como lo viste.'
+      );
+    }
+
+    await exigirCuotaIA(request.auth.uid, 'video');
 
     const clean = sanitizePrompt(trimmed);
     const cleanImage = imageUrl?.trim() || undefined;

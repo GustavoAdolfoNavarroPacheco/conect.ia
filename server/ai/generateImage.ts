@@ -1,4 +1,5 @@
 import { logger } from '../platform/logger';
+import { guardarMedioGenerado } from './guardarMedio';
 
 export type GeneratedImage = {
   /** Imagen en base64 (JPEG). El frontend la sube a Blob antes de guardar la publicación. */
@@ -190,11 +191,15 @@ async function generarConPollinations(prompt: string, formato: string, timeoutMs
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length < 1000) return null;
     const mime = res.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+    // La URL del proveedor generaría otra imagen en cada descarga: se guarda en Blob cuando hay almacén.
+    const publicUrl = await guardarMedioGenerado(buf, mime, 'imagen-ia', mime.includes('png') ? 'png' : 'jpg').catch(
+      () => undefined
+    );
     return {
       dataUrl: `data:${mime};base64,${buf.toString('base64')}`,
       mimeType: mime,
       model: 'pollinations',
-      publicUrl: url,
+      publicUrl,
     };
   } catch (e) {
     logger.warn('Pollinations falló', e);
