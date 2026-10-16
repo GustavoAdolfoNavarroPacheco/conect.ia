@@ -1,5 +1,5 @@
-import { HttpsError } from '../platform/callable';
-import { consumirCuotaIA } from '../db/repo';
+import { HttpsError, onCall } from '../platform/callable';
+import { consumirCuotaIA, usoIADelDia } from '../db/repo';
 
 export type TipoIA = 'texto' | 'imagen' | 'video' | 'chat';
 
@@ -26,9 +26,7 @@ function entero(nombre: string, porDefecto: number): number {
  * al límite del día, lanza un error claro y no se gasta nada.
  */
 export async function exigirCuotaIA(uid: string, tipo: TipoIA, unidades = 1): Promise<void> {
-  const porUsuario = entero(`CUOTA_IA_${tipo.toUpperCase()}`, CUOTA_POR_USUARIO[tipo]);
-  const global = entero(`TOPE_IA_${tipo.toUpperCase()}`, TOPE_GLOBAL[tipo]);
-  const ok = await consumirCuotaIA(uid, tipo, unidades, porUsuario, global);
+  const ok = await consumirCuotaIA(uid, tipo, unidades, limitePorUsuario(tipo), topeGlobal(tipo));
   if (!ok) {
     throw new HttpsError(
       'resource-exhausted',
@@ -36,3 +34,33 @@ export async function exigirCuotaIA(uid: string, tipo: TipoIA, unidades = 1): Pr
     );
   }
 }
+
+/** Límite diario por usuario de un tipo (se cambia con CUOTA_IA_<TIPO>). */
+export function limitePorUsuario(tipo: TipoIA): number {
+  return entero(`CUOTA_IA_${tipo.toUpperCase()}`, CUOTA_POR_USUARIO[tipo]);
+}
+
+/** Tope del conjunto de usuarios por día (se cambia con TOPE_IA_<TIPO>). */
+export function topeGlobal(tipo: TipoIA): number {
+  return entero(`TOPE_IA_${tipo.toUpperCase()}`, TOPE_GLOBAL[tipo]);
+}
+
+export const TIPOS_IA: TipoIA[] = ['texto', 'imagen', 'video', 'chat'];
+
+/** Uso de hoy y límite diario de cada tipo para la persona usuaria. */
+export async function consultarCuotaIA(uid: string) {
+  const usados = await usoIADelDia(uid);
+  const tipos = {} as Record<TipoIA, { usado: number; limite: number }>;
+  for (const tipo of TIPOS_IA) {
+    tipos[tipo] = { usado: usados[tipo] ?? 0, limite: limitePorUsuario(tipo) };
+  }
+  return { tipos };
+}
+
+/** Cuota de hoy de la persona autenticada. La usa el panel del asistente. */
+export const cuotaIAHoy = onCall({ region: 'us-central1' }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debes iniciar sesión');
+  }
+  return consultarCuotaIA(request.auth.uid);
+});

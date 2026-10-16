@@ -485,6 +485,14 @@ export async function consumirCuotaIA(
   return rows.length > 0;
 }
 
+/** Unidades usadas hoy por tipo de IA para una cuenta. */
+export async function usoIADelDia(uid: string): Promise<Record<string, number>> {
+  const rows = await sql()`
+    SELECT tipo, unidades FROM uso_ia
+    WHERE usuario_id = ${uid} AND dia = current_date`;
+  return Object.fromEntries(rows.map((r) => [r.tipo as string, Number(r.unidades)]));
+}
+
 /**
  * Cuenta un intento de acceso en una ventana fija. Devuelve false cuando ya se superó el máximo
  * dentro de la ventana. Se usa por correo y por IP en el inicio de sesión y el registro.

@@ -4,6 +4,8 @@ export type PostDraftFromAgent = {
   topic: string;
   tone: string;
   autoGenerate?: boolean;
+  /** Texto de una respuesta del asistente que se usa tal cual, sin generar otro. */
+  contenido?: string;
 };
 
 export function savePostDraftFromAgent(draft: PostDraftFromAgent): void {

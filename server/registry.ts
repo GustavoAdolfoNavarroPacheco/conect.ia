@@ -3,6 +3,7 @@ import { healthCheck } from './ai/healthCheck';
 import { generateContent } from './ai/generateContent';
 import { generateVideo } from './ai/generateVideo';
 import { chatWithAgent } from './ai/chatWithAgent';
+import { cuotaIAHoy } from './ai/cuotaIA';
 import { schedulePost } from './posts/schedulePost';
 import { publishPostNow } from './posts/publishPostCallable';
 import { processDueScheduledPosts } from './posts/processDueScheduledPosts';
@@ -43,6 +44,7 @@ export const CALLABLES: Record<string, Callable> = {
   generateContent,
   generateVideo,
   chatWithAgent,
+  cuotaIA: cuotaIAHoy,
   schedulePost,
   publishPostNow,
   processDueScheduledPosts,

@@ -18,6 +18,8 @@ import { useAuth } from '../context/AuthContext';
 import { ejecutarFlujoPublicacion, getAutomationWebhookUrl } from '../services/make';
 import {
   chatWithAgent,
+  cuotaIAHoy,
+  type CuotaIAHoy,
   generateContent as generateContentFn,
   generateVideo as generateVideoFn,
   schedulePost as schedulePostFn,
@@ -1824,6 +1826,12 @@ const NewPostScreen: React.FC = () => {
     agentDraftApplied.current = true;
     setTopic(draft.topic);
     setTone(draft.tone);
+    if (draft.contenido) {
+      // Texto de una respuesta del asistente: se usa tal cual, sin generar otro.
+      setGeneratedText(draft.contenido);
+      setHasContent(true);
+      return;
+    }
     if (draft.autoGenerate) {
       setToastMsg('Creando publicación desde el Asistente IA…');
       setShowToast(true);
@@ -3782,6 +3790,7 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
       };
       setMessages((prev) => [...prev, botMsg]);
       setBackendOk(true);
+      refrescarCuota();
       invalidate();
     } catch (e) {
       if (id !== peticion.current) return;
@@ -3812,6 +3821,34 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
   const detener = () => {
     peticion.current++;
     setSending(false);
+  };
+
+  // Cuota de hoy del panel lateral (U10). Se recarga al cargar y tras cada respuesta.
+  const [cuota, setCuota] = useState<CuotaIAHoy | null>(null);
+  const [copiadoIndice, setCopiadoIndice] = useState<number | null>(null);
+  const refrescarCuota = () => {
+    cuotaIAHoy().then(setCuota).catch(() => setCuota(null));
+  };
+  // Solo al montar: después se refresca desde enviar().
+  useEffect(() => {
+    refrescarCuota();
+  }, []);
+
+  const copiarRespuesta = async (texto: string, indice: number) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiadoIndice(indice);
+      setTimeout(() => setCopiadoIndice((actual) => (actual === indice ? null : actual)), 2000);
+    } catch {
+      setError('No se pudo copiar. Selecciona el texto y cópialo manualmente.');
+    }
+  };
+
+  /** Lleva el texto de una respuesta al compositor, sin generar otro. */
+  const usarComoPublicacion = (texto: string) => {
+    const tema = lastUserPrompt.trim() || texto.slice(0, 80);
+    savePostDraftFromAgent({ topic: tema, tone: 'profesional', contenido: texto });
+    onNavigate('new-post');
   };
 
   const finChatRef = useRef<HTMLDivElement>(null);
@@ -3920,6 +3957,17 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
                     </div>
                   </div>
 
+                  {msg.role === 'bot' && i > 0 && (
+                    <div className="ml-10 flex flex-wrap gap-2">
+                      <Button variant="outline" icon={<Copy />} onClick={() => void copiarRespuesta(msg.text, i)}>
+                        {copiadoIndice === i ? 'Copiado' : 'Copiar'}
+                      </Button>
+                      <Button variant="outline" icon={<PenSquare />} onClick={() => usarComoPublicacion(msg.text)}>
+                        Usar como publicación
+                      </Button>
+                    </div>
+                  )}
+
                   {msg.role === 'bot' && (msg.accionSugerida === 'generar_publicacion' || msg.accionSugerida === 'ver_calendario') && (
                     <div className="ml-10 flex flex-wrap gap-2">
                       {msg.accionSugerida === 'generar_publicacion' && (
@@ -4008,8 +4056,33 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
           </div>
         </section>
 
-        {/* Acciones rápidas (≥ 1024) */}
-        <Panel title="Acciones rápidas" icon={<Zap />} className="hidden lg:flex">
+        {/* Columna lateral (≥ 1024): cuota de hoy, acciones rápidas y horas de referencia */}
+        <aside className="hidden min-h-0 flex-col gap-6 lg:flex">
+        <Panel title="Cuota de hoy">
+          <div className="space-y-4">
+            {([
+              { clave: 'texto', nombre: 'Textos' },
+              { clave: 'imagen', nombre: 'Imágenes' },
+            ] as const).map(({ clave, nombre }) => {
+              const fila = cuota?.tipos[clave];
+              const porcentaje = fila && fila.limite > 0 ? Math.min(100, (fila.usado / fila.limite) * 100) : 0;
+              return (
+                <div key={clave}>
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-foreground">{nombre}</span>
+                    <span className="tabular-nums text-muted-foreground">{fila ? `${fila.usado} de ${fila.limite}` : '—'}</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-accent" aria-hidden>
+                    <div className="h-full rounded-full bg-brand transition-[width] duration-300" style={{ width: `${porcentaje}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">Límite diario por cuenta. Se reinicia a medianoche UTC.</p>
+        </Panel>
+
+        <Panel title="Acciones rápidas" icon={<Zap />}>
           <Button
             size="lg"
             className="w-full"
@@ -4053,6 +4126,20 @@ const AgentScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ onNav
             </ul>
           </div>
         </Panel>
+
+        <Panel title="Horas de referencia">
+          <div className="flex flex-wrap gap-2">
+            {['Mar 09:00', 'Jue 12:30', 'Vie 17:00'].map((hora) => (
+              <span key={hora} className="rounded-full bg-brand-soft px-3 py-1 text-xs font-medium text-brand-strong">
+                {hora}
+              </span>
+            ))}
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Referencia pública y orientativa, no datos de tu cuenta. Se sustituirá por tus métricas cuando existan.
+          </p>
+        </Panel>
+        </aside>
       </div>
     </ScreenLayout>
   );

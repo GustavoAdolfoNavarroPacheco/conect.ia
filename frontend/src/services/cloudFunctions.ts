@@ -21,6 +21,15 @@ export async function chatWithAgent(
   return callFn<ChatAgentResponse>('chatWithAgent', { mensaje, historial });
 }
 
+/** Uso de hoy y límite diario por tipo de IA de la cuenta actual. */
+export type CuotaIAHoy = {
+  tipos: Record<'texto' | 'imagen' | 'video' | 'chat', { usado: number; limite: number }>;
+};
+
+export async function cuotaIAHoy() {
+  return callFn<CuotaIAHoy>('cuotaIA');
+}
+
 export async function generateContent(
   prompt: string,
   redSocial: string,
