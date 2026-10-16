@@ -452,6 +452,6 @@
     "designer": {
       "orphans": []
     },
-    "notes": "CampusSocial: importar → crear webhook → variables del escenario → ON. Ver CONFIGURAR_BLUEPRINT_MAKE.md"
+    "notes": "CampusSocial: importar → crear webhook → variables del escenario → ON. Ver configurar-blueprint-make.md"
   }
 }

@@ -10,13 +10,13 @@ Tu jefe pidió dejar de pagar **n8n Cloud** y no mantener n8n local. **Make** (m
 
 El JSON del flujo antiguo (n8n) está en:
 
-`Flujo_Automatizacion/CampusSocial _ Publicación LinkedIn.json`
+`flujo-automatizacion/campussocial-publicacion-linkedin.json`
 
 **Blueprint importable para Make:**
 
-`Flujo_Automatizacion/CampusSocial_LinkedIn_Make.blueprint.json`
+`flujo-automatizacion/campussocial-linkedin-make.blueprint.json`
 
-Guía paso a paso: **`Flujo_Automatizacion/IMPORTAR_EN_MAKE.md`**
+Guía paso a paso: **`flujo-automatizacion/importar-en-make.md`**
 
 En Make: menú **⋯** → **Import blueprint** → selecciona el archivo `.blueprint.json`.
 

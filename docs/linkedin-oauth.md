@@ -89,6 +89,6 @@ Opcional para notificaciones. La **publicación** la hace CampusSocial con OAuth
 ## 8. Desplegar
 
 ```bash
-cd Frontend && npm run build
+cd frontend && npm run build
 git push origin main   # Vercel despliega automáticamente
 ```

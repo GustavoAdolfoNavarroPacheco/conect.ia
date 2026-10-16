@@ -47,12 +47,12 @@ python -m http.server 8000
 
 | Documento | Descripción |
 |-----------|-------------|
-| 🚀 **[INICIO_RAPIDO.md](INICIO_RAPIDO.md)** | **COMIENZA AQUÍ** - 5 pasos para empezar |
-| 📋 [GUIA_INSTALACION.md](GUIA_INSTALACION.md) | Instalación paso a paso |
-| 📊 [ANALISIS_COMPLETO.md](ANALISIS_COMPLETO.md) | Análisis detallado del código |
-| 🏗️ [ARQUITECTURA.md](ARQUITECTURA.md) | Diagramas de arquitectura |
-| 🎯 [RESUMEN_FINAL.md](RESUMEN_FINAL.md) | Resumen ejecutivo |
-| 📦 [INVENTARIO_PROYECTO.md](INVENTARIO_PROYECTO.md) | Qué se entregó |
+| 🚀 **[inicio-rapido.md](inicio-rapido.md)** | **COMIENZA AQUÍ** - 5 pasos para empezar |
+| 📋 [guia-instalacion.md](guia-instalacion.md) | Instalación paso a paso |
+| 📊 [analisis-completo.md](analisis-completo.md) | Análisis detallado del código |
+| 🏗️ [arquitectura.md](arquitectura.md) | Diagramas de arquitectura |
+| 🎯 [resumen-final.md](resumen-final.md) | Resumen ejecutivo |
+| 📦 [inventario-proyecto.md](inventario-proyecto.md) | Qué se entregó |
 | 🔧 [backend/README_BACKEND.md](backend/README_BACKEND.md) | Documentación API |
 | 🎨 [fronted/README_FRONTEND.md](fronted/README_FRONTEND.md) | Guía del frontend |
 
@@ -125,12 +125,12 @@ agente inteligente/
 │   └── README_BACKEND.md      # Documentación
 │
 └── Documentación
-    ├── INICIO_RAPIDO.md
-    ├── GUIA_INSTALACION.md
-    ├── ANALISIS_COMPLETO.md
-    ├── ARQUITECTURA.md
-    ├── RESUMEN_FINAL.md
-    └── INVENTARIO_PROYECTO.md
+    ├── inicio-rapido.md
+    ├── guia-instalacion.md
+    ├── analisis-completo.md
+    ├── arquitectura.md
+    ├── resumen-final.md
+    └── inventario-proyecto.md
 ```
 
 ---
@@ -261,7 +261,7 @@ Conversación disponible en historial
 
 ## 🚀 PRÓXIMOS PASOS
 
-1. **Lee primero:** [INICIO_RAPIDO.md](INICIO_RAPIDO.md)
+1. **Lee primero:** [inicio-rapido.md](inicio-rapido.md)
 2. **Instala:** `pip install -r requirements.txt`
 3. **Prueba:** `python test_app.py`
 4. **Ejecuta:** `python app.py`
@@ -274,10 +274,10 @@ Conversación disponible en historial
 
 Para información más específica, consulta:
 
-- **Para empezar:** [INICIO_RAPIDO.md](INICIO_RAPIDO.md)
-- **Instalación completa:** [GUIA_INSTALACION.md](GUIA_INSTALACION.md)
-- **Análisis de código:** [ANALISIS_COMPLETO.md](ANALISIS_COMPLETO.md)
-- **Arquitectura:** [ARQUITECTURA.md](ARQUITECTURA.md)
+- **Para empezar:** [inicio-rapido.md](inicio-rapido.md)
+- **Instalación completa:** [guia-instalacion.md](guia-instalacion.md)
+- **Análisis de código:** [analisis-completo.md](analisis-completo.md)
+- **Arquitectura:** [arquitectura.md](arquitectura.md)
 - **API endpoints:** [backend/README_BACKEND.md](backend/README_BACKEND.md)
 - **Frontend:** [fronted/README_FRONTEND.md](fronted/README_FRONTEND.md)
 
@@ -353,7 +353,7 @@ Este proyecto está disponible bajo licencia MIT.
 ## 🎉 ¡COMIENZA AHORA!
 
 ### Opción 1: Guía Rápida
-👉 **Lee:** [INICIO_RAPIDO.md](INICIO_RAPIDO.md)
+👉 **Lee:** [inicio-rapido.md](inicio-rapido.md)
 
 ### Opción 2: Comenzar Inmediatamente
 ```bash
@@ -365,4 +365,4 @@ python app.py
 
 ---
 
-**¿Problemas? Consulta la documentación o revisa [GUIA_INSTALACION.md](GUIA_INSTALACION.md)**
+**¿Problemas? Consulta la documentación o revisa [guia-instalacion.md](guia-instalacion.md)**

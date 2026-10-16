@@ -2,7 +2,7 @@
 
 ```
 .
-├── Frontend/              Interfaz React + Vite (build en Frontend/dist)
+├── frontend/              Interfaz React + Vite (build en frontend/dist)
 │   └── src/
 │       ├── app/           Pantallas y componentes
 │       ├── context/       Sesión (Auth.js)
@@ -25,7 +25,7 @@
 │   ├── social/            Clientes de LinkedIn, Facebook, Instagram y TikTok
 │   └── registry.ts        Lista de funciones invocables desde el frontend
 ├── scripts/db-migrate.mjs Aplica server/db/schema.sql a Neon
-├── Flujo_Automatizacion/  Escenarios y guías de Make / n8n (opcional)
+├── flujo-automatizacion/  Escenarios y guías de Make / n8n (opcional)
 ├── docs/                  Guías de despliegue y de integraciones
 ├── postman/               Colecciones de pruebas de API
 └── vercel.json            Build, funciones, cron y reescrituras

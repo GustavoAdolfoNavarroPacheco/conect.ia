@@ -214,7 +214,7 @@ requests==2.31.0
 
 ### Documentación
 
-1. **GUIA_INSTALACION.md** - Guía completa de instalación
+1. **guia-instalacion.md** - Guía completa de instalación
 2. **backend/README_BACKEND.md** - Documentación del backend
 3. **fronted/README_FRONTEND.md** - Documentación del frontend
 4. **backend/test_app.py** - Suite de pruebas

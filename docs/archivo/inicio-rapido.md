@@ -88,10 +88,10 @@ taskkill /PID [PID] /F
 
 ## 📞 DOCUMENTACIÓN COMPLETA
 
-- 📖 `GUIA_INSTALACION.md` - Instalación paso a paso
-- 📊 `ANALISIS_COMPLETO.md` - Análisis del código
-- 🏗️ `ARQUITECTURA.md` - Diagramas
-- 📝 `RESUMEN_FINAL.md` - Resumen ejecutivo
+- 📖 `guia-instalacion.md` - Instalación paso a paso
+- 📊 `analisis-completo.md` - Análisis del código
+- 🏗️ `arquitectura.md` - Diagramas
+- 📝 `resumen-final.md` - Resumen ejecutivo
 - 🔧 `backend/README_BACKEND.md` - API endpoints
 - 🎨 `fronted/README_FRONTEND.md` - Frontend
 

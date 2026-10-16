@@ -103,9 +103,9 @@ PUT    /api/conversations/<id>/title     → Actualizar título
 ### 4️⃣ DOCUMENTACIÓN COMPLETA
 
 **Archivos:**
-- ✅ `GUIA_INSTALACION.md` - Instrucciones paso a paso
-- ✅ `ANALISIS_COMPLETO.md` - Análisis detallado del código
-- ✅ `ARQUITECTURA.md` - Diagramas de arquitectura
+- ✅ `guia-instalacion.md` - Instrucciones paso a paso
+- ✅ `analisis-completo.md` - Análisis detallado del código
+- ✅ `arquitectura.md` - Diagramas de arquitectura
 - ✅ `backend/README_BACKEND.md` - Guía del backend
 - ✅ `fronted/README_FRONTEND.md` - Guía del frontend
 
@@ -290,9 +290,9 @@ Total: 2790+ líneas de código y documentación
 agente inteligente/
 │
 ├── .env                          ← API Key (MUY IMPORTANTE)
-├── GUIA_INSTALACION.md           ← Lee esto primero
-├── ANALISIS_COMPLETO.md          ← Análisis del código
-├── ARQUITECTURA.md               ← Diagramas
+├── guia-instalacion.md           ← Lee esto primero
+├── analisis-completo.md          ← Análisis del código
+├── arquitectura.md               ← Diagramas
 │
 ├── fronted/
 │   ├── index.html               ← Interfaz
@@ -363,7 +363,7 @@ agente inteligente/
 | `backend/app.py` | Servidor principal |
 | `fronted/index.html` | Interfaz |
 | `backend/test_app.py` | Pruebas |
-| `GUIA_INSTALACION.md` | Cómo empezar |
+| `guia-instalacion.md` | Cómo empezar |
 | `backend/README_BACKEND.md` | API endpoints |
 
 ---
@@ -403,7 +403,7 @@ Solo ejecuta `python app.py` en la terminal y abre el frontend.
 ---
 
 **¿Preguntas o problemas? Revisa:**
-- [GUIA_INSTALACION.md](GUIA_INSTALACION.md)
-- [ANALISIS_COMPLETO.md](ANALISIS_COMPLETO.md)
+- [guia-instalacion.md](guia-instalacion.md)
+- [analisis-completo.md](analisis-completo.md)
 - [backend/README_BACKEND.md](backend/README_BACKEND.md)
 - [fronted/README_FRONTEND.md](fronted/README_FRONTEND.md)

@@ -1,6 +1,6 @@
 export type RedSocial = 'linkedin' | 'instagram' | 'facebook' | 'twitter' | 'tiktok';
 
-/** Payload POST al webhook Make (mismo contrato que el JSON n8n en Flujo_Automatizacion/) */
+/** Payload POST al webhook Make (mismo contrato que el JSON n8n en flujo-automatizacion/) */
 export interface AutomationPostPayload {
   topic: string;
   tone: string;

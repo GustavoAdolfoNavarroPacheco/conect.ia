@@ -24,13 +24,13 @@
 **Estado:** ✅ 100% Funcional (5/5 pruebas pasan)
 
 ### 📚 DOCUMENTACIÓN
-- [x] `INICIO_RAPIDO.md` - Guía rápida (5 minutos)
-- [x] `GUIA_INSTALACION.md` - Instalación paso a paso
-- [x] `ANALISIS_COMPLETO.md` - Análisis del código
-- [x] `ARQUITECTURA.md` - Diagramas
-- [x] `RESUMEN_FINAL.md` - Resumen ejecutivo
-- [x] `INVENTARIO_PROYECTO.md` - Qué se entregó
-- [x] `README_PROYECTO.md` - README principal
+- [x] `inicio-rapido.md` - Guía rápida (5 minutos)
+- [x] `guia-instalacion.md` - Instalación paso a paso
+- [x] `analisis-completo.md` - Análisis del código
+- [x] `arquitectura.md` - Diagramas
+- [x] `resumen-final.md` - Resumen ejecutivo
+- [x] `inventario-proyecto.md` - Qué se entregó
+- [x] `readme-proyecto.md` - README principal
 
 **Estado:** ✅ 7 guías completas
 
@@ -132,7 +132,7 @@ PROYECTO COMPLETO: 2790+ líneas
 - [x] Manejo de errores
 
 ### Documentación
-- [x] Guía de inicio (INICIO_RAPIDO.md)
+- [x] Guía de inicio (inicio-rapido.md)
 - [x] Guía de instalación
 - [x] Análisis del código
 - [x] Diagramas de arquitectura
@@ -145,7 +145,7 @@ PROYECTO COMPLETO: 2790+ líneas
 ## 🎯 CHECKLIST DE USO
 
 ### Para Empezar
-- [ ] Lee: INICIO_RAPIDO.md
+- [ ] Lee: inicio-rapido.md
 - [ ] Instala: `pip install -r requirements.txt`
 - [ ] Prueba: `python test_app.py`
 - [ ] Ejecuta: `python app.py`
@@ -166,14 +166,14 @@ PROYECTO COMPLETO: 2790+ líneas
 ✅ agente inteligente/
 ├── ✅ .env
 ├── ✅ .gitignore
-├── ✅ README_PROYECTO.md
-├── ✅ INICIO_RAPIDO.md
-├── ✅ GUIA_INSTALACION.md
-├── ✅ ANALISIS_COMPLETO.md
-├── ✅ ARQUITECTURA.md
-├── ✅ RESUMEN_FINAL.md
-├── ✅ INVENTARIO_PROYECTO.md
-├── ✅ CHECKLIST_FINAL.md (este archivo)
+├── ✅ readme-proyecto.md
+├── ✅ inicio-rapido.md
+├── ✅ guia-instalacion.md
+├── ✅ analisis-completo.md
+├── ✅ arquitectura.md
+├── ✅ resumen-final.md
+├── ✅ inventario-proyecto.md
+├── ✅ checklist-final.md (este archivo)
 │
 ├── ✅ fronted/
 │   ├── ✅ index.html
@@ -272,12 +272,12 @@ RESULTADO: 5/5 PASADAS ✅
 
 | Necesito... | Documento |
 |------------|-----------|
-| Empezar rápido | INICIO_RAPIDO.md |
-| Instalar todo | GUIA_INSTALACION.md |
-| Entender el código | ANALISIS_COMPLETO.md |
-| Ver arquitectura | ARQUITECTURA.md |
-| Resumen ejecutivo | RESUMEN_FINAL.md |
-| Qué se entregó | INVENTARIO_PROYECTO.md |
+| Empezar rápido | inicio-rapido.md |
+| Instalar todo | guia-instalacion.md |
+| Entender el código | analisis-completo.md |
+| Ver arquitectura | arquitectura.md |
+| Resumen ejecutivo | resumen-final.md |
+| Qué se entregó | inventario-proyecto.md |
 | API endpoints | backend/README_BACKEND.md |
 | Frontend | fronted/README_FRONTEND.md |
 

@@ -66,7 +66,7 @@ import type { CanalesDoc } from '../lib/db/types';
 // DESIGN SYSTEM - COMPONENTES REUTILIZABLES
 // ============================================================================
 
-// Curva y duraciones únicas del sistema (docs/MAQUETACION_CONECTIA.md §2.6)
+// Curva y duraciones únicas del sistema (docs/maquetacion-conectia.md §2.6)
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 const DUR = 0.24;
 const TRANSICION = { duration: DUR, ease: EASE_OUT };
@@ -4357,7 +4357,7 @@ const SettingsScreen: React.FC = () => {
                 La URL que pegas aquí no recibe el secreto y debe empezar por https://.
               </p>
               <p>
-                Guía: {codigo('Flujo_Automatizacion/POSTMAN_MAKE.md')} · n8n local: {codigo('docker compose up -d')}
+                Guía: {codigo('flujo-automatizacion/postman-make.md')} · n8n local: {codigo('docker compose up -d')}
               </p>
             </div>
           </div>

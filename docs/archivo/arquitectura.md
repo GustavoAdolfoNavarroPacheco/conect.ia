@@ -227,8 +227,8 @@ agente inteligente/
 ├── .env                          # Configuración (API Key)
 ├── .gitignore                    # Archivos ignorados
 ├── README.md                     # README principal
-├── GUIA_INSTALACION.md           # Guía de instalación
-├── ANALISIS_COMPLETO.md          # Este archivo
+├── guia-instalacion.md           # Guía de instalación
+├── analisis-completo.md          # Este archivo
 │
 ├── fronted/
 │   ├── index.html                # Página principal

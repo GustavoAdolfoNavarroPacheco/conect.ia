@@ -1,8 +1,8 @@
 # Importar el blueprint de CampusSocial en Make.com
 
-Archivo: **`CampusSocial_LinkedIn_Make.blueprint.json`**
+Archivo: **`campussocial-linkedin-make.blueprint.json`**
 
-Equivalente al flujo n8n `CampusSocial _ Publicación LinkedIn.json`, adaptado a **LinkedIn únicamente** y al contrato de CampusSocial (Cloud Functions → webhook).
+Equivalente al flujo n8n `campussocial-publicacion-linkedin.json`, adaptado a **LinkedIn únicamente** y al contrato de CampusSocial (Cloud Functions → webhook).
 
 ---
 
@@ -10,8 +10,8 @@ Equivalente al flujo n8n `CampusSocial _ Publicación LinkedIn.json`, adaptado a
 
 1. En Make: **Scenarios** → **Create a new scenario**.
 2. Menú **⋯** (arriba a la derecha) → **Import blueprint**.
-3. Elige `CampusSocial_LinkedIn_Make.blueprint.json` → **Save**.
-4. Si ves **Module Not Found**, usa el blueprint actualizado (`gateway:CustomWebHook` con H mayúscula) o lee **`ARREGLAR_ESCENARIO_MAKE.md`**.
+3. Elige `campussocial-linkedin-make.blueprint.json` → **Save**.
+4. Si ves **Module Not Found**, usa el blueprint actualizado (`gateway:CustomWebHook` con H mayúscula) o lee **`arreglar-escenario-make.md`**.
 5. Tras importar, **crea el webhook** en el primer módulo (Add → Create a webhook); sin eso no guarda bien.
 
 ---
@@ -117,8 +117,8 @@ Si `telegram_notify: true` en el payload:
 
 ## 7. Flujo del escenario (resumen)
 
-**Guía completa paso a paso:** `CONFIGURAR_MAKE_COMPLETO.md`  
-**Solo configurar tras importar:** `CONFIGURAR_BLUEPRINT_MAKE.md`
+**Guía completa paso a paso:** `configurar-make-completo.md`  
+**Solo configurar tras importar:** `configurar-blueprint-make.md`
 
 ```mermaid
 flowchart TD
@@ -149,7 +149,7 @@ CampusSocial publica en LinkedIn con OAuth; Make notifica y puede añadir Telegr
 
 1. Activa el escenario (**ON**). Plan gratis: máx. **2** escenarios activos.
 2. `cd Backend` → `npm run dev`
-3. `cd Frontend` → `npm run dev` con `npx vercel dev`
+3. `cd frontend` → `npm run dev` con `npx vercel dev`
 4. En CampusSocial: **Nueva publicación** → generar → publicar / disparar automatización.
 5. Revisa **History** en Make si falla.
 

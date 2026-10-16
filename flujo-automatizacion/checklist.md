@@ -1,4 +1,4 @@
-# Checklist — Flujo_Automatizacion y CampusSocial
+# Checklist — flujo-automatizacion y CampusSocial
 
 Usa esto para validar que todo el software y n8n Docker/ngrok quedan alineados.
 

@@ -7,7 +7,7 @@ Si ves **Module Not Found** en el primer módulo o en Telegram, el blueprint ant
 ## Opción A — Reimportar (recomendado)
 
 1. Crea un **escenario nuevo** en Make (no edites el roto).
-2. **⋯ → Import blueprint** → `CampusSocial_LinkedIn_Make.blueprint.json` (versión corregida).
+2. **⋯ → Import blueprint** → `campussocial-linkedin-make.blueprint.json` (versión corregida).
 3. En el módulo **Webhooks → Custom webhook**:
    - Clic en **Add** / **Create a webhook**
    - Copia la URL generada

@@ -22,7 +22,7 @@ Si tienes URL de Make en **Ajustes**, la app **no** publica sola por OAuth: dele
 
 ## Paso 2 — Escenario Make (mínimo)
 
-Importa `CampusSocial_LinkedIn_Make.blueprint.json` o crea manualmente:
+Importa `campussocial-linkedin-make.blueprint.json` o crea manualmente:
 
 ```
 [Webhooks → Custom webhook]

@@ -1,6 +1,6 @@
 # Configurar el blueprint en Make (5 minutos)
 
-Archivo: **`CampusSocial_LinkedIn_Make.blueprint.json`**
+Archivo: **`campussocial-linkedin-make.blueprint.json`**
 
 Flujo **lineal** (izquierda → derecha). Solo configuras webhook, variables y conexiones.
 
@@ -23,7 +23,7 @@ Flujo **lineal** (izquierda → derecha). Solo configuras webhook, variables y c
 ## Paso 1 — Importar
 
 1. Make → **Create a new scenario**
-2. **⋯ → Import blueprint** → selecciona `CampusSocial_LinkedIn_Make.blueprint.json`
+2. **⋯ → Import blueprint** → selecciona `campussocial-linkedin-make.blueprint.json`
 3. **Save**
 
 Si un módulo Telegram dice **Module Not Found**: elimínalo y conecta **Telegram → Send a Text Message** manualmente en las ramas A1 y B1 (mismo texto del mapper).
@@ -84,7 +84,7 @@ Solo si quieres publicar **desde Make** sin OAuth de CampusSocial:
 
 ## Probar
 
-1. Postman POST → body `notify_published` (ver `POSTMAN_MAKE.md`)
+1. Postman POST → body `notify_published` (ver `postman-make.md`)
 2. CampusSocial → **Publicar ahora** → Make **History** debe mostrar rama **A_campus_ya_publico**
 
 ---

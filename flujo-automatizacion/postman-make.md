@@ -82,7 +82,7 @@ JSON con `"success": true` y `"linkedin_status": "published"` o `"draft"` (si `s
 
 ## 3. Importar colección Postman
 
-Archivo: **`CampusSocial_Make.postman_collection.json`** (misma carpeta).
+Archivo: **`campussocial-make.postman-collection.json`** (misma carpeta).
 
 En Postman: **Import** → selecciona el archivo → ajusta variables:
 

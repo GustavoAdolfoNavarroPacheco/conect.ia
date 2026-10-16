@@ -1,6 +1,6 @@
 # n8n local con Docker (CampusSocial)
 
-Instalación **gratuita** (Community Edition) en tu PC. Compatible con el JSON en `Flujo_Automatizacion/`.
+Instalación **gratuita** (Community Edition) en tu PC. Compatible con el JSON en `flujo-automatizacion/`.
 
 ## Requisitos
 
@@ -10,7 +10,7 @@ Instalación **gratuita** (Community Edition) en tu PC. Compatible con el JSON e
 ## 1. Levantar n8n
 
 ```powershell
-cd Flujo_Automatizacion
+cd flujo-automatizacion
 docker compose up -d
 ```
 
@@ -27,7 +27,7 @@ docker compose down -v        # detener y borrar datos (cuidado)
 ## 2. Importar el workflow
 
 1. En n8n: **Workflows** → **Import from file**
-2. Elige `CampusSocial _ Publicación LinkedIn.json`
+2. Elige `campussocial-publicacion-linkedin.json`
 3. Revisa credenciales que pide el flujo:
    - **Header Auth** → nombre del header: `X-Campus-Secret`, valor = el mismo que `N8N_WEBHOOK_SECRET`
    - **Google Gemini** → API key (puede ser la misma que `GEMINI_API_KEY` del Backend)
@@ -157,4 +157,4 @@ Si despliegas Functions en la nube, `http://localhost:5678` **no** les llega. Op
 
 ## Make
 
-Si más adelante quieres Make en la nube sin Docker, ver [MAKE_SETUP.md](MAKE_SETUP.md). Puedes tener `N8N_WEBHOOK_URL` **o** `MAKE_WEBHOOK_URL`; el Backend usa primero n8n si ambos están definidos.
+Si más adelante quieres Make en la nube sin Docker, ver [make-setup.md](make-setup.md). Puedes tener `N8N_WEBHOOK_URL` **o** `MAKE_WEBHOOK_URL`; el Backend usa primero n8n si ambos están definidos.

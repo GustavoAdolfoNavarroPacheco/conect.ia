@@ -15,19 +15,19 @@ agente inteligente/
 ├── 📘 README.md
 │   └── Readme principal
 │
-├── 🚀 INICIO_RAPIDO.md ⭐
+├── 🚀 inicio-rapido.md ⭐
 │   └── COMIENZA AQUÍ (5 minutos)
 │
-├── 📋 GUIA_INSTALACION.md
+├── 📋 guia-instalacion.md
 │   └── Instrucciones paso a paso
 │
-├── 📊 ANALISIS_COMPLETO.md
+├── 📊 analisis-completo.md
 │   └── Análisis detallado del código
 │
-├── 🏗️ ARQUITECTURA.md
+├── 🏗️ arquitectura.md
 │   └── Diagramas de arquitectura
 │
-└── 🎯 RESUMEN_FINAL.md
+└── 🎯 resumen-final.md
     └── Resumen ejecutivo
 ```
 
@@ -150,19 +150,19 @@ backend/
 ### 📚 DOCUMENTACIÓN
 ```
 Documentos principales:
-├── 🚀 INICIO_RAPIDO.md
+├── 🚀 inicio-rapido.md
 │   └── Comienza aquí (5 minutos)
 │
-├── 📋 GUIA_INSTALACION.md
+├── 📋 guia-instalacion.md
 │   └── Instrucciones completas
 │
-├── 📊 ANALISIS_COMPLETO.md
+├── 📊 analisis-completo.md
 │   └── Análisis del código
 │
-├── 🏗️ ARQUITECTURA.md
+├── 🏗️ arquitectura.md
 │   └── Diagramas y flujos
 │
-├── 🎯 RESUMEN_FINAL.md
+├── 🎯 resumen-final.md
 │   └── Resumen ejecutivo
 │
 ├── backend/README_BACKEND.md
@@ -320,7 +320,7 @@ proyecto/
 
 ## 🎯 PRÓXIMAS ACCIONES
 
-1. ✅ Lee: `INICIO_RAPIDO.md`
+1. ✅ Lee: `inicio-rapido.md`
 2. ✅ Ejecuta: `pip install -r requirements.txt`
 3. ✅ Prueba: `python test_app.py`
 4. ✅ Inicia: `python app.py`
@@ -333,13 +333,13 @@ proyecto/
 
 | Necesito... | Archivo |
 |------------|---------|
-| Empezar rápido | INICIO_RAPIDO.md |
-| Instalar | GUIA_INSTALACION.md |
-| Ver código | ANALISIS_COMPLETO.md |
-| Arquitectura | ARQUITECTURA.md |
+| Empezar rápido | inicio-rapido.md |
+| Instalar | guia-instalacion.md |
+| Ver código | analisis-completo.md |
+| Arquitectura | arquitectura.md |
 | API endpoints | backend/README_BACKEND.md |
 | Frontend | fronted/README_FRONTEND.md |
-| Resumen | RESUMEN_FINAL.md |
+| Resumen | resumen-final.md |
 
 ---
 

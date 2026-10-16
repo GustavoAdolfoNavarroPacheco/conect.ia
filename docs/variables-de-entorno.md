@@ -82,17 +82,17 @@ Generar imágenes con Gemini puede requerir facturación activa en AI Studio. Si
 
 1. Crea una clave en [enter.pollinations.ai/keys](https://enter.pollinations.ai/keys).
 
-La generación de video necesita el plan Pro de Vercel (ver [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md)).
+La generación de video necesita el plan Pro de Vercel (ver [deploy-vercel.md](deploy-vercel.md)).
 
 ## 5. Publicaciones programadas
 
 ### `CRON_SECRET`
 
-Genera un valor con el comando de arriba. Vercel lo envía automáticamente en la cabecera `Authorization: Bearer` a `/api/cron/publicar-programadas`; si no coincide, la función rechaza la petición. El cron diario de Vercel (plan Hobby) no basta para publicar a tiempo: añade un disparador externo cada 5 minutos con ese mismo valor en `Authorization: Bearer` (ver [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md#5-límites-del-plan)).
+Genera un valor con el comando de arriba. Vercel lo envía automáticamente en la cabecera `Authorization: Bearer` a `/api/cron/publicar-programadas`; si no coincide, la función rechaza la petición. El cron diario de Vercel (plan Hobby) no basta para publicar a tiempo: añade un disparador externo cada 5 minutos con ese mismo valor en `Authorization: Bearer` (ver [deploy-vercel.md](deploy-vercel.md#5-límites-del-plan)).
 
 ## 6. Redes sociales
 
-Cada red necesita su propia app. Registra las URIs de redirección **exactamente** como aparecen aquí, porque deben coincidir con `VITE_*_OAUTH_REDIRECT_URI` en `Frontend/.env.production`.
+Cada red necesita su propia app. Registra las URIs de redirección **exactamente** como aparecen aquí, porque deben coincidir con `VITE_*_OAUTH_REDIRECT_URI` en `frontend/.env.production`.
 
 ### LinkedIn: `LINKEDIN_CLIENT_ID` y `LINKEDIN_CLIENT_SECRET`
 
@@ -123,7 +123,7 @@ La cuenta de Instagram debe ser profesional y estar vinculada a una página de F
 
 ## 7. Automatización (opcional): Make o n8n
 
-Define solo una de las dos. Detalles de los escenarios en [MAKE_SETUP.md](MAKE_SETUP.md) y [N8N_DOCKER.md](N8N_DOCKER.md).
+Define solo una de las dos. Detalles de los escenarios en [make-setup.md](make-setup.md) y [n8n-docker.md](n8n-docker.md).
 
 ### `MAKE_WEBHOOK_URL`
 
@@ -136,7 +136,7 @@ Opcional: `MAKE_WEBHOOK_SECRET` con un texto largo. El servidor lo envía en las
 
 Vercel no puede llegar a `localhost`, así que n8n debe ser accesible desde internet.
 
-1. Levanta n8n con `docker compose up -d` en `Flujo_Automatizacion/`.
+1. Levanta n8n con `docker compose up -d` en `flujo-automatizacion/`.
 2. Expón el puerto 5678 con `ngrok http 5678` y copia la URL `https://…`.
 3. En n8n abre el workflow, nodo **Campus Post Form Webhook**, y copia la URL de producción. Tendrá esta forma: `https://TU-SUBDOMINIO.ngrok-free.dev/webhook/campus-post-form`.
 4. Activa el workflow (interruptor **Active**).

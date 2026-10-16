@@ -6,13 +6,13 @@ Automatización de publicaciones en redes sociales con IA: genera contenido con 
 
 | Pieza | Tecnología |
 |-------|------------|
-| Frontend | React + Vite (`Frontend/`) |
+| Frontend | React + Vite (`frontend/`) |
 | API | Funciones serverless de Vercel (`api/` y `server/`) |
 | Autenticación | Auth.js (`@auth/core`): Google y correo con contraseña |
 | Base de datos | Neon (PostgreSQL), esquema en `server/db/schema.sql` |
 | Imágenes | Vercel Blob |
 | Programación | Vercel Cron (`api/cron/publicar-programadas.ts`) |
-| Automatización opcional | Make / n8n (`Flujo_Automatizacion/`) |
+| Automatización opcional | Make / n8n (`flujo-automatizacion/`) |
 
 ## Requisitos
 
@@ -25,7 +25,7 @@ Automatización de publicaciones en redes sociales con IA: genera contenido con 
 
 Se definen en Vercel (Settings → Environment Variables) y, para desarrollo local, en `.env.local` en la raíz del repositorio. Nunca se suben al repositorio.
 
-Cómo obtener cada una, paso a paso: [docs/VARIABLES_DE_ENTORNO.md](docs/VARIABLES_DE_ENTORNO.md).
+Cómo obtener cada una, paso a paso: [docs/variables-de-entorno.md](docs/variables-de-entorno.md).
 
 | Variable | Obligatoria | Para qué |
 |----------|-------------|----------|
@@ -54,7 +54,7 @@ npm install
 ```
 
 ```bash
-npm install --prefix Frontend
+npm install --prefix frontend
 ```
 
 Crea `.env.local` en la raíz con `DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET` (y las demás que necesites).
@@ -75,13 +75,13 @@ La app queda en http://localhost:3000. En Google Cloud registra `http://localhos
 
 ## Despliegue
 
-Ver [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md).
+Ver [docs/deploy-vercel.md](docs/deploy-vercel.md).
 
 ## Documentación
 
-- [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md): despliegue, variables y límites del plan
-- [docs/LINKEDIN_OAUTH.md](docs/LINKEDIN_OAUTH.md): configurar LinkedIn
-- [docs/MAKE_SETUP.md](docs/MAKE_SETUP.md): escenario de Make
-- [docs/N8N_DOCKER.md](docs/N8N_DOCKER.md): n8n con Docker
-- [docs/MODULO_ASISTENTE_IA.md](docs/MODULO_ASISTENTE_IA.md): Asistente IA
-- [STRUCTURA_PROYECTO.md](STRUCTURA_PROYECTO.md): estructura del repositorio
+- [docs/deploy-vercel.md](docs/deploy-vercel.md): despliegue, variables y límites del plan
+- [docs/linkedin-oauth.md](docs/linkedin-oauth.md): configurar LinkedIn
+- [docs/make-setup.md](docs/make-setup.md): escenario de Make
+- [docs/n8n-docker.md](docs/n8n-docker.md): n8n con Docker
+- [docs/modulo-asistente-ia.md](docs/modulo-asistente-ia.md): Asistente IA
+- [estructura-proyecto.md](estructura-proyecto.md): estructura del repositorio

@@ -7,7 +7,7 @@
    - Base 16px: la rejilla de 4px de Tailwind es exacta
    - Escala tipográfica corta: 12/16 · 14/20 · 16/24 · 18/24 · 24/32 (display solo en landing)
    - Espaciado en múltiplos de 4px; radios y sombras con tokens
-   - Especificación: docs/MAQUETACION_CONECTIA.md
+   - Especificación: docs/maquetacion-conectia.md
    ========================================================================== */
 
 :root {

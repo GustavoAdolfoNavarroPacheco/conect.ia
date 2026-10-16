@@ -41,7 +41,7 @@ Guía para terminar el escenario **CampusSocial | Publicación LinkedIn** y que 
 
 ### C) Reimportar blueprint actualizado (opcional)
 
-1. Escenario nuevo → **⋯ → Import blueprint** → `CampusSocial_LinkedIn_Make.blueprint.json` (incluye ramas `campus_ya_publico` y `notify_scheduled`).
+1. Escenario nuevo → **⋯ → Import blueprint** → `campussocial-linkedin-make.blueprint.json` (incluye ramas `campus_ya_publico` y `notify_scheduled`).
 2. **Create a webhook** → copia URL → CampusSocial **Ajustes**.
 
 ---
@@ -84,7 +84,7 @@ Archivo: `campus-social-webhook-ejemplo.json`
 
 Método **POST**, headers `Content-Type`, `x-make-apikey` = tu secreto.
 
-Detalle: `POSTMAN_MAKE.md`
+Detalle: `postman-make.md`
 
 ---
 
@@ -149,11 +149,11 @@ Evita publicar dos veces (Make + CampusSocial) en el mismo post.
 
 | Archivo | Uso |
 |---------|-----|
-| `CampusSocial_LinkedIn_Make.blueprint.json` | Importar escenario |
+| `campussocial-linkedin-make.blueprint.json` | Importar escenario |
 | `campus-social-webhook-ejemplo.json` | Cuerpos de prueba |
-| `CampusSocial_Make.postman_collection.json` | Colección Postman |
-| `POSTMAN_MAKE.md` | Headers y errores |
-| `ARREGLAR_ESCENARIO_MAKE.md` | Module Not Found |
-| `docs/MAKE_SETUP.md` | Resumen técnico |
+| `campussocial-make.postman-collection.json` | Colección Postman |
+| `postman-make.md` | Headers y errores |
+| `arreglar-escenario-make.md` | Module Not Found |
+| `docs/make-setup.md` | Resumen técnico |
 
 Contrato JSON: `server/integracion/automationTypes.ts`

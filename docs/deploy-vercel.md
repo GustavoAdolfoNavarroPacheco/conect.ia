@@ -1,6 +1,6 @@
 # Despliegue en Vercel
 
-El repositorio es un monorepo: el frontend está en `Frontend/` y la API en `api/` + `server/`. El `vercel.json` de la raíz construye el frontend y publica las funciones.
+El repositorio es un monorepo: el frontend está en `frontend/` y la API en `api/` + `server/`. El `vercel.json` de la raíz construye el frontend y publica las funciones.
 
 ## 1. Base de datos en Neon
 
@@ -13,8 +13,8 @@ DATABASE_URL="postgresql://…" npm run db:migrate
 
 ## 2. Proyecto en Vercel
 
-1. Importa el repositorio en Vercel. **Root Directory**: la raíz del repo (no `Frontend/`).
-2. Vercel usa `vercel.json`: instala dependencias de la raíz y de `Frontend/`, compila `Frontend/dist` y publica `api/`.
+1. Importa el repositorio en Vercel. **Root Directory**: la raíz del repo (no `frontend/`).
+2. Vercel usa `vercel.json`: instala dependencias de la raíz y de `frontend/`, compila `frontend/dist` y publica `api/`.
 3. Añade un almacén de **Vercel Blob** (Storage → Create → Blob) con acceso **público**. Se crea `BLOB_READ_WRITE_TOKEN` automáticamente.
 
 ## 3. Variables de entorno (Production)
@@ -42,7 +42,7 @@ Registra estas URLs en cada plataforma (sustituye `TU-DOMINIO`):
 | Meta | `https://TU-DOMINIO/oauth/meta` |
 | TikTok | `https://TU-DOMINIO/oauth/tiktok` |
 
-Las URLs de LinkedIn, Meta y TikTok también deben coincidir con `Frontend/.env.production` (`VITE_*_OAUTH_REDIRECT_URI`).
+Las URLs de LinkedIn, Meta y TikTok también deben coincidir con `frontend/.env.production` (`VITE_*_OAUTH_REDIRECT_URI`).
 
 ## 5. Límites del plan
 
@@ -52,4 +52,4 @@ Las URLs de LinkedIn, Meta y TikTok también deben coincidir con `Frontend/.env.
 
 ## Desarrollo local
 
-Usa `npx vercel dev` (ver [README.md](../README.md)). Las rutas `/api/*` solo funcionan con la CLI de Vercel o en el despliegue; `npm run dev --prefix Frontend` sirve solo la interfaz.
+Usa `npx vercel dev` (ver [README.md](../README.md)). Las rutas `/api/*` solo funcionan con la CLI de Vercel o en el despliegue; `npm run dev --prefix frontend` sirve solo la interfaz.

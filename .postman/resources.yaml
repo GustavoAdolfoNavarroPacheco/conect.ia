@@ -4,5 +4,5 @@ workspace:
 
 localResources:
   docs:
-    - ..\Frontend\guidelines\Guidelines.md
+    - ..\frontend\guidelines\guidelines.md
 .md

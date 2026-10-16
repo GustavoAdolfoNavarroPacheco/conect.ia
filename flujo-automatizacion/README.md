@@ -2,16 +2,16 @@
 
 Workflow exportado:
 
-- **`CampusSocial _ Publicación LinkedIn.json`**
+- **`campussocial-publicacion-linkedin.json`**
 
 ## Inicio rápido
 
 ```powershell
-cd Flujo_Automatizacion
+cd flujo-automatizacion
 docker compose up -d
 ```
 
-Luego sigue la guía completa: **[docs/N8N_DOCKER.md](../docs/N8N_DOCKER.md)**
+Luego sigue la guía completa: **[docs/n8n-docker.md](../docs/n8n-docker.md)**
 
 1. Abrir http://localhost:5678  
 2. Importar el JSON  
@@ -21,7 +21,7 @@ Luego sigue la guía completa: **[docs/N8N_DOCKER.md](../docs/N8N_DOCKER.md)**
 
 ## Checklist por sección del software
 
-**[CHECKLIST.md](CHECKLIST.md)** — Docker, ngrok, credenciales n8n, Asistente IA, Canales, Ajustes, etc.
+**[checklist.md](checklist.md)** — Docker, ngrok, credenciales n8n, Asistente IA, Canales, Ajustes, etc.
 
 ## Webhook esperado
 
@@ -31,5 +31,5 @@ Luego sigue la guía completa: **[docs/N8N_DOCKER.md](../docs/N8N_DOCKER.md)**
 
 ## Alternativa en la nube
 
-- **Make (gratis):** [docs/MAKE_SETUP.md](../docs/MAKE_SETUP.md)  
+- **Make (gratis):** [docs/make-setup.md](../docs/make-setup.md)  
 - **n8n Cloud:** de pago en app.n8n.cloud

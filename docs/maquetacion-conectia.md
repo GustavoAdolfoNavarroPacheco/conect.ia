@@ -1,7 +1,7 @@
 # Maquetación de Conect.ia: especificación para implementación
 
 **Para:** Opus 5.5
-**Principios de diseño:** [GUIA_DISENO_CONFORT.md](GUIA_DISENO_CONFORT.md) (copia de la guía de confort inspirada en Apple)
+**Principios de diseño:** [guia-diseno-confort.md](guia-diseno-confort.md) (copia de la guía de confort inspirada en Apple)
 **Estado:** propuesta de maquetación pendiente de implementar. Revisada contra el código y contra la guía (ver sección 10).
 
 ---
@@ -21,7 +21,7 @@ Lee esta sección antes de tocar código.
 
 ## 1. Decisión previa: base de 16px
 
-Hoy `html` tiene `font-size: 15px` (`Frontend/src/styles/theme.css:12` y `:244`). Tailwind mide todo en `rem`, así que cada medida del código está escalada a 15px:
+Hoy `html` tiene `font-size: 15px` (`frontend/src/styles/theme.css:12` y `:244`). Tailwind mide todo en `rem`, así que cada medida del código está escalada a 15px:
 
 | Clase | Medida actual | Medida real que debería tener |
 |---|---|---|
@@ -351,7 +351,7 @@ Todas las pantallas definen carga (skeleton con la forma final), vacío y error.
 
 ## 7. Problemas detectados en el código actual
 
-Ordenados por prioridad. Las referencias son de `Frontend/src/app/App.tsx` salvo que se indique otra ruta.
+Ordenados por prioridad. Las referencias son de `frontend/src/app/App.tsx` salvo que se indique otra ruta.
 
 1. **Base de 15px:** todas las medidas `rem` están escaladas (sección 1).
 2. **Sidebar de 240px** en lugar de 256px, por la base de 15px (`:1078`).
@@ -414,7 +414,7 @@ Esta versión incorpora las correcciones de dos revisiones independientes: una c
 
 ## 11. Implementación (rama `preview`)
 
-Implementada sobre `Frontend/src/styles/theme.css`, `Frontend/src/app/App.tsx`, `AuthGate.tsx`, `components/Dropdown.tsx`, `components/ConectiaLogo.tsx`, `AppRoutes.tsx` e `index.html`.
+Implementada sobre `frontend/src/styles/theme.css`, `frontend/src/app/App.tsx`, `AuthGate.tsx`, `components/Dropdown.tsx`, `components/ConectiaLogo.tsx`, `AppRoutes.tsx` e `index.html`.
 
 ### Verificación realizada
 
