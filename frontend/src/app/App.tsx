@@ -1920,11 +1920,11 @@ const NewPostScreen: React.FC = () => {
               post_id: postId,
             }
           );
-          await actualizarPublicacion(postId, { estado: 'publicado' });
+          // El estado lo fija el servidor según la respuesta de Make (publicado, enviado o fallido).
           setToastMsg(
             makeRes.linkedin_status
-              ? `Publicado vía Make (${makeRes.linkedin_status})`
-              : 'Publicado vía Make'
+              ? `Enviado vía Make (${makeRes.linkedin_status})`
+              : 'Enviado vía Make'
           );
         } else {
           await publishPostNowFn(postId);
@@ -2469,8 +2469,8 @@ const ManualPostScreen: React.FC = () => {
               post_id: postId,
             }
           );
-          await actualizarPublicacion(postId, { estado: 'publicado' });
-          notify(`Publicado vía Make en ${redes.join(', ')}`);
+          // El estado lo fija el servidor según la respuesta de Make.
+          notify(`Enviado vía Make en ${redes.join(', ')}`);
         } else {
           await publishPostNowFn(postId);
           notify(`Publicación enviada a ${redes.join(', ')}`);

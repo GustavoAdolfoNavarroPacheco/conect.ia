@@ -14,6 +14,8 @@ export type EstadoPublicacion =
   | 'programado'
   | 'publicado'
   | 'fallido'
+  | 'enviado'
+  | 'parcial'
   | 'pendiente'
   | 'en_proceso';
 

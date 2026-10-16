@@ -1,5 +1,5 @@
 import type { ResultadoRed } from '../types';
-import { withRetry } from './retry';
+import { ErrorApi, esReintentableCreacion, withRetry } from './retry';
 
 export interface LinkedInTokens {
   accessToken?: string;
@@ -30,6 +30,20 @@ function parseLinkedInError(status: number, text: string): string {
     return missingPostScopeMessage();
   }
   return `LinkedIn ${status}: ${text.slice(0, 400)}`;
+}
+
+/**
+ * La API antigua solo sirve de respaldo si /rest/posts rechazó la petición sin crear el post
+ * (4xx). Un 403 o un 429 no justifican crear otra publicación por otra vía.
+ */
+function esRechazoSinCrear(err: unknown): boolean {
+  return (
+    err instanceof ErrorApi &&
+    err.status >= 400 &&
+    err.status < 500 &&
+    err.status !== 403 &&
+    err.status !== 429
+  );
 }
 
 async function publishTextViaPostsApi(
@@ -63,11 +77,39 @@ async function publishTextViaPostsApi(
 
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(parseLinkedInError(res.status, text));
+    throw new ErrorApi(parseLinkedInError(res.status, text), res.status);
   }
 
   const postId = res.headers.get('x-restli-id') ?? `li_${Date.now()}`;
   return { success: true, postId };
+}
+
+/** Envía el post a la API antigua (/v2/ugcPosts). Es la única llamada que crea la publicación. */
+async function enviarUgcPost(accessToken: string, body: unknown): Promise<ResultadoRed> {
+  const res = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new ErrorApi(parseLinkedInError(res.status, text), res.status);
+  }
+
+  let postId: string | undefined;
+  try {
+    const parsed = JSON.parse(text) as { id?: string };
+    postId = parsed.id;
+  } catch {
+    postId = res.headers.get('x-restli-id') ?? undefined;
+  }
+
+  return { success: true, postId: postId ?? `li_${Date.now()}` };
 }
 
 async function publishViaUgcPosts(
@@ -82,11 +124,18 @@ async function publishViaUgcPosts(
   };
 
   if (imagenUrl) {
-    const { uploadUrl, asset, uploadHeaders } = await registerLinkedInImageUpload(
-      accessToken,
-      author
+    // Registrar el asset crea un recurso: solo se repite si LinkedIn lo rechazó sin procesarlo.
+    const { uploadUrl, asset, uploadHeaders } = await withRetry(
+      () => registerLinkedInImageUpload(accessToken, author),
+      'linkedin registro de imagen',
+      3,
+      esReintentableCreacion
     );
-    await uploadLinkedInImage(accessToken, uploadUrl, uploadHeaders, imagenUrl);
+    // Subir los bytes al mismo asset es repetible: el archivo queda igual.
+    await withRetry(
+      () => uploadLinkedInImage(accessToken, uploadUrl, uploadHeaders, imagenUrl),
+      'linkedin subida de imagen'
+    );
     shareContent.media = [
       {
         status: 'READY',
@@ -107,30 +156,12 @@ async function publishViaUgcPosts(
     },
   };
 
-  const res = await fetch('https://api.linkedin.com/v2/ugcPosts', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'X-Restli-Protocol-Version': '2.0.0',
-    },
-    body: JSON.stringify(body),
-  });
-
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(parseLinkedInError(res.status, text));
-  }
-
-  let postId: string | undefined;
-  try {
-    const parsed = JSON.parse(text) as { id?: string };
-    postId = parsed.id;
-  } catch {
-    postId = res.headers.get('x-restli-id') ?? undefined;
-  }
-
-  return { success: true, postId: postId ?? `li_${Date.now()}` };
+  return withRetry(
+    () => enviarUgcPost(accessToken, body),
+    'linkedin ugcPosts',
+    3,
+    esReintentableCreacion
+  );
 }
 
 interface RegisterUploadResponse {
@@ -170,7 +201,7 @@ async function registerLinkedInImageUpload(
 
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(parseLinkedInError(res.status, text));
+    throw new ErrorApi(parseLinkedInError(res.status, text), res.status);
   }
 
   const parsed = JSON.parse(text) as RegisterUploadResponse;
@@ -193,7 +224,7 @@ async function uploadLinkedInImage(
 ): Promise<void> {
   const imgRes = await fetch(imagenUrl);
   if (!imgRes.ok) {
-    throw new Error(`No se pudo descargar la imagen para LinkedIn (${imgRes.status})`);
+    throw new ErrorApi(`No se pudo descargar la imagen para LinkedIn (${imgRes.status})`, imgRes.status);
   }
   const binary = Buffer.from(await imgRes.arrayBuffer());
 
@@ -208,7 +239,10 @@ async function uploadLinkedInImage(
   });
   const upText = await upRes.text();
   if (!upRes.ok) {
-    throw new Error(`LinkedIn upload de imagen: ${upRes.status} ${upText.slice(0, 300)}`);
+    throw new ErrorApi(
+      `LinkedIn upload de imagen: ${upRes.status} ${upText.slice(0, 300)}`,
+      upRes.status
+    );
   }
 }
 
@@ -231,18 +265,20 @@ export async function publishToLinkedIn(
     return { success: false, error: missingPostScopeMessage() };
   }
 
-  return withRetry(async () => {
-    if (!imagenUrl) {
-      try {
-        return await publishTextViaPostsApi(accessToken, author, contenido);
-      } catch (postsErr) {
-        const msg = postsErr instanceof Error ? postsErr.message : String(postsErr);
-        if (!/ACCESS_DENIED|403|w_member_social/i.test(msg)) {
-          return publishViaUgcPosts(accessToken, author, contenido, null);
-        }
-        throw postsErr;
+  if (!imagenUrl) {
+    try {
+      return await withRetry(
+        () => publishTextViaPostsApi(accessToken, author, contenido),
+        'linkedin posts',
+        3,
+        esReintentableCreacion
+      );
+    } catch (postsErr) {
+      if (esRechazoSinCrear(postsErr)) {
+        return publishViaUgcPosts(accessToken, author, contenido, null);
       }
+      throw postsErr;
     }
-    return publishViaUgcPosts(accessToken, author, contenido, imagenUrl);
-  }, 'linkedin');
+  }
+  return publishViaUgcPosts(accessToken, author, contenido, imagenUrl);
 }

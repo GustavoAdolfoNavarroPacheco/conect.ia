@@ -7,7 +7,7 @@ export type RedSocial =
   | 'freelancer'
   | 'fiverr';
 
-export type EstadoPublicacion = 'borrador' | 'programado' | 'publicado' | 'fallido';
+export type EstadoPublicacion = 'borrador' | 'programado' | 'publicado' | 'parcial' | 'enviado' | 'fallido';
 
 export interface ResultadoRed {
   success: boolean;

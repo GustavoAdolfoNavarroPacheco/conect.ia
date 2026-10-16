@@ -1,5 +1,5 @@
 import type { ResultadoRed } from '../types';
-import { withRetry } from './retry';
+import { ErrorApi, esReintentableLectura, withRetry } from './retry';
 import { META_GRAPH_VERSION } from '../integracion/metaOAuthConfig';
 
 export interface InstagramTokens {
@@ -25,7 +25,10 @@ function isVideoUrl(url: string): boolean {
   return /\.(mp4|mov|avi)$/i.test(url);
 }
 
-/** Crea el media container de IG (imagen o video) y devuelve su creation_id. */
+/**
+ * Crea el media container de IG (imagen o video) y devuelve su creation_id.
+ * El contenedor todavía no publica nada, así que repetirlo ante un fallo transitorio no duplica.
+ */
 async function createMediaContainer(
   accessToken: string,
   igAccountId: string,
@@ -50,10 +53,22 @@ async function createMediaContainer(
   });
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(parseMetaError(res.status, text, 'Instagram'));
+    throw new ErrorApi(parseMetaError(res.status, text, 'Instagram'), res.status);
   }
   const parsed = JSON.parse(text) as { id: string };
   return parsed.id;
+}
+
+async function consultarEstadoContenedor(accessToken: string, containerId: string): Promise<string | undefined> {
+  const res = await fetch(
+    `${GRAPH_URL}/${containerId}?fields=status_code&access_token=${accessToken}`
+  );
+  const text = await res.text();
+  if (!res.ok) {
+    throw new ErrorApi(parseMetaError(res.status, text, 'Instagram'), res.status);
+  }
+  const parsed = JSON.parse(text) as { status_code?: string };
+  return parsed.status_code;
 }
 
 async function waitContainerReady(
@@ -62,16 +77,15 @@ async function waitContainerReady(
 ): Promise<void> {
   const maxAttempts = 20;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const res = await fetch(
-      `${GRAPH_URL}/${containerId}?fields=status_code&access_token=${accessToken}`
-    );
-    const text = await res.text();
-    if (!res.ok) {
-      throw new Error(parseMetaError(res.status, text, 'Instagram'));
+    let estado: string | undefined;
+    try {
+      estado = await consultarEstadoContenedor(accessToken, containerId);
+    } catch (err) {
+      // Un fallo transitorio al consultar no cancela la publicación: se vuelve a preguntar.
+      if (!esReintentableLectura(err)) throw err;
     }
-    const parsed = JSON.parse(text) as { status_code?: string };
-    if (parsed.status_code === 'FINISHED') return;
-    if (parsed.status_code === 'ERROR') {
+    if (estado === 'FINISHED') return;
+    if (estado === 'ERROR') {
       throw new Error('Instagram rechazó el media (status ERROR). Verifica el formato de la imagen o video.');
     }
     await new Promise((r) => setTimeout(r, 3000));
@@ -79,6 +93,7 @@ async function waitContainerReady(
   throw new Error('Instagram tardó demasiado en procesar el media.');
 }
 
+/** Publica un contenedor ya creado. Un creation_id solo se publica una vez: repetirlo no duplica. */
 async function publishContainer(
   accessToken: string,
   igAccountId: string,
@@ -95,7 +110,7 @@ async function publishContainer(
   });
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(parseMetaError(res.status, text, 'Instagram'));
+    throw new ErrorApi(parseMetaError(res.status, text, 'Instagram'), res.status);
   }
   const parsed = JSON.parse(text) as { id: string };
   return parsed.id;
@@ -125,10 +140,14 @@ export async function publishToInstagram(
     };
   }
 
-  return withRetry(async () => {
-    const containerId = await createMediaContainer(accessToken, igAccountId, imagenUrl, contenido);
-    await waitContainerReady(accessToken, containerId);
-    const mediaId = await publishContainer(accessToken, igAccountId, containerId);
-    return { success: true, postId: mediaId };
-  }, 'instagram');
+  const containerId = await withRetry(
+    () => createMediaContainer(accessToken, igAccountId, imagenUrl, contenido),
+    'instagram contenedor'
+  );
+  await waitContainerReady(accessToken, containerId);
+  const mediaId = await withRetry(
+    () => publishContainer(accessToken, igAccountId, containerId),
+    'instagram publicar'
+  );
+  return { success: true, postId: mediaId };
 }

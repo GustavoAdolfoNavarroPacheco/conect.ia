@@ -6,6 +6,7 @@ import {
   obtenerTokens,
   publicacionesVencidas,
   registrarFalloPublicacion,
+  registrarResultadoRed,
   reclamarPublicacion,
 } from '../db/repo';
 import type { RedSocial, ResultadoRed } from '../types';
@@ -14,6 +15,7 @@ import { publishToFacebook } from '../social/facebook';
 import { publishToLinkedIn } from '../social/linkedin';
 import { publishToTikTok } from '../social/tiktok';
 import { resolverWebhookAutomatizacion } from '../integracion/automationWebhook';
+import { estadoTrasEnvioMake, mensajeDeFalloEnvio } from './estadoEnvio';
 import { buildAutomationWebhookHeaders } from '../integracion/automationWebhookHeaders';
 import type { AutomationPostPayload } from '../integracion/automationTypes';
 
@@ -43,13 +45,7 @@ export async function publishPostById(postId: string, userId: string): Promise<v
   try {
     await enviarPublicacion(post, userId);
   } catch (err) {
-    // Un corte por tiempo puede ocurrir después de que el escenario ya publicó: se avisa para no duplicar.
-    const cortado = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
-    const mensaje = cortado
-      ? 'El escenario no respondió a tiempo. Puede que ya se haya publicado: revísalo en Make antes de reintentar.'
-      : err instanceof Error
-        ? err.message
-        : 'Error desconocido';
+    const mensaje = mensajeDeFalloEnvio(err);
     logger.error('Publicación fallida', { postId, mensaje });
     await registrarFalloPublicacion(postId, mensaje);
     throw err;
@@ -95,21 +91,22 @@ async function enviarPublicacion(post: PublicacionEnvio, userId: string): Promis
     });
 
     const text = await res.text();
-    let confirmado = true;
+    let respuesta: { success?: boolean; linkedin_status?: string; error?: string } | null = null;
     try {
-      const json = JSON.parse(text) as { success?: boolean; error?: string };
-      if (json.success === false) confirmado = false;
+      respuesta = JSON.parse(text) as { success?: boolean; linkedin_status?: string; error?: string };
     } catch {
-      // Respuesta no JSON: si HTTP fue 2xx, se considera enviada.
+      // Respuesta no JSON: Make aceptó la petición, pero no confirmó la publicación.
     }
 
-    if (!res.ok || !confirmado) {
+    if (!res.ok || respuesta?.success === false) {
       const detalle = text.slice(0, 200);
       await marcarPublicacion(postId, 'fallido', { webhook: { success: false, error: detalle } });
       throw new Error(`Make Webhook falló: ${res.status} ${detalle.slice(0, 100)}`);
     }
 
-    await marcarPublicacion(postId, 'publicado', { webhook: { success: true } });
+    await marcarPublicacion(postId, estadoTrasEnvioMake(respuesta), {
+      webhook: { success: true, confirmado: respuesta !== null },
+    });
     return;
   }
 
@@ -199,6 +196,8 @@ async function enviarPublicacion(post: PublicacionEnvio, userId: string): Promis
         error: err instanceof Error ? err.message : 'Error desconocido',
       };
     }
+    // Se guarda al terminar cada red: si la función se corta, el id externo no se pierde.
+    await registrarResultadoRed(postId, red, resultados[red]);
   });
 
   await Promise.all(tasks);
@@ -206,7 +205,9 @@ async function enviarPublicacion(post: PublicacionEnvio, userId: string): Promis
   const allOk = Object.values(resultados).every((r) => r?.success);
   const anyOk = Object.values(resultados).some((r) => r?.success);
 
-  await marcarPublicacion(postId, anyOk ? 'publicado' : 'fallido', resultados);
+  // Éxito parcial: sale en algunas redes y falla en otras. Queda `parcial` con el detalle por red.
+  const estado = allOk ? 'publicado' : anyOk ? 'parcial' : 'fallido';
+  await marcarPublicacion(postId, estado, resultados);
 
   if (!anyOk) {
     const detalle = Object.entries(resultados)

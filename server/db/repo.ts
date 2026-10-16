@@ -196,6 +196,18 @@ export async function marcarEnviosInterrumpidos(): Promise<number> {
   return rows.length;
 }
 
+/**
+ * Guarda el resultado de una red en cuanto llega, sin esperar al resto. Si la función se corta,
+ * el id externo ya queda registrado y no se pierde.
+ */
+export async function registrarResultadoRed(id: string, red: string, resultado: unknown): Promise<void> {
+  await sql()`
+    UPDATE publicaciones SET
+      resultados = COALESCE(resultados, '{}'::jsonb) || jsonb_build_object(${red}::text, ${JSON.stringify(resultado)}::jsonb),
+      actualizado_en = now()
+    WHERE id = ${id}`;
+}
+
 /** Registra el motivo de un fallo y deja la publicación en 'fallido' (con su fecha, para reintentar). */
 export async function registrarFalloPublicacion(id: string, error: string): Promise<void> {
   await sql()`

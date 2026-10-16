@@ -77,6 +77,10 @@ export const actualizarPublicacionDatos = onCall({ region: 'us-central1' }, asyn
   const uid = requireUid(request);
   const postId = requireString(request.data?.postId, 'postId');
   const p = request.data?.patch ?? {};
+  // El estado de envío (publicado, parcial, enviado, fallido) lo fija el servidor, nunca el cliente.
+  if (typeof p.estado === 'string' && !['borrador', 'pendiente', 'programado'].includes(p.estado)) {
+    throw new HttpsError('invalid-argument', 'El estado de envío lo actualiza el servidor.');
+  }
   const ok = await actualizarPublicacion(postId, uid, {
     titulo: typeof p.titulo === 'string' ? p.titulo : undefined,
     contenido: typeof p.contenido === 'string' ? p.contenido : undefined,

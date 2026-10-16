@@ -1,5 +1,5 @@
 import type { ResultadoRed } from '../types';
-import { withRetry } from './retry';
+import { ErrorApi, esReintentableCreacion, withRetry } from './retry';
 import { META_GRAPH_VERSION } from '../integracion/metaOAuthConfig';
 
 export interface FacebookTokens {
@@ -40,7 +40,7 @@ async function publishFeed(
   );
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(parseMetaError(res.status, text));
+    throw new ErrorApi(parseMetaError(res.status, text), res.status);
   }
   const parsed = JSON.parse(text) as { id: string };
   return parsed;
@@ -64,7 +64,7 @@ async function publishPhoto(
   );
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(parseMetaError(res.status, text));
+    throw new ErrorApi(parseMetaError(res.status, text), res.status);
   }
   const parsed = JSON.parse(text) as { id: string };
   return parsed;
@@ -84,10 +84,16 @@ export async function publishToFacebook(
     };
   }
 
-  return withRetry(async () => {
-    const result = imagenUrl
-      ? await publishPhoto(accessToken, pageId, imagenUrl, contenido)
-      : await publishFeed(accessToken, pageId, contenido);
-    return { success: true, postId: result.id };
-  }, 'facebook');
+  // Crear el post no es repetible: solo se reintenta si Meta lo rechazó sin procesarlo.
+  return withRetry(
+    async () => {
+      const result = imagenUrl
+        ? await publishPhoto(accessToken, pageId, imagenUrl, contenido)
+        : await publishFeed(accessToken, pageId, contenido);
+      return { success: true, postId: result.id };
+    },
+    'facebook',
+    3,
+    esReintentableCreacion
+  );
 }

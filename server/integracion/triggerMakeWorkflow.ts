@@ -1,10 +1,17 @@
 import { onCall, HttpsError } from '../platform/callable';
 import { logger } from '../platform/logger';
-import { obtenerTokens } from '../db/repo';
+import {
+  marcarPublicacion,
+  obtenerPublicacion,
+  obtenerTokens,
+  reclamarPublicacion,
+  registrarFalloPublicacion,
+} from '../db/repo';
 import type { AutomationPostPayload, AutomationPostResponse } from './automationTypes';
 import { crearBorradorEnBaseDatos, registrarEjecucion } from './n8nPersistence';
 import { resolverWebhookAutomatizacion } from './automationWebhook';
 import { buildAutomationWebhookHeaders } from './automationWebhookHeaders';
+import { estadoTrasEnvioMake, mensajeDeFalloEnvio } from '../posts/estadoEnvio';
 
 export const triggerMakeWorkflow = onCall(
   { region: 'us-central1', timeoutSeconds: 300 },
@@ -55,6 +62,21 @@ export const triggerMakeWorkflow = onCall(
       linkedin_display_name: payload.linkedin_display_name ?? li?.displayName,
     };
 
+    // Una publicación se reclama antes de enviarla: dos clics o dos pestañas no la envían dos veces.
+    const postId = action === 'publish' ? payload.post_id : undefined;
+    if (postId) {
+      const publicacion = await obtenerPublicacion(postId);
+      if (!publicacion || publicacion.creadoPor !== uid) {
+        throw new HttpsError('permission-denied', 'La publicación no es tuya.');
+      }
+      if (!(await reclamarPublicacion(postId))) {
+        throw new HttpsError(
+          'failed-precondition',
+          'La publicación ya se está enviando, ya se publicó o llegó al máximo de intentos.'
+        );
+      }
+    }
+
     try {
       const res = await fetch(webhook.url, {
         method: 'POST',
@@ -68,13 +90,16 @@ export const triggerMakeWorkflow = onCall(
 
       const text = await res.text();
       let data: AutomationPostResponse;
+      let respuestaJson = true;
       try {
         data = JSON.parse(text) as AutomationPostResponse;
       } catch {
+        respuestaJson = false;
         data = { success: res.ok, body: text };
       }
 
-      if (!res.ok) {
+      // Make también puede responder 200 con `success: false`: eso es un fallo, no un envío.
+      if (!res.ok || data.success === false) {
         const detail = data.error ?? text.slice(0, 200) ?? `Make HTTP ${res.status}`;
         logger.warn('Make scenario HTTP error', { status: res.status, action, detail });
         throw new Error(
@@ -84,14 +109,21 @@ export const triggerMakeWorkflow = onCall(
         );
       }
 
+      if (postId) {
+        await marcarPublicacion(postId, estadoTrasEnvioMake(respuestaJson ? data : null), {
+          webhook: { success: true, confirmado: respuestaJson },
+        });
+      }
+
       logger.info('Make scenario OK', { uid, borradorId, executionId, action, origen: webhook.origen });
       return { ...data, executionId, borradorId: borradorId || undefined };
     } catch (err) {
       logger.error('Make scenario error', err);
-      throw new HttpsError(
-        'internal',
-        err instanceof Error ? err.message : 'Error al ejecutar escenario Make'
-      );
+      const mensaje = mensajeDeFalloEnvio(err);
+      if (postId) {
+        await registrarFalloPublicacion(postId, mensaje).catch(() => undefined);
+      }
+      throw new HttpsError('internal', mensaje);
     }
   }
 );
