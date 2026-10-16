@@ -1,4 +1,6 @@
 import { onCall, HttpsError } from '../platform/callable';
+import { obtenerTokens } from '../db/repo';
+import { enriquecerCanales } from '../integracion/estadoConexion';
 import {
   actualizarBorrador,
   actualizarPublicacion,
@@ -150,7 +152,10 @@ export const eliminarBorradorDatos = onCall({ region: 'us-central1' }, async (re
 
 export const obtenerCanalesDatos = onCall({ region: 'us-central1' }, async (request) => {
   const uid = requireUid(request);
-  return obtenerCanales(uid);
+  const canales = await obtenerCanales(uid);
+  if (!canales) return null;
+  // El estado de cada conexión sale de sus tokens: un token caducado aparece como desconectado.
+  return enriquecerCanales(canales, await obtenerTokens(uid));
 });
 
 export const guardarCanalDatos = onCall({ region: 'us-central1' }, async (request) => {

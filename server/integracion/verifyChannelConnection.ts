@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from '../platform/callable';
 import { logger } from '../platform/logger';
-import { guardarCanal, obtenerTokens } from '../db/repo';
+import { guardarCanal, marcarCanalDesconectado, obtenerTokens } from '../db/repo';
+import { estadoDeRed } from './estadoConexion';
 import { resolverWebhookAutomatizacion } from './automationWebhook';
 import { buildAutomationWebhookHeaders } from './automationWebhookHeaders';
 
@@ -34,6 +35,10 @@ export const verifyChannelConnection = onCall(
 
     if (redNorm === 'linkedin') {
       const tokens = await obtenerTokens(uid);
+      if (estadoDeRed('linkedin', tokens).estado === 'caducado') {
+        await marcarCanalDesconectado(uid, 'linkedin', 'token_caducado');
+        throw new HttpsError('failed-precondition', 'La conexión de LinkedIn caducó. Reconéctala en Canales.');
+      }
       const li = tokens.linkedin as
         | { accessToken?: string; memberUrn?: string; displayName?: string }
         | null

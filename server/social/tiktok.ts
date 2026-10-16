@@ -91,7 +91,8 @@ export async function refreshTikTokTokenIfNeeded(
     expiresAt: Date.now() + refreshed.expires_in * 1000,
   };
   if (persist) {
-    await persist(next).catch(() => undefined);
+    // TikTok rota el refresh token: si no se guarda el nuevo, el anterior ya no sirve. Se informa, no se pierde en silencio.
+    await persist(next);
   }
   return next;
 }
@@ -321,7 +322,7 @@ export async function publishToTikTok(
     return {
       success: false,
       error:
-        'TikTok no conectado. Ve a Canales → Conectar TikTok y autoriza con tu cuenta (el token de TikTok expira cada 24 h; reconéctalo si fue revocado).',
+        'TikTok no conectado. Ve a Canales → Conectar TikTok y autoriza con tu cuenta.',
     };
   }
 
@@ -345,7 +346,7 @@ export async function publishToTikTok(
   } catch (err) {
     return {
       success: false,
-      error: `No se pudo renovar el token de TikTok (expira cada 24 h): ${
+      error: `No se pudo renovar el acceso de TikTok. Reconecta TikTok en Canales. Detalle: ${
         err instanceof Error ? err.message : 'error desconocido'
       }`,
     };

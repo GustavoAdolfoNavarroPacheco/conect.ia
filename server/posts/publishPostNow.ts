@@ -1,6 +1,9 @@
 import { logger } from '../platform/logger';
 import {
+  adquirirBloqueo,
   guardarTokenRed,
+  liberarBloqueo,
+  marcarCanalDesconectado,
   marcarPublicacion,
   obtenerPublicacion,
   obtenerTokens,
@@ -9,6 +12,7 @@ import {
   registrarResultadoRed,
   reclamarPublicacion,
 } from '../db/repo';
+import { estadoDeRed, tokenRechazado } from '../integracion/estadoConexion';
 import type { RedSocial, ResultadoRed } from '../types';
 import { publishToInstagram } from '../social/instagram';
 import { publishToFacebook } from '../social/facebook';
@@ -126,6 +130,16 @@ async function enviarPublicacion(post: PublicacionEnvio, userId: string): Promis
     | undefined;
 
   const tasks = post.redesDestino.map(async (red) => {
+    // Con el token caducado no se llama a la red: se pide reconectar en Canales.
+    if (estadoDeRed(red, tokens).estado === 'caducado') {
+      resultados[red] = {
+        success: false,
+        error: 'La conexión caducó. Reconecta la red en Canales para volver a publicar.',
+      };
+      await marcarCanalDesconectado(userId, red, 'token_caducado');
+      await registrarResultadoRed(postId, red, resultados[red]);
+      return;
+    }
     try {
       switch (red) {
         case 'instagram': {
@@ -166,12 +180,25 @@ async function enviarPublicacion(post: PublicacionEnvio, userId: string): Promis
           const persistTiktok = async (next: unknown) => {
             await guardarTokenRed(userId, 'tiktok', next);
           };
-          resultados.tiktok = await publishToTikTok(
-            tiktokTokens,
-            post.contenido,
-            post.imagenUrl,
-            persistTiktok
-          );
+          // Un solo envío de TikTok a la vez por usuario: así no se renueva el token dos veces.
+          const claveTiktok = `tiktok:${userId}`;
+          if (!(await adquirirBloqueo(claveTiktok, 180))) {
+            resultados.tiktok = {
+              success: false,
+              error: 'TikTok ya está publicando o renovando el acceso. Espera un minuto y vuelve a intentarlo.',
+            };
+            break;
+          }
+          try {
+            resultados.tiktok = await publishToTikTok(
+              tiktokTokens,
+              post.contenido,
+              post.imagenUrl,
+              persistTiktok
+            );
+          } finally {
+            await liberarBloqueo(claveTiktok);
+          }
           break;
         }
         case 'freelancer':
@@ -195,6 +222,10 @@ async function enviarPublicacion(post: PublicacionEnvio, userId: string): Promis
         success: false,
         error: err instanceof Error ? err.message : 'Error desconocido',
       };
+    }
+    // Un token que la red rechaza deja el canal como desconectado: Canales pedirá reconectar.
+    if (!resultados[red]?.success && tokenRechazado(resultados[red]?.error)) {
+      await marcarCanalDesconectado(userId, red, 'token_rechazado');
     }
     // Se guarda al terminar cada red: si la función se corta, el id externo no se pierde.
     await registrarResultadoRed(postId, red, resultados[red]);

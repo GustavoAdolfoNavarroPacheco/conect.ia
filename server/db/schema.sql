@@ -124,6 +124,12 @@ CREATE TABLE IF NOT EXISTS oauth_pendientes (
   creado_en      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Bloqueos cortos por clave (p. ej. renovar un token): evitan dos ejecuciones simultáneas.
+CREATE TABLE IF NOT EXISTS bloqueos (
+  clave   TEXT PRIMARY KEY,
+  hasta   TIMESTAMPTZ NOT NULL
+);
+
 -- Inicio de sesión con correo y contraseña (hash PBKDF2 en password_hash; NULL en cuentas de Google).
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE publicaciones ADD COLUMN IF NOT EXISTS intentos INTEGER NOT NULL DEFAULT 0;

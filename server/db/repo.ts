@@ -414,6 +414,39 @@ export async function guardarCanal(uid: string, red: string, patch: Record<strin
   );
 }
 
+/**
+ * Deja el canal como desconectado con el motivo, sin tocar sus datos de cuenta. Lo usa la
+ * publicación cuando la red rechaza el token, para que Canales pida reconectar.
+ */
+export async function marcarCanalDesconectado(uid: string, red: string, motivo: string): Promise<void> {
+  const canales = await obtenerCanales(uid);
+  const actual = (canales?.[red] as Record<string, unknown> | undefined) ?? {};
+  await guardarCanal(uid, red, {
+    ...actual,
+    conectado: false,
+    motivo,
+    desconectadoEn: new Date().toISOString(),
+  });
+}
+
+/**
+ * Bloqueo por clave (p. ej. `tiktok:<uid>`) para que dos ejecuciones no renueven el mismo token
+ * a la vez. Devuelve false si otra ejecución lo tiene y no ha caducado todavía.
+ */
+export async function adquirirBloqueo(clave: string, segundos: number): Promise<boolean> {
+  const rows = await sql()`
+    INSERT INTO bloqueos (clave, hasta)
+    VALUES (${clave}, now() + (${segundos}::int * interval '1 second'))
+    ON CONFLICT (clave) DO UPDATE SET hasta = EXCLUDED.hasta
+      WHERE bloqueos.hasta < now()
+    RETURNING clave`;
+  return rows.length > 0;
+}
+
+export async function liberarBloqueo(clave: string): Promise<void> {
+  await sql()`DELETE FROM bloqueos WHERE clave = ${clave}`;
+}
+
 // ------------------------------------------------------------------ configuración
 
 export type ConfiguracionRow = {
