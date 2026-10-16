@@ -58,7 +58,23 @@
   }
 }
 
+/* Barras del gráfico: crecen desde la base, escalonadas por columna (--i) */
+@keyframes ruixen-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
 @layer components {
+  .ruixen-grow {
+    transform-origin: bottom;
+    animation: ruixen-grow 0.7s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+    animation-delay: calc(var(--i, 0) * 22ms);
+  }
+
   /* Rejilla de puntos con desvanecido en los bordes (fondo del hero) */
   .ruixen-dots {
     background-image: radial-gradient(color-mix(in srgb, var(--foreground) 18%, transparent) 1px, transparent 1.2px);
@@ -93,6 +109,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ruixen-ribbon-track,
+  .ruixen-grow,
   .ruixen-aurora {
     animation: none !important;
   }

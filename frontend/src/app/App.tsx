@@ -49,6 +49,8 @@ import { AccountMenu } from './components/ruixen/AccountMenu';
 import { NotificationInbox, type InboxItem } from './components/ruixen/NotificationInbox';
 import { ThemeToggle } from './components/ruixen/ThemeToggle';
 import { DateTimePicker } from './components/ruixen/DateTimePicker';
+import { NumberTicker } from './components/ruixen/NumberTicker';
+import { ProgressRing } from './components/ruixen/ProgressRing';
 import {
   ESTADOS_EN_CALENDARIO,
   useBorradores,
@@ -5377,31 +5379,34 @@ const AnaliticaScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ o
   const tarjetas = [
     {
       label: 'Alcance (30 días)',
-      value: k?.alcance != null ? numero(k.alcance) : '—',
+      value: k?.alcance ?? null,
       hint: 'Facebook e Instagram',
       icon: <Eye />,
       tone: 'brand' as const,
     },
     {
       label: 'Interacciones',
-      value: k ? numero(k.interacciones) : '—',
+      value: k ? k.interacciones : null,
       hint: 'Reacciones y comentarios',
       icon: <Sparkles />,
       tone: 'success' as const,
     },
     {
       label: 'Tasa de interacción',
-      value: k?.tasa != null ? `${(k.tasa * 100).toLocaleString('es-CO', { maximumFractionDigits: 1 })} %` : '—',
+      value: k?.tasa != null ? k.tasa * 100 : null,
+      decimales: 1,
+      sufijo: ' %',
       hint: 'Sobre el alcance medido',
       icon: <BarChart3 />,
       tone: 'warning' as const,
     },
     {
       label: 'Publicaciones',
-      value: resumen ? numero(resumen.publicaciones.total) : '—',
+      value: resumen ? resumen.publicaciones.total : null,
       hint: resumen ? `${resumen.publicaciones.publicadas} publicadas · ${resumen.publicaciones.fallidas} fallidas` : 'Últimos 30 días',
       icon: <Send />,
       tone: 'brand' as const,
+      anillo: resumen && resumen.publicaciones.total > 0 ? Math.round((resumen.publicaciones.publicadas / resumen.publicaciones.total) * 100) : null,
     },
   ];
 
@@ -5463,15 +5468,27 @@ const AnaliticaScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ o
             {tarjetas.map((card) => (
               <div key={card.label} className="surface flex items-center justify-between gap-4 p-5">
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-muted-foreground">{card.label}</p>
+                  <p className="text-sm text-muted-foreground">{card.label}</p>
                   <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-                    {isLoading ? <Skeleton className="my-1 h-6 w-16" /> : card.value}
+                    {isLoading ? (
+                      <Skeleton className="my-1 h-6 w-16" />
+                    ) : card.value == null ? (
+                      '—'
+                    ) : (
+                      <NumberTicker value={card.value} decimalPlaces={card.decimales ?? 0} suffix={card.sufijo} />
+                    )}
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.hint}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{card.hint}</p>
                 </div>
-                <IconTile tone={card.tone} size="lg">
-                  {card.icon}
-                </IconTile>
+                {card.anillo != null ? (
+                  <ProgressRing value={card.anillo} size={56} stroke={10} tone="success" label="Publicaciones publicadas con éxito">
+                    <NumberTicker value={card.anillo} suffix="%" className="text-xs" />
+                  </ProgressRing>
+                ) : (
+                  <IconTile tone={card.tone} size="lg">
+                    {card.icon}
+                  </IconTile>
+                )}
               </div>
             ))}
           </div>
@@ -5487,13 +5504,13 @@ const AnaliticaScreen: React.FC<{ onNavigate: (screen: string) => void }> = ({ o
               ) : (
                 <>
                   <div className="flex h-44 items-end gap-1.5" role="img" aria-label={`Alcance medido en ${serie.length} días`}>
-                    {serie.map((s) => {
+                    {serie.map((s, i) => {
                       const fb = s.facebook ?? 0;
                       const ig = s.instagram ?? 0;
                       const total = fb + ig;
                       return (
                         <div key={s.dia} className="flex h-full min-w-0 flex-1 items-end" title={`${diaCorto(s.dia)}: ${numero(total)} de alcance`}>
-                          <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-md" style={{ height: `${(total / maxSerie) * 100}%` }}>
+                          <div className="ruixen-grow flex w-full flex-col-reverse overflow-hidden rounded-t-md" style={{ height: `${(total / maxSerie) * 100}%`, '--i': i } as React.CSSProperties}>
                             <div className="bg-brand" style={{ flexGrow: fb }} />
                             <div className="bg-warning" style={{ flexGrow: ig }} />
                           </div>
@@ -5891,7 +5908,7 @@ const DashboardHome: React.FC<{ onNavigate: Navegar }> = ({ onNavigate }) => {
             <div className="min-w-0">
               <p className="truncate text-sm text-muted-foreground">{card.label}</p>
               <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-                {isLoading ? <Skeleton className="my-1 h-6 w-10" /> : card.value}
+                {isLoading ? <Skeleton className="my-1 h-6 w-10" /> : <NumberTicker value={card.value} />}
               </div>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{card.hint}</p>
             </div>
